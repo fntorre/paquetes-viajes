@@ -17,9 +17,13 @@ jQuery(document).ready(function($) {
         var autoplay      = $wrap.data('autoplay') === 'true' || $wrap.data('autoplay') === true;
         var interval      = parseInt($wrap.data('interval')) || 5000;
         var speed         = parseInt($wrap.data('speed')) || 300;
-        var pauseOnHover  = $wrap.data('pauseOnHover') === 'true' || $wrap.data('pauseOnHover') === true;
-        var showArrows    = $wrap.data('showArrows') === 'true' || $wrap.data('showArrows') === true;
-        var showDots      = $wrap.data('showDots') === 'true' || $wrap.data('showDots') === true;
+        // HTML lowercases all attribute names, so read them in lowercase
+        var pauseOnHoverVal = $wrap.data('pauseonhover');
+        var showArrowsVal   = $wrap.data('showarrows');
+        var showDotsVal     = $wrap.data('showdots');
+        var pauseOnHover  = pauseOnHoverVal === undefined ? true  : (pauseOnHoverVal === 'true' || pauseOnHoverVal === true);
+        var showArrows    = showArrowsVal   === undefined ? true  : (showArrowsVal   === 'true' || showArrowsVal   === true);
+        var showDots      = showDotsVal     === undefined ? true  : (showDotsVal     === 'true' || showDotsVal     === true);
         var timer         = null;
 
         // Apply transition speed to track
