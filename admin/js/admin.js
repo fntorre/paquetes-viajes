@@ -27,4 +27,12 @@ jQuery(document).ready(function($) {
         });
     });
 
+    /* ---- Delete confirmation (Dashboard table) ---- */
+    $(document).on('click', '.tp-table-delete', function(e) {
+        var msg = $(this).data('confirm') || '¿Estás seguro?';
+        if ( ! confirm(msg) ) {
+            e.preventDefault();
+        }
+    });
+
 });

@@ -21,6 +21,7 @@ require_once TP_PLUGIN_DIR . 'includes/class-meta-boxes.php';
 require_once TP_PLUGIN_DIR . 'includes/class-shortcodes.php';
 require_once TP_PLUGIN_DIR . 'includes/class-ajax.php';
 require_once TP_PLUGIN_DIR . 'includes/class-templates.php';
+require_once TP_PLUGIN_DIR . 'includes/class-custom-fields.php';
 require_once TP_PLUGIN_DIR . 'admin/class-admin.php';
 
 register_activation_hook(   __FILE__, [ 'TP_PostType', 'flush_rules' ] );
@@ -35,5 +36,6 @@ function tp_init() {
     TP_Shortcodes::init();
     TP_Ajax::init();
     TP_Templates::init();
+    TP_CustomFields::init();
     TP_Admin::init();
 }

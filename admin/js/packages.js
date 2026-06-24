@@ -145,6 +145,7 @@ jQuery(document).ready(function($) {
 
     function fillPackageForm(data) {
         $('#tp_package_id').val(data.ID || 0);
+        $('#tp-delete-package').toggle(!!data.ID);
         $('#tp_title').val(data.post_title || '');
         $('#tp_short_desc').val(data.tp_short_desc || '').trigger('input');
         $('#tp_content').val(data.post_content || '');
@@ -192,6 +193,20 @@ jQuery(document).ready(function($) {
             addTechField(item.key, item.val);
         });
 
+        // Populate custom fields
+        var cfData = data.tp_custom_fields || {};
+        $('.tp-cf-field').each(function() {
+            var key = $(this).data('key');
+            if (typeof cfData[key] === 'undefined') return;
+            var val = cfData[key];
+            var $input = $(this).find('input, textarea, select');
+            if ($input.attr('type') === 'checkbox') {
+                $input.prop('checked', val === '1');
+            } else {
+                $input.val(val);
+            }
+        });
+
         $('#tp-gallery-preview').empty();
         $('#tp_gallery_ids').val('');
         (data.tp_gallery || []).forEach(function(item) {
@@ -211,6 +226,16 @@ jQuery(document).ready(function($) {
         $('#tp_featured_image').val('');
         $('#tp-featured-preview-main').empty();
         $('#tp_currency').val('USD');
+        $('#tp-delete-package').hide();
+        // Reset custom fields
+        $('.tp-cf-field').each(function() {
+            var $input = $(this).find('input, textarea, select');
+            if ($input.attr('type') === 'checkbox') {
+                $input.prop('checked', false);
+            } else {
+                $input.val('');
+            }
+        });
     }
 
     function addDateField(from, to) {
@@ -264,6 +289,20 @@ jQuery(document).ready(function($) {
             numberOfMonths: 1
         });
     }
+
+    // Delete package confirmation
+    $(document).on('click', '#tp-delete-package', function(e) {
+        e.preventDefault();
+        if ( ! confirm('¿Estás seguro de eliminar este paquete? Esta acción no se puede deshacer.') ) return;
+        var pid = $('#tp_package_id').val();
+        if ( ! pid || pid === '0' ) return;
+        window.location.href = 'admin.php?page=tp-packages&tp_action=delete_package&tp_package_id=' + pid + '&tp_delete_nonce=' + TP_ADMIN.delete_nonce;
+    });
+
+    // Init custom field datepickers
+    $('.tp-cf-field .tp-datepicker').each(function() {
+        initDatepicker($(this));
+    });
 
     $(document).trigger('tpPackagesReady');
 });

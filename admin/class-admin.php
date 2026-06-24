@@ -7,7 +7,8 @@ class TP_Admin {
         add_action( 'admin_menu',            [ __CLASS__, 'register_menu' ] );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
         add_action( 'admin_post_tp_save_package', [ __CLASS__, 'save_package' ] );
-        add_action( 'admin_init',           [ __CLASS__, 'redirect_native_editor' ] );
+        add_action( 'admin_init',            [ __CLASS__, 'handle_delete_package' ] );
+        add_action( 'admin_init',            [ __CLASS__, 'redirect_native_editor' ] );
     }
 
     public static function register_menu() {
@@ -94,8 +95,9 @@ class TP_Admin {
             wp_enqueue_media();
             wp_enqueue_script( 'tp-admin-packages', TP_PLUGIN_URL . 'admin/js/packages.js', [ 'jquery', 'jquery-ui-datepicker' ], TP_VERSION, true );
             wp_localize_script( 'tp-admin-packages', 'TP_ADMIN', [
-                'nonce'   => wp_create_nonce('tp_admin_nonce'),
-                'ajax_url'=> admin_url('admin-ajax.php'),
+                'nonce'        => wp_create_nonce('tp_admin_nonce'),
+                'delete_nonce' => wp_create_nonce('tp_delete_package'),
+                'ajax_url'     => admin_url('admin-ajax.php'),
             ]);
         }
     }
@@ -197,8 +199,9 @@ class TP_Admin {
                                         <?php echo $featured=='1' ? '⭐' : '☆'; ?>
                                     </button>
                                 </td>
-                                <td>
+                                <td class="tp-table-actions">
                                     <a href="<?php echo esc_url(get_edit_post_link()); ?>" class="tp-table-link"><?php _e('Editar', 'travel-packages'); ?></a>
+                                    <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=tp-packages&tp_action=delete_package&tp_package_id=' . get_the_ID()), 'tp_delete_package', 'tp_delete_nonce')); ?>" class="tp-table-link tp-table-delete" data-confirm="<?php esc_attr_e('¿Estás seguro de eliminar este paquete?', 'travel-packages'); ?>"><?php _e('Eliminar', 'travel-packages'); ?></a>
                                 </td>
                             </tr>
                             <?php endwhile; wp_reset_postdata();
@@ -267,6 +270,8 @@ class TP_Admin {
 
             <?php if ( $status === 'success' ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php _e('Paquete guardado correctamente.', 'travel-packages'); ?></p></div>
+            <?php elseif ( $status === 'deleted' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php _e('Paquete eliminado correctamente.', 'travel-packages'); ?></p></div>
             <?php endif; ?>
 
             <div class="tp-packages-grid">
@@ -306,6 +311,7 @@ class TP_Admin {
                                 'tp_gallery'    => $gallery_urls,
                                 'tp_dates'      => get_post_meta( $package->ID, '_tp_dates', true ),
                                 'tp_tech_fields'=> get_post_meta( $package->ID, '_tp_tech_fields', true ),
+                                'tp_custom_fields' => TP_CustomFields::get_package_data( $package->ID ),
                                 'destinos'      => wp_get_post_terms( $package->ID, 'destino', ['fields' => 'slugs'] ),
                             ]);
                         ?>
@@ -450,9 +456,25 @@ class TP_Admin {
                             </button>
                         </div>
 
+                        <div class="tp-panel">
+                            <h2><?php _e('Campos Personalizados', 'travel-packages'); ?></h2>
+                            <div id="tp-custom-fields-wrap">
+                                <?php
+                                $cf_defs = TP_CustomFields::get_definitions();
+                                if ( empty( $cf_defs ) ) : ?>
+                                <p style="color:#999;"><?php _e('No hay campos personalizados definidos.', 'travel-packages'); ?> <a href="<?php echo esc_url( admin_url('admin.php?page=tp-custom-fields') ); ?>"><?php _e('Configurar campos', 'travel-packages'); ?></a></p>
+                                <?php else : ?>
+                                    <?php foreach ( $cf_defs as $cf_field ) :
+                                        echo TP_CustomFields::render_field_input( $cf_field, '', 'tp_cf' );
+                                    endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
                         <div class="tp-panel tp-panel-actions">
                             <button type="submit" class="tp-btn-primary"><?php _e('Guardar paquete', 'travel-packages'); ?></button>
                             <button type="button" id="tp-reset-package" class="tp-btn tp-btn-secondary"><?php _e('Limpiar formulario', 'travel-packages'); ?></button>
+                            <button type="button" id="tp-delete-package" class="tp-btn tp-btn-danger" style="display:none;"><?php _e('Eliminar paquete', 'travel-packages'); ?></button>
                         </div>
                     </form>
                 </div>
@@ -560,6 +582,9 @@ class TP_Admin {
         }
         update_post_meta( $package_id, '_tp_dates', $dates_data );
 
+        // Custom fields
+        TP_CustomFields::save_post_fields( $package_id );
+
         // Featured image from packages manager
         if ( isset( $_POST['tp_featured_image'] ) && $_POST['tp_featured_image'] !== '' ) {
             $fid = intval( $_POST['tp_featured_image'] );
@@ -596,6 +621,35 @@ class TP_Admin {
         }
 
         wp_redirect( $redirect_url );
+        exit;
+    }
+
+    public static function handle_delete_package() {
+        if ( ! isset( $_GET['tp_action'] ) || $_GET['tp_action'] !== 'delete_package' ) {
+            return;
+        }
+
+        if ( ! isset( $_GET['tp_delete_nonce'] ) || ! wp_verify_nonce( $_GET['tp_delete_nonce'], 'tp_delete_package' ) ) {
+            wp_die( __( 'Nonce inválido.', 'travel-packages' ) );
+        }
+
+        if ( ! current_user_can( 'delete_posts' ) ) {
+            wp_die( __( 'No tienes permisos para eliminar paquetes.', 'travel-packages' ) );
+        }
+
+        $post_id = ! empty( $_GET['tp_package_id'] ) ? (int) $_GET['tp_package_id'] : 0;
+        if ( ! $post_id ) {
+            wp_die( __( 'ID de paquete no proporcionado.', 'travel-packages' ) );
+        }
+
+        $post = get_post( $post_id );
+        if ( ! $post || $post->post_type !== 'paquete_viaje' ) {
+            wp_die( __( 'Paquete no encontrado.', 'travel-packages' ) );
+        }
+
+        wp_delete_post( $post_id, true );
+
+        wp_redirect( admin_url( 'admin.php?page=tp-packages&status=deleted' ) );
         exit;
     }
 

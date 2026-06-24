@@ -48,14 +48,24 @@ if ( ! defined('ABSPATH') ) exit;
 
             </div><!-- /.tp-single-content -->
  <div class="tp-single-price-box">
-            <?php if ( is_array($tech_fields) && count($tech_fields) ) : ?>
+            <?php if ( ( is_array($tech_fields) && count($tech_fields) ) || ( ! empty( $custom_field_defs ) && ! empty( $custom_field_values ) ) ) : ?>
             <table class="tp-tech-table">
-                <?php foreach ( $tech_fields as $field ) : ?>
+                <?php if ( is_array( $tech_fields ) ) : foreach ( $tech_fields as $field ) : ?>
                 <tr>
                     <th><?php echo esc_html($field['key']); ?></th>
                     <td><?php echo esc_html($field['val']); ?></td>
                 </tr>
-                <?php endforeach; ?>
+                <?php endforeach; endif; ?>
+                <?php if ( ! empty( $custom_field_defs ) ) : foreach ( $custom_field_defs as $cf_def ) :
+                    $cf_val = $custom_field_values[ $cf_def['key'] ] ?? '';
+                    if ( $cf_val === '' || $cf_val === '0' ) continue;
+                    if ( $cf_def['type'] === 'checkbox' ) $cf_val = '✓ ' . ( $cf_val === '1' ? __( 'Sí', 'travel-packages' ) : __( 'No', 'travel-packages' ) );
+                ?>
+                <tr>
+                    <th><?php echo esc_html( $cf_def['label'] ); ?></th>
+                    <td><?php echo esc_html( $cf_val ); ?></td>
+                </tr>
+                <?php endforeach; endif; ?>
             </table>
             <?php endif; ?>
 

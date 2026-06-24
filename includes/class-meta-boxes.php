@@ -39,6 +39,7 @@ class TP_MetaBoxes {
         add_meta_box( 'tp_gallery',      __( '🖼 Galería de Imágenes',    'travel-packages' ),    [ __CLASS__, 'render_gallery' ], 'paquete_viaje', 'normal',   'default' );
         add_meta_box( 'tp_tech_sheet',   __( '📋 Ficha Técnica',          'travel-packages' ),    [ __CLASS__, 'render_tech' ],    'paquete_viaje', 'normal',   'default' );
         add_meta_box( 'tp_dates',        __( '📅 Fechas Disponibles',     'travel-packages' ),    [ __CLASS__, 'render_dates' ],   'paquete_viaje', 'normal',   'default' );
+        add_meta_box( 'tp_custom_fields',__( '🔧 Campos Personalizados',  'travel-packages' ),    [ __CLASS__, 'render_custom_fields' ], 'paquete_viaje', 'normal', 'default' );
         add_meta_box( 'tp_visibility',   __( '⚙ Visibilidad y Destacados','travel-packages' ),    [ __CLASS__, 'render_visibility'], 'paquete_viaje', 'side', 'high' );
         add_meta_box( 'tp_price_box',    __( '💰 Precio',                 'travel-packages' ),    [ __CLASS__, 'render_price' ],   'paquete_viaje', 'side',     'high' );
     }
@@ -177,6 +178,22 @@ class TP_MetaBoxes {
         <?php
     }
 
+    /* ---- RENDER CUSTOM FIELDS ---- */
+    public static function render_custom_fields( $post ) {
+        $defs = TP_CustomFields::get_definitions();
+        if ( empty( $defs ) ) {
+            echo '<p style="color:#999;">' . __( 'No hay campos personalizados definidos.', 'travel-packages' ) . '</p>';
+            echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=tp-custom-fields' ) ) . '" class="button">' . __( 'Gestionar campos personalizados', 'travel-packages' ) . '</a></p>';
+            return;
+        }
+        $values = TP_CustomFields::get_all_values( $post->ID );
+        foreach ( $defs as $field ) {
+            $value = $values[ $field['key'] ] ?? '';
+            echo TP_CustomFields::render_field_input( $field, $value, 'tp_cf' );
+        }
+        echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=tp-custom-fields' ) ) . '" style="font-size:12px;color:#999;">' . __( 'Editar campos personalizados', 'travel-packages' ) . '</a></p>';
+    }
+
     /* ---- RENDER PRICE ---- */
     public static function render_price( $post ) {
         $price      = get_post_meta( $post->ID, '_tp_price', true );
@@ -277,6 +294,9 @@ class TP_MetaBoxes {
         // Toggle fields
         update_post_meta( $post_id, '_tp_slider',   isset($_POST['tp_slider'])   ? '1' : '0' );
         update_post_meta( $post_id, '_tp_featured', isset($_POST['tp_featured']) ? '1' : '0' );
+
+        // Custom fields
+        TP_CustomFields::save_post_fields( $post_id );
 
         // Tech fields
         $tech_keys = isset($_POST['tp_tech_key']) ? (array)$_POST['tp_tech_key'] : [];

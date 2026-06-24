@@ -194,6 +194,11 @@ jQuery(document).ready(function($) {
         initDatepicker($(this));
     });
 
+    // Init custom field datepickers
+    $('.tp-cf-field .tp-datepicker').each(function() {
+        initDatepicker($(this));
+    });
+
     // Validate date ranges before saving post
     $('#post').on('submit', function(e) {
         var valid = true;

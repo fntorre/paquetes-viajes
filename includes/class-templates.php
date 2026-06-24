@@ -29,6 +29,9 @@ class TP_Templates {
         $gallery_ids = get_post_meta( $post->ID, '_tp_gallery', true );
         $thumb_url   = get_the_post_thumbnail_url( $post->ID, 'full' );
 
+        $custom_field_defs = TP_CustomFields::get_definitions();
+        $custom_field_values = TP_CustomFields::get_all_values( $post->ID );
+
         ob_start();
         include TP_PLUGIN_DIR . 'templates/single-paquete.php';
         return ob_get_clean();

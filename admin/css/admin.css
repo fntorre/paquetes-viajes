@@ -74,6 +74,9 @@
 .tp-table-thumb { width: 40px; height: 30px; object-fit: cover; border-radius: 4px; }
 .tp-empty { text-align: center; color: #999; padding: 24px !important; }
 .tp-table-link { color: #0073aa; text-decoration: none; font-size: 12px; }
+.tp-table-actions { display: flex; gap: 8px; align-items: center; }
+.tp-table-delete { color: #b91c1c !important; }
+.tp-table-delete:hover { color: #dc2626 !important; }
 
 /* ---- Quick Toggle Buttons ---- */
 .tp-quick-toggle {
@@ -176,6 +179,8 @@
 .tp-package-card-tags { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
 .tp-btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 12px 18px; border-radius: 14px; background: #eef5fb; color: #0f4c81 !important; border: 1px solid #c6d9eb; cursor: pointer; font-weight: 700; transition: background .2s, border-color .2s; }
 .tp-btn-secondary:hover { background: #d9e8fb; border-color: #9bc0ec; }
+.tp-btn-danger { display: inline-flex; align-items: center; gap: 6px; padding: 12px 18px; border-radius: 14px; background: #fde8e8; color: #b91c1c !important; border: 1px solid #f5baba; cursor: pointer; font-weight: 700; transition: background .2s, border-color .2s; }
+.tp-btn-danger:hover { background: #fbd5d5; border-color: #e59797; }
 .tp-package-form .tp-char-count { text-align: right; font-size: 12px; color: #6b7c93; margin-top: 6px; }
 
 @media (max-width: 1100px) {
@@ -235,5 +240,94 @@
 
 .tp-field-group small::before {
     content: '💡 ';
+}
+
+/* ---- Custom Fields Admin ---- */
+.tp-required { color: #d63638; font-weight: 700; }
+
+.tp-cf-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+}
+.tp-cf-checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+}
+
+#tp-cf-table {
+    border: none;
+    margin: 0;
+}
+#tp-cf-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 14px 12px;
+}
+#tp-cf-table td {
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+#tp-cf-table input[type="text"],
+#tp-cf-table select {
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    transition: border-color .2s;
+}
+#tp-cf-table input[type="text"]:focus,
+#tp-cf-table select:focus {
+    border-color: #0073aa;
+    box-shadow: 0 0 0 1px #0073aa;
+    outline: none;
+}
+#tp-cf-table .tp-cf-order {
+    text-align: center;
+    font-weight: 600;
+    color: #667085;
+    font-size: 13px;
+}
+.tp-cf-remove {
+    cursor: pointer;
+    font-size: 16px;
+    opacity: .5;
+    transition: opacity .2s;
+    border: none;
+    background: none;
+    padding: 4px;
+    color: #d63638;
+}
+.tp-cf-remove:hover { opacity: 1; }
+
+/* ---- Custom Fields in Meta Box ---- */
+.tp-cf-field {
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.tp-cf-field:last-child {
+    border-bottom: none;
+}
+.tp-cf-field input[type="text"],
+.tp-cf-field input[type="number"],
+.tp-cf-field select,
+.tp-cf-field textarea {
+    width: 100%;
+    max-width: 400px;
+}
+
+/* ---- Custom Fields in Packages Manager ---- */
+#tp-custom-fields-wrap .tp-cf-field {
+    padding: 10px 0;
+}
+#tp-custom-fields-wrap .tp-cf-field input[type="text"],
+#tp-custom-fields-wrap .tp-cf-field input[type="number"],
+#tp-custom-fields-wrap .tp-cf-field select,
+#tp-custom-fields-wrap .tp-cf-field textarea {
+    width: 100%;
 }
 
