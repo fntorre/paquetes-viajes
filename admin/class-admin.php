@@ -6,7 +6,10 @@ class TP_Admin {
     public static function init() {
         add_action( 'admin_menu',            [ __CLASS__, 'register_menu' ] );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
-        add_action( 'admin_post_tp_save_package', [ __CLASS__, 'save_package' ] );
+        add_action( 'admin_post_tp_save_package',     [ __CLASS__, 'save_package' ] );
+        add_action( 'admin_post_tp_duplicate_package', [ __CLASS__, 'duplicate_package' ] );
+        add_action( 'admin_post_tp_export_packages',   [ __CLASS__, 'export_packages' ] );
+        add_action( 'admin_post_tp_import_packages',   [ __CLASS__, 'import_packages' ] );
         add_action( 'admin_init',            [ __CLASS__, 'handle_delete_package' ] );
         add_action( 'admin_init',            [ __CLASS__, 'redirect_native_editor' ] );
     }
@@ -26,8 +29,8 @@ class TP_Admin {
         // Submenu: list
         add_submenu_page(
             'tp-dashboard',
-            __( 'Todos los Paquetes', 'travel-packages' ),
-            __( 'Todos los Paquetes', 'travel-packages' ),
+            __( 'Gestión de Paquetes', 'travel-packages' ),
+            __( 'Gestión de Paquetes', 'travel-packages' ),
             'edit_posts',
             'tp-packages',
             [ __CLASS__, 'render_packages_page' ]
@@ -50,16 +53,6 @@ class TP_Admin {
             __( 'Destinos', 'travel-packages' ),
             'manage_categories',
             'edit-tags.php?taxonomy=destino&post_type=paquete_viaje'
-        );
-
-        // Submenu: package manager
-        add_submenu_page(
-            'tp-dashboard',
-            __( 'Gestión de Paquetes', 'travel-packages' ),
-            __( 'Gestión de Paquetes', 'travel-packages' ),
-            'edit_posts',
-            'tp-packages',
-            [ __CLASS__, 'render_packages_page' ]
         );
 
         // Submenu: shortcodes helper
@@ -243,16 +236,77 @@ class TP_Admin {
     }
 
     public static function render_packages_page() {
-        $packages = get_posts([
+        $paged   = isset( $_GET['tp_paged'] ) ? max( 1, intval( $_GET['tp_paged'] ) ) : 1;
+        $per_page = 40;
+
+        $args = [
             'post_type'      => 'paquete_viaje',
             'post_status'    => ['publish','draft'],
-            'posts_per_page' => 40,
+            'posts_per_page' => $per_page,
+            'paged'          => $paged,
             'orderby'        => 'date',
             'order'          => 'DESC',
-        ]);
+        ];
+
+        // Advanced filters
+        $filtro_destino   = isset( $_GET['tp_filtro_destino'] ) ? sanitize_text_field( $_GET['tp_filtro_destino'] ) : '';
+        $filtro_precio_min = isset( $_GET['tp_filtro_precio_min'] ) ? floatval( $_GET['tp_filtro_precio_min'] ) : 0;
+        $filtro_precio_max = isset( $_GET['tp_filtro_precio_max'] ) ? floatval( $_GET['tp_filtro_precio_max'] ) : 0;
+        $filtro_slider    = isset( $_GET['tp_filtro_slider'] ) ? sanitize_text_field( $_GET['tp_filtro_slider'] ) : '';
+        $filtro_featured  = isset( $_GET['tp_filtro_featured'] ) ? sanitize_text_field( $_GET['tp_filtro_featured'] ) : '';
+        $filtro_search    = isset( $_GET['tp_filtro_search'] ) ? sanitize_text_field( $_GET['tp_filtro_search'] ) : '';
+        $orderby_url      = isset( $_GET['tp_orderby'] ) ? sanitize_key( $_GET['tp_orderby'] ) : '';
+        $order_url        = isset( $_GET['tp_order'] ) && $_GET['tp_order'] === 'ASC' ? 'ASC' : 'DESC';
+
+        if ( $orderby_url === 'meta_value_num' ) {
+            $args['orderby']  = 'meta_value_num';
+            $args['meta_key'] = '_tp_price';
+            $args['order']    = $order_url;
+        } elseif ( $orderby_url ) {
+            $args['orderby'] = $orderby_url;
+            $args['order']   = $order_url;
+        }
+
+        if ( $filtro_destino ) {
+            $args['tax_query'] = [[
+                'taxonomy' => 'destino',
+                'field'    => 'slug',
+                'terms'    => $filtro_destino,
+            ]];
+        }
+
+        if ( $filtro_search ) {
+            $args['s'] = $filtro_search;
+        }
+
+        $meta_query = [];
+        if ( $filtro_precio_min > 0 ) {
+            $meta_query[] = [ 'key' => '_tp_price', 'value' => $filtro_precio_min, 'type' => 'NUMERIC', 'compare' => '>=' ];
+        }
+        if ( $filtro_precio_max > 0 ) {
+            $meta_query[] = [ 'key' => '_tp_price', 'value' => $filtro_precio_max, 'type' => 'NUMERIC', 'compare' => '<=' ];
+        }
+        if ( $filtro_slider === 'yes' ) {
+            $meta_query[] = [ 'key' => '_tp_slider', 'value' => '1' ];
+        } elseif ( $filtro_slider === 'no' ) {
+            $meta_query[] = [ 'key' => '_tp_slider', 'value' => '0' ];
+        }
+        if ( $filtro_featured === 'yes' ) {
+            $meta_query[] = [ 'key' => '_tp_featured', 'value' => '1' ];
+        } elseif ( $filtro_featured === 'no' ) {
+            $meta_query[] = [ 'key' => '_tp_featured', 'value' => '0' ];
+        }
+        if ( count( $meta_query ) > 0 ) {
+            $args['meta_query'] = $meta_query;
+        }
+
+        $package_query = new WP_Query( $args );
+        $packages      = $package_query->posts;
+        $total_pages   = $package_query->max_num_pages;
 
         $destinos = get_terms([ 'taxonomy' => 'destino', 'hide_empty' => false ]);
         $status   = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
+        $base_url = admin_url( 'admin.php?page=tp-packages' );
         ?>
         <div class="wrap tp-admin-wrap tp-packages-wrap">
             <div class="tp-admin-header">
@@ -272,14 +326,77 @@ class TP_Admin {
             <div class="notice notice-success is-dismissible"><p><?php _e('Paquete guardado correctamente.', 'travel-packages'); ?></p></div>
             <?php elseif ( $status === 'deleted' ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php _e('Paquete eliminado correctamente.', 'travel-packages'); ?></p></div>
+            <?php elseif ( $status === 'duplicated' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php _e('Paquete duplicado correctamente.', 'travel-packages'); ?></p></div>
+            <?php elseif ( $status === 'exported' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php _e('Paquetes exportados correctamente.', 'travel-packages'); ?></p></div>
+            <?php elseif ( $status === 'imported' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php _e('Paquetes importados correctamente.', 'travel-packages'); ?></p></div>
             <?php endif; ?>
 
             <div class="tp-packages-grid">
                 <div class="tp-packages-list">
-                    <div class="tp-card-header">
+                    <div class="tp-card-header tp-filters-header">
                         <h2><?php _e('Listado de paquetes', 'travel-packages'); ?></h2>
-                        <input type="search" id="tp-package-search" class="tp-package-search" placeholder="<?php esc_attr_e('Buscar paquete por nombre...', 'travel-packages'); ?>">
+                        <div class="tp-filters-bar">
+                            <input type="search" id="tp-package-search" class="tp-package-search" placeholder="<?php esc_attr_e('Buscar paquete por nombre...', 'travel-packages'); ?>" style="margin-top:0;">
+                            <button type="button" id="tp-toggle-filters" class="button <?php if ($filtro_destino || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url) echo 'button-primary'; ?>" style="display:inline-flex;align-items:center;gap:4px;">
+                                <span class="dashicons dashicons-filter"></span> <?php _e( 'Filtros', 'travel-packages' ); ?>
+                            </button>
+                            <a href="<?php echo esc_url( admin_url( 'admin-post.php?action=tp_export_packages' ) . '&tp_export_nonce=' . wp_create_nonce( 'tp_export_packages' ) ); ?>" class="button" style="display:inline-flex;align-items:center;gap:4px;">
+                                <span class="dashicons dashicons-download"></span> <?php _e( 'Exportar', 'travel-packages' ); ?>
+                            </a>
+                            <button type="button" id="tp-import-btn" class="button" style="display:inline-flex;align-items:center;gap:4px;">
+                                <span class="dashicons dashicons-upload"></span> <?php _e( 'Importar', 'travel-packages' ); ?>
+                            </button>
+                            <form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tp-import-form" style="display:none;">
+                                <input type="hidden" name="action" value="tp_import_packages">
+                                <?php wp_nonce_field( 'tp_import_packages', 'tp_import_nonce' ); ?>
+                                <input type="file" name="tp_import_file" accept=".json" required>
+                                <button type="submit" class="button button-primary"><?php _e( 'Subir e importar', 'travel-packages' ); ?></button>
+                            </form>
+                        </div>
                     </div>
+
+                    <?php
+                    $has_active_filters = $filtro_destino || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url;
+                    ?>
+                    <div class="tp-filters-form" style="display:<?php echo $has_active_filters ? 'block' : 'none'; ?>;">
+                        <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="tp-filters-inline">
+                            <input type="hidden" name="page" value="tp-packages">
+                            <input type="search" name="tp_filtro_search" placeholder="<?php esc_attr_e( 'Buscar…', 'travel-packages' ); ?>" value="<?php echo esc_attr( $filtro_search ); ?>">
+                            <select name="tp_filtro_destino">
+                                <option value=""><?php _e( 'Todos los destinos', 'travel-packages' ); ?></option>
+                                <?php foreach ( $destinos as $destino ) : ?>
+                                <option value="<?php echo esc_attr( $destino->slug ); ?>" <?php selected( $filtro_destino, $destino->slug ); ?>><?php echo esc_html( $destino->name ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input type="number" name="tp_filtro_precio_min" placeholder="<?php esc_attr_e( 'Precio min', 'travel-packages' ); ?>" value="<?php echo $filtro_precio_min ?: ''; ?>" min="0" step="1">
+                            <input type="number" name="tp_filtro_precio_max" placeholder="<?php esc_attr_e( 'Precio max', 'travel-packages' ); ?>" value="<?php echo $filtro_precio_max ?: ''; ?>" min="0" step="1">
+                            <select name="tp_filtro_slider">
+                                <option value=""><?php _e( 'Slider: Todos', 'travel-packages' ); ?></option>
+                                <option value="yes" <?php selected( $filtro_slider, 'yes' ); ?>><?php _e( 'Slider: Sí', 'travel-packages' ); ?></option>
+                                <option value="no" <?php selected( $filtro_slider, 'no' ); ?>><?php _e( 'Slider: No', 'travel-packages' ); ?></option>
+                            </select>
+                            <select name="tp_filtro_featured">
+                                <option value=""><?php _e( 'Destacado: Todos', 'travel-packages' ); ?></option>
+                                <option value="yes" <?php selected( $filtro_featured, 'yes' ); ?>><?php _e( 'Destacado: Sí', 'travel-packages' ); ?></option>
+                                <option value="no" <?php selected( $filtro_featured, 'no' ); ?>><?php _e( 'Destacado: No', 'travel-packages' ); ?></option>
+                            </select>
+                            <select name="tp_orderby">
+                                <option value="date" <?php selected( $orderby_url ?: 'date', 'date' ); ?>><?php _e( 'Ordenar por fecha', 'travel-packages' ); ?></option>
+                                <option value="title" <?php selected( $orderby_url, 'title' ); ?>><?php _e( 'Ordenar por título', 'travel-packages' ); ?></option>
+                                <option value="meta_value_num" <?php selected( $orderby_url, 'meta_value_num' ); ?>><?php _e( 'Ordenar por precio', 'travel-packages' ); ?></option>
+                            </select>
+                            <select name="tp_order">
+                                <option value="DESC" <?php selected( $order_url, 'DESC' ); ?>>DESC</option>
+                                <option value="ASC" <?php selected( $order_url, 'ASC' ); ?>>ASC</option>
+                            </select>
+                            <button type="submit" class="button button-primary"><?php _e( 'Aplicar filtros', 'travel-packages' ); ?></button>
+                            <a href="<?php echo esc_url( $base_url ); ?>" class="button"><?php _e( 'Limpiar', 'travel-packages' ); ?></a>
+                        </form>
+                    </div>
+
                     <div class="tp-package-cards">
                         <?php foreach ( $packages as $package ) :
                             $price    = get_post_meta( $package->ID, '_tp_price', true );
@@ -327,10 +444,28 @@ class TP_Admin {
                                 <strong><?php echo esc_html( $package->post_title ); ?></strong>
                                 <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo esc_html( $currency . ' ' . number_format((float)$price,0,',','.')); ?></span>
                                 <span class="tp-package-card-tags"><?php echo esc_html( implode(', ', wp_get_post_terms($package->ID,'destino', ['fields'=>'names']) ) ); ?></span>
+                                <span class="tp-package-card-actions">
+                                    <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tp_duplicate_package&tp_package_id=' . $package->ID ), 'tp_duplicate_package', 'tp_duplicate_nonce' ) ); ?>" class="tp-card-dup-link" title="<?php esc_attr_e( 'Duplicar paquete', 'travel-packages' ); ?>" onclick="event.stopPropagation();">📋 <?php _e( 'Duplicar', 'travel-packages' ); ?></a>
+                                </span>
                             </div>
                         </button>
                         <?php endforeach; ?>
                     </div>
+                    <?php if ( $total_pages > 1 ) : ?>
+                    <div class="tp-pagination">
+                        <?php
+                        $page_links = paginate_links( [
+                            'base'      => add_query_arg( 'tp_paged', '%#%', $base_url ),
+                            'format'    => '',
+                            'current'   => $paged,
+                            'total'     => $total_pages,
+                            'prev_text' => '&laquo;',
+                            'next_text' => '&raquo;',
+                        ] );
+                        if ( $page_links ) echo $page_links;
+                        ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <div class="tp-package-form">
                     <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" id="tp-package-form">
@@ -621,6 +756,208 @@ class TP_Admin {
         }
 
         wp_redirect( $redirect_url );
+        exit;
+    }
+
+    public static function duplicate_package() {
+        if ( ! isset( $_GET['tp_duplicate_nonce'] ) || ! wp_verify_nonce( $_GET['tp_duplicate_nonce'], 'tp_duplicate_package' ) ) {
+            wp_die( __( 'Nonce inválido.', 'travel-packages' ) );
+        }
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_die( __( 'No tienes permisos.', 'travel-packages' ) );
+        }
+
+        $original_id = isset( $_GET['tp_package_id'] ) ? intval( $_GET['tp_package_id'] ) : 0;
+        if ( ! $original_id ) {
+            wp_redirect( admin_url( 'admin.php?page=tp-packages' ) );
+            exit;
+        }
+
+        $original = get_post( $original_id );
+        if ( ! $original || $original->post_type !== 'paquete_viaje' ) {
+            wp_redirect( admin_url( 'admin.php?page=tp-packages' ) );
+            exit;
+        }
+
+        $new_slug = $original->post_name ? $original->post_name . '-copia' : '';
+        $new_id = wp_insert_post([
+            'post_type'    => 'paquete_viaje',
+            'post_title'   => $original->post_title . ' (' . __( 'copia', 'travel-packages' ) . ')',
+            'post_content' => $original->post_content,
+            'post_status'  => $original->post_status,
+            'post_name'    => $new_slug,
+        ]);
+
+        if ( is_wp_error( $new_id ) ) {
+            wp_die( $new_id->get_error_message() );
+        }
+
+        // Copy all meta fields
+        $meta_keys = [
+            '_tp_short_desc', '_tp_price', '_tp_price_note', '_tp_currency',
+            '_tp_slider', '_tp_featured', '_tp_gallery', '_tp_tech_fields', '_tp_dates',
+        ];
+        foreach ( $meta_keys as $key ) {
+            $val = get_post_meta( $original_id, $key, true );
+            if ( $val !== '' ) {
+                update_post_meta( $new_id, $key, $val );
+            }
+        }
+
+        // Copy custom fields
+        $cf_defs = TP_CustomFields::get_definitions();
+        foreach ( $cf_defs as $cf ) {
+            $val = TP_CustomFields::get_field_value( $original_id, $cf['key'] );
+            if ( $val !== '' ) {
+                update_post_meta( $new_id, '_tp_cf_' . $cf['key'], $val );
+            }
+        }
+
+        // Copy featured image
+        $thumb_id = get_post_thumbnail_id( $original_id );
+        if ( $thumb_id ) {
+            set_post_thumbnail( $new_id, $thumb_id );
+        }
+
+        // Copy terms
+        $terms = wp_get_post_terms( $original_id, 'destino', [ 'fields' => 'slugs' ] );
+        if ( $terms && ! is_wp_error( $terms ) ) {
+            wp_set_post_terms( $new_id, $terms, 'destino' );
+        }
+
+        wp_redirect( admin_url( 'admin.php?page=tp-packages&status=duplicated' ) );
+        exit;
+    }
+
+    public static function export_packages() {
+        if ( ! isset( $_GET['tp_export_nonce'] ) || ! wp_verify_nonce( $_GET['tp_export_nonce'], 'tp_export_packages' ) ) {
+            wp_die( __( 'Nonce inválido.', 'travel-packages' ) );
+        }
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( __( 'No tienes permisos.', 'travel-packages' ) );
+        }
+
+        $packages = get_posts([
+            'post_type'      => 'paquete_viaje',
+            'post_status'    => [ 'publish', 'draft' ],
+            'posts_per_page' => -1,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+        ]);
+
+        $data = [];
+        foreach ( $packages as $p ) {
+            $gallery_raw = get_post_meta( $p->ID, '_tp_gallery', true );
+            $gallery_ids = $gallery_raw ? array_filter( array_map( 'intval', explode( ',', $gallery_raw ) ) ) : [];
+            $gallery_urls = [];
+            foreach ( $gallery_ids as $gid ) {
+                $url = wp_get_attachment_image_url( $gid, 'full' );
+                if ( $url ) $gallery_urls[] = $url;
+            }
+
+            $item = [
+                'title'         => $p->post_title,
+                'content'       => $p->post_content,
+                'status'        => $p->post_status,
+                'short_desc'    => get_post_meta( $p->ID, '_tp_short_desc', true ),
+                'price'         => get_post_meta( $p->ID, '_tp_price', true ),
+                'price_note'    => get_post_meta( $p->ID, '_tp_price_note', true ),
+                'currency'      => get_post_meta( $p->ID, '_tp_currency', true ) ?: 'USD',
+                'slider'        => get_post_meta( $p->ID, '_tp_slider', true ),
+                'featured'      => get_post_meta( $p->ID, '_tp_featured', true ),
+                'destinos'      => wp_get_post_terms( $p->ID, 'destino', [ 'fields' => 'names' ] ),
+                'featured_image_url' => get_the_post_thumbnail_url( $p->ID, 'full' ) ?: '',
+                'gallery_urls'  => $gallery_urls,
+                'tech_fields'   => get_post_meta( $p->ID, '_tp_tech_fields', true ),
+                'dates'         => get_post_meta( $p->ID, '_tp_dates', true ),
+                'custom_fields' => TP_CustomFields::get_package_data( $p->ID ),
+            ];
+            $data[] = $item;
+        }
+
+        header( 'Content-Type: application/json' );
+        header( 'Content-Disposition: attachment; filename="paquetes-de-viaje-' . date( 'Y-m-d' ) . '.json"' );
+        echo wp_json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+        exit;
+    }
+
+    public static function import_packages() {
+        if ( ! isset( $_POST['tp_import_nonce'] ) || ! wp_verify_nonce( $_POST['tp_import_nonce'], 'tp_import_packages' ) ) {
+            wp_die( __( 'Nonce inválido.', 'travel-packages' ) );
+        }
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( __( 'No tienes permisos.', 'travel-packages' ) );
+        }
+
+        if ( ! isset( $_FILES['tp_import_file'] ) || $_FILES['tp_import_file']['error'] !== UPLOAD_ERR_OK ) {
+            wp_die( __( 'Error al subir el archivo.', 'travel-packages' ) );
+        }
+
+        $json = file_get_contents( $_FILES['tp_import_file']['tmp_name'] );
+        $data = json_decode( $json, true );
+        if ( ! is_array( $data ) ) {
+            wp_die( __( 'Formato JSON inválido.', 'travel-packages' ) );
+        }
+
+        $count = 0;
+        foreach ( $data as $item ) {
+            $title = isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : '';
+            if ( empty( $title ) ) continue;
+
+            $post_id = wp_insert_post([
+                'post_type'    => 'paquete_viaje',
+                'post_title'   => $title,
+                'post_content' => isset( $item['content'] ) ? wp_kses_post( $item['content'] ) : '',
+                'post_status'  => isset( $item['status'] ) && in_array( $item['status'], [ 'publish', 'draft' ] ) ? $item['status'] : 'draft',
+            ]);
+
+            if ( is_wp_error( $post_id ) ) continue;
+
+            $meta_map = [
+                '_tp_short_desc' => 'short_desc',
+                '_tp_price'      => 'price',
+                '_tp_price_note' => 'price_note',
+                '_tp_currency'   => 'currency',
+                '_tp_slider'     => 'slider',
+                '_tp_featured'   => 'featured',
+                '_tp_tech_fields'=> 'tech_fields',
+                '_tp_dates'      => 'dates',
+            ];
+            foreach ( $meta_map as $meta_key => $item_key ) {
+                if ( isset( $item[ $item_key ] ) ) {
+                    $val = is_string( $item[ $item_key ] ) ? sanitize_text_field( $item[ $item_key ] ) : $item[ $item_key ];
+                    update_post_meta( $post_id, $meta_key, $val );
+                }
+            }
+
+            // Import custom fields
+            if ( isset( $item['custom_fields'] ) && is_array( $item['custom_fields'] ) ) {
+                foreach ( $item['custom_fields'] as $cf_key => $cf_val ) {
+                    update_post_meta( $post_id, '_tp_cf_' . sanitize_key( $cf_key ), sanitize_text_field( $cf_val ) );
+                }
+            }
+
+            // Import destinations
+            if ( isset( $item['destinos'] ) && is_array( $item['destinos'] ) ) {
+                $term_ids = [];
+                foreach ( $item['destinos'] as $dest_name ) {
+                    $term = term_exists( $dest_name, 'destino' );
+                    if ( ! $term ) {
+                        $term = wp_insert_term( $dest_name, 'destino' );
+                    }
+                    if ( ! is_wp_error( $term ) ) {
+                        $term_ids[] = is_array( $term ) ? $term['term_id'] : $term;
+                    }
+                }
+                if ( $term_ids ) {
+                    wp_set_post_terms( $post_id, $term_ids, 'destino' );
+                }
+            }
+
+            $count++;
+        }
+
+        wp_redirect( admin_url( 'admin.php?page=tp-packages&status=imported&tp_imported=' . $count ) );
         exit;
     }
 

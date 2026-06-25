@@ -68,12 +68,12 @@ class TP_Shortcodes {
         ob_start(); ?>
         <div class="tp-slider-wrapper" 
             id="<?php echo esc_attr($unique_id); ?>" 
-            data-autoplay="<?php echo $autoplay; ?>" 
-            data-interval="<?php echo $interval; ?>"
-            data-speed="<?php echo $speed; ?>"
-            data-pauseonhover="<?php echo $pauseOnHover; ?>"
-            data-showarrows="<?php echo $showArrows; ?>"
-            data-showdots="<?php echo $showDots; ?>">
+            data-autoplay="<?php echo esc_attr($autoplay); ?>" 
+            data-interval="<?php echo esc_attr($interval); ?>"
+            data-speed="<?php echo esc_attr($speed); ?>"
+            data-pauseonhover="<?php echo esc_attr($pauseOnHover); ?>"
+            data-showarrows="<?php echo esc_attr($showArrows); ?>"
+            data-showdots="<?php echo esc_attr($showDots); ?>">
             <div class="tp-slider-track">
                 <?php while ( $query->have_posts() ) : $query->the_post();
                     $price      = get_post_meta( get_the_ID(), '_tp_price', true );

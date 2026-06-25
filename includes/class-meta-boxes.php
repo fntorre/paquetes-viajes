@@ -269,13 +269,8 @@ class TP_MetaBoxes {
         if ( $post->post_type !== 'paquete_viaje' ) return;
         if ( ! current_user_can('edit_post', $post_id) ) return;
 
-        // Save post content from wp_editor if provided
-        if ( isset($_POST['content']) ) {
-            wp_update_post([
-                'ID'           => $post_id,
-                'post_content' => wp_kses_post( wp_unslash($_POST['content']) ),
-            ]);
-        }
+        // Remove action to prevent recursion when wp_update_post is called in custom flows
+        remove_action( 'save_post', [ __CLASS__, 'save' ], 10 );
 
         $text_fields = [
             'tp_short_desc'  => '_tp_short_desc',
@@ -347,5 +342,8 @@ class TP_MetaBoxes {
                 set_post_thumbnail( $post_id, $fid );
             }
         }
+
+        // Re-add save action removed earlier as safety measure
+        add_action( 'save_post', [ __CLASS__, 'save' ], 10, 2 );
     }
 }

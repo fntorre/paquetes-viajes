@@ -5,7 +5,7 @@ if ( ! defined('ABSPATH') ) exit;
 <div class="tp-single-embed">
 
     <?php if ( $thumb_url ) : ?>
-    <div class="tp-single-thumb">
+    <div class="tp-single-hero">
         <img src="<?php echo esc_url($thumb_url); ?>" alt="<?php echo esc_attr( get_the_title( $post ) ); ?>" loading="lazy">
     </div>
     <?php endif; ?>

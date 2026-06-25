@@ -290,6 +290,18 @@ jQuery(document).ready(function($) {
         });
     }
 
+    // Toggle filters form
+    $(document).on('click', '#tp-toggle-filters', function(e) {
+        e.preventDefault();
+        $('.tp-filters-form').slideToggle(180);
+    });
+
+    // Toggle import form
+    $(document).on('click', '#tp-import-btn', function(e) {
+        e.preventDefault();
+        $('#tp-import-form').toggle();
+    });
+
     // Delete package confirmation
     $(document).on('click', '#tp-delete-package', function(e) {
         e.preventDefault();
@@ -302,6 +314,37 @@ jQuery(document).ready(function($) {
     // Init custom field datepickers
     $('.tp-cf-field .tp-datepicker').each(function() {
         initDatepicker($(this));
+    });
+
+    /* ---- Drag & Drop Gallery Reorder ---- */
+    var dragSrc = null;
+    $(document).on('dragstart', '#tp-gallery-preview .tp-gallery-item', function(e) {
+        dragSrc = this;
+        $(this).addClass('tp-dragging');
+        e.originalEvent.dataTransfer.effectAllowed = 'move';
+    });
+    $(document).on('dragend', '#tp-gallery-preview .tp-gallery-item', function() {
+        $(this).removeClass('tp-dragging');
+        $('#tp-gallery-preview .tp-gallery-item').removeClass('tp-drag-over');
+        updateGalleryIds();
+    });
+    $(document).on('dragover', '#tp-gallery-preview .tp-gallery-item', function(e) {
+        e.preventDefault();
+        e.originalEvent.dataTransfer.dropEffect = 'move';
+        $(this).addClass('tp-drag-over');
+    });
+    $(document).on('dragleave', '#tp-gallery-preview .tp-gallery-item', function() {
+        $(this).removeClass('tp-drag-over');
+    });
+    $(document).on('drop', '#tp-gallery-preview .tp-gallery-item', function(e) {
+        e.preventDefault();
+        if ( dragSrc !== this ) {
+            $(dragSrc).insertBefore($(this));
+        }
+        $(this).removeClass('tp-drag-over');
+    });
+    $(document).on('DOMNodeInserted', '#tp-gallery-preview .tp-gallery-item', function() {
+        $(this).prop('draggable', true);
     });
 
     $(document).trigger('tpPackagesReady');

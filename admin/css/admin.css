@@ -177,6 +177,27 @@
 .tp-package-card strong { font-size: 15px; }
 .tp-package-card-meta { color: #5f6d7a; }
 .tp-package-card-tags { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.tp-package-card-actions { display: block; margin-top: 6px; }
+.tp-card-dup-link { font-size: 11px; color: #0073aa; text-decoration: none; cursor: pointer; }
+.tp-card-dup-link:hover { text-decoration: underline; }
+
+/* ---- Filters Bar ---- */
+.tp-filters-header { flex-wrap: wrap; gap: 8px; }
+.tp-filters-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tp-filters-form { padding: 0 0 16px; border-bottom: 1px solid #e6eef6; margin-bottom: 16px; overflow: hidden; }
+.tp-filters-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tp-filters-inline select,
+.tp-filters-inline input[type="number"],
+.tp-filters-inline input[type="search"] { padding: 8px 10px; border: 1px solid #d6e4ef; border-radius: 8px; font-size: 12px; background: #fff; }
+.tp-filters-inline button,
+.tp-filters-inline a.button { font-size: 12px; min-height: 36px; }
+#tp-toggle-filters .dashicons-filter { font-size: 16px; width: 16px; height: 16px; }
+
+/* ---- Pagination ---- */
+.tp-pagination { padding: 16px 0 0; text-align: center; }
+.tp-pagination .page-numbers { display: inline-block; padding: 6px 12px; margin: 0 2px; border: 1px solid #d6e4ef; border-radius: 6px; text-decoration: none; font-size: 13px; color: #172b4d; background: #fff; }
+.tp-pagination .page-numbers.current { background: #0f4c81; color: #fff; border-color: #0f4c81; }
+.tp-pagination .page-numbers:hover { background: #f0f6fc; }
 .tp-btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 12px 18px; border-radius: 14px; background: #eef5fb; color: #0f4c81 !important; border: 1px solid #c6d9eb; cursor: pointer; font-weight: 700; transition: background .2s, border-color .2s; }
 .tp-btn-secondary:hover { background: #d9e8fb; border-color: #9bc0ec; }
 .tp-btn-danger { display: inline-flex; align-items: center; gap: 6px; padding: 12px 18px; border-radius: 14px; background: #fde8e8; color: #b91c1c !important; border: 1px solid #f5baba; cursor: pointer; font-weight: 700; transition: background .2s, border-color .2s; }
