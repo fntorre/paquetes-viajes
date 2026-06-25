@@ -103,11 +103,104 @@ jQuery(document).ready(function($) {
         }
 
         startTimer();
-    });
+});
 
-    /* ============================================
-       GALLERY LIGHTBOX (single paquete) — full UI
-    ============================================ */
+/* ============================================
+   CATALOG FILTERS — client-side search, filter & sort
+============================================ */
+(function() {
+    var $catalogo = $('.tp-catalogo');
+    if ( $catalogo.length === 0 ) return;
+
+    var $grid     = $catalogo.find('#tp-catalogo-grid');
+    var $cards    = $grid.find('.tp-card');
+    var $total    = $catalogo.find('#tp-catalogo-total');
+    var $empty    = $catalogo.find('.tp-catalogo-empty');
+    var $search   = $catalogo.find('#tp-catalogo-search');
+    var $destino  = $catalogo.find('#tp-filter-destino');
+    var $orderby  = $catalogo.find('#tp-filter-orderby');
+    var $orderDir = $catalogo.find('#tp-filter-order');
+
+    if ( $cards.length === 0 ) return;
+
+    function filterAndSort() {
+        var query   = ($search.val() || '').toLowerCase().trim();
+        var destSlug = $destino.val() || '';
+        var order   = $orderby.val() || 'default';
+        var dir     = $orderDir.val() || 'DESC';
+
+        var visible = [];
+
+        $cards.each(function() {
+            var $c = $(this);
+            var show = true;
+
+            // Text search
+            if ( query ) {
+                var searchText = ($c.data('search') || '').toLowerCase();
+                if ( searchText.indexOf(query) === -1 ) show = false;
+            }
+
+            // Destination filter
+            if ( show && destSlug ) {
+                var destinos = ($c.data('destinos') || '').split(' ');
+                if ( destinos.indexOf(destSlug) === -1 ) show = false;
+            }
+
+            $c.toggle(show);
+            if ( show ) visible.push($c);
+        });
+
+        // Update count
+        $total.text(visible.length);
+
+        // Empty state
+        if ( visible.length === 0 ) {
+            $empty.show();
+            $grid.hide();
+        } else {
+            $empty.hide();
+            $grid.show();
+        }
+
+        // Sorting
+        if ( order !== 'default' && visible.length > 1 ) {
+            visible.sort(function(a, b) {
+                var $a = $(a), $b = $(b);
+                var valA, valB;
+
+                switch ( order ) {
+                    case 'title':
+                        valA = ($a.data('title') || '').toLowerCase();
+                        valB = ($b.data('title') || '').toLowerCase();
+                        return dir === 'ASC' ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+                    case 'price':
+                        valA = parseFloat($a.data('price')) || 0;
+                        valB = parseFloat($b.data('price')) || 0;
+                        return dir === 'ASC' ? valA - valB : valB - valA;
+                    case 'date':
+                        valA = parseInt($a.data('date')) || 0;
+                        valB = parseInt($b.data('date')) || 0;
+                        return dir === 'ASC' ? valA - valB : valB - valA;
+                }
+            });
+
+            $grid.append(visible);
+        }
+    }
+
+    $search.on('input', filterAndSort);
+    $destino.on('change', filterAndSort);
+    $orderby.on('change', filterAndSort);
+    $orderDir.on('change', filterAndSort);
+
+    // Initial sort if non-default order is selected
+    if ( $orderby.val() !== 'default' ) filterAndSort();
+})();
+
+/* ============================================
+   GALLERY LIGHTBOX (single paquete) — full UI
+============================================ */
     (function() {
         var $links = $('.tp-single-gallery.tp-pinterest .tp-gallery-item-link');
         if ( $links.length === 0 ) return;

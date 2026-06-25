@@ -4,11 +4,11 @@
 
 /* ---- General Field Groups ---- */
 .tp-field-group { margin-bottom: 16px; }
-.tp-label { display: block; font-weight: 600; font-size: 13px; color: #1d2327; margin-bottom: 6px; }
-.tp-hint  { font-weight: 400; color: #888; font-size: 11px; }
-.tp-hint-text { font-size: 12px; color: #888; margin: 6px 0 0; }
-.tp-notice { background: #f0f6fc; border-left: 4px solid #0073aa; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: #444; margin: 0; }
-.tp-notice .dashicons { vertical-align: middle; margin-right: 4px; color: #0073aa; }
+.tp-label { display: block; font-weight: 600; font-size: 13px; color: #0f172a; margin-bottom: 6px; }
+.tp-hint  { font-weight: 400; color: #64748b; font-size: 11px; }
+.tp-hint-text { font-size: 12px; color: #64748b; margin: 6px 0 0; }
+.tp-notice { background: #f0f6fc; border-left: 4px solid #0f4c81; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: #475569; margin: 0; }
+.tp-notice .dashicons { vertical-align: middle; margin-right: 4px; color: #0f4c81; }
 
 #tp_main_info textarea,
 #tp_main_info input[type="text"],
@@ -16,34 +16,36 @@
 .tp-field-group input[type="text"],
 .tp-field-group input[type="number"],
 .tp-field-group select {
-    width: 100%; border: 1px solid #ddd; border-radius: 6px;
-    padding: 8px 12px; font-size: 13px; color: #1d2327;
+    width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; color: #0f172a;
     transition: border-color .2s, box-shadow .2s;
     box-sizing: border-box;
 }
 .tp-field-group textarea:focus,
 .tp-field-group input:focus,
-.tp-field-group select:focus { border-color: #0073aa; box-shadow: 0 0 0 2px rgba(0,115,170,.15); outline: none; }
+.tp-field-group select:focus { border-color: #0f4c81; box-shadow: 0 0 0 2px rgba(15,76,129,.12); outline: none; }
 
-.tp-char-count { text-align: right; font-size: 11px; color: #888; margin-top: 4px; }
+.tp-char-count { text-align: right; font-size: 11px; color: #64748b; margin-top: 4px; }
 
 /* ---- Buttons ---- */
 .tp-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .2s; }
-.tp-btn-secondary { background: #f4f6f8; color: #444; border: 1px solid #ddd; }
-.tp-btn-secondary:hover { background: #e8edf0; border-color: #bbb; }
-.tp-btn-icon { width: 26px; height: 26px; border-radius: 50%; background: #fee; color: #c0392b; border: 1px solid #f9c; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all .2s; padding: 0; flex-shrink: 0; }
-.tp-btn-icon:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+.tp-btn-secondary { background: #f1f5f9; color: #0f172a; border: 1px solid #e2e8f0; }
+.tp-btn-secondary:hover { background: #e2e8f0; border-color: #cbd5e1; }
+.tp-btn-icon { width: 26px; height: 26px; border-radius: 6px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all .2s; padding: 0; flex-shrink: 0; }
+.tp-btn-icon:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
 
 /* ---- Gallery ---- */
 .tp-gallery-wrap { padding: 4px 0; }
 .tp-gallery-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; min-height: 10px; }
-.tp-gallery-item { position: relative; width: 90px; height: 68px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.15); cursor: grab; }
+.tp-gallery-item { position: relative; width: 90px; height: 68px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.1); cursor: grab; border: 2px solid transparent; transition: border-color .2s; }
 .tp-gallery-item:active { cursor: grabbing; }
+.tp-gallery-item:hover { border-color: #0f4c81; }
 .tp-gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tp-gallery-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .2s; }
+.tp-gallery-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 4px; background: rgba(15,23,42,.65); color: #fff; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .2s; }
 .tp-gallery-item:hover .tp-gallery-remove { opacity: 1; }
-.tp-gallery-item.tp-dragging { opacity: .5; border: 2px dashed #0073aa; }
-.tp-gallery-item.tp-drag-over { border: 2px solid #0073aa; }
+.tp-gallery-remove:hover { background: #dc2626; }
+.tp-gallery-item.tp-dragging { opacity: .5; border: 2px dashed #0f4c81; }
+.tp-gallery-item.tp-drag-over { border: 2px solid #0f4c81; }
 
 /* ---- Tech Fields ---- */
 .tp-tech-wrap { padding: 4px 0; }
@@ -51,41 +53,41 @@
 .tp-tech-row { display: flex; align-items: center; gap: 8px; }
 .tp-tech-key { width: 35% !important; }
 .tp-tech-val { flex: 1 !important; }
-#tp-tech-fields input { border: 1px solid #ddd; border-radius: 6px; padding: 7px 10px; font-size: 13px; }
-#tp-tech-fields input:focus { border-color: #0073aa; outline: none; box-shadow: 0 0 0 2px rgba(0,115,170,.1); }
-.tp-tech-suggestions { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
-.tp-tech-suggestions strong { display: block; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
-.tp-suggestion { display: inline-block; padding: 4px 10px; border-radius: 20px; background: #f0f6fc; color: #0073aa; border: 1px solid #b8d9f0; font-size: 12px; cursor: pointer; margin: 0 4px 4px 0; transition: all .2s; }
-.tp-suggestion:hover { background: #0073aa; color: #fff; border-color: #0073aa; }
+#tp-tech-fields input { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; }
+#tp-tech-fields input:focus { border-color: #0f4c81; outline: none; box-shadow: 0 0 0 2px rgba(15,76,129,.1); }
+.tp-tech-suggestions { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+.tp-tech-suggestions strong { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.tp-suggestion { display: inline-block; padding: 4px 10px; border-radius: 20px; background: #f0f6fc; color: #0f4c81; border: 1px solid #bfdbfe; font-size: 12px; cursor: pointer; margin: 0 4px 4px 0; transition: all .2s; }
+.tp-suggestion:hover { background: #0f4c81; color: #fff; border-color: #0f4c81; }
 
 /* ---- Dates ---- */
 .tp-dates-wrap { padding: 4px 0; }
 .tp-date-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.tp-date-item .dashicons { color: #888; }
+.tp-date-item .dashicons { color: #64748b; }
 .tp-datepicker { width: auto !important; max-width: 160px; }
 
 /* ---- Price Box ---- */
 .tp-price-wrap { padding: 4px 0; }
 .tp-price-input-wrap { display: flex; align-items: center; }
-.tp-currency-symbol { background: #f4f6f8; border: 1px solid #ddd; border-right: none; padding: 8px 10px; border-radius: 6px 0 0 6px; font-size: 12px; color: #666; font-weight: 600; white-space: nowrap; }
-.tp-price-input-wrap input { border-radius: 0 6px 6px 0 !important; }
+.tp-currency-symbol { background: #f1f5f9; border: 1px solid #e2e8f0; border-right: none; padding: 8px 10px; border-radius: 8px 0 0 8px; font-size: 12px; color: #64748b; font-weight: 600; white-space: nowrap; }
+.tp-price-input-wrap input { border-radius: 0 8px 8px 0 !important; }
 .tp-select-small { width: 100% !important; }
 
 /* ---- Visibility Toggles ---- */
 .tp-visibility-wrap { padding: 4px 0; }
-.tp-toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.tp-toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
 .tp-toggle-item:last-child { border-bottom: none; padding-bottom: 4px; }
 .tp-toggle-info { display: flex; align-items: center; gap: 10px; }
-.tp-toggle-info .dashicons { font-size: 20px; color: #0073aa; }
-.tp-toggle-info strong { display: block; font-size: 13px; color: #1d2327; }
-.tp-toggle-info small { color: #888; font-size: 11px; }
+.tp-toggle-info .dashicons { font-size: 20px; color: #0f4c81; }
+.tp-toggle-info strong { display: block; font-size: 13px; color: #0f172a; }
+.tp-toggle-info small { color: #64748b; font-size: 11px; }
 
 /* Toggle Switch */
 .tp-toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
 .tp-toggle-switch input { opacity: 0; width: 0; height: 0; }
-.tp-toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 24px; transition: .3s; }
+.tp-toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #cbd5e1; border-radius: 24px; transition: .3s; }
 .tp-toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-.tp-toggle-switch input:checked + .tp-toggle-slider { background: #0073aa; }
+.tp-toggle-switch input:checked + .tp-toggle-slider { background: #0f4c81; }
 .tp-toggle-switch input:checked + .tp-toggle-slider:before { transform: translateX(20px); }
 
 /* ---- Meta Box custom styling ---- */
@@ -104,8 +106,8 @@
 #tp_price_box h2.hndle { background: #f8fafc; font-size: 13px; }
 
 /* Datepicker override */
-.ui-datepicker { font-size: 12px !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,.15) !important; }
-.ui-datepicker-header { background: #0073aa !important; border: none !important; border-radius: 8px 8px 0 0 !important; color: #fff !important; }
+.ui-datepicker { font-size: 12px !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,.15) !important; }
+.ui-datepicker-header { background: #0f4c81 !important; border: none !important; border-radius: 10px 10px 0 0 !important; color: #fff !important; }
 .ui-datepicker-title { color: #fff !important; }
 .ui-datepicker-prev, .ui-datepicker-next { top: 5px !important; }
-.ui-state-active { background: #0073aa !important; border-color: #0073aa !important; }
+.ui-state-active { background: #0f4c81 !important; border-color: #0f4c81 !important; }

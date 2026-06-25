@@ -7,6 +7,7 @@ class TP_Shortcodes {
         add_shortcode( 'tp_slider',   [ __CLASS__, 'render_slider' ] );
         add_shortcode( 'tp_grid',     [ __CLASS__, 'render_grid' ] );
         add_shortcode( 'tp_paquete',  [ __CLASS__, 'render_single' ] );
+        add_shortcode( 'tp_catalogo', [ __CLASS__, 'render_catalogo' ] );
 
         add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
     }
@@ -272,6 +273,177 @@ class TP_Shortcodes {
 
         ob_start();
         include TP_PLUGIN_DIR . 'templates/single-paquete.php';
+        return ob_get_clean();
+    }
+
+    /**
+     * [tp_catalogo limit="-1" columns="3" orderby="date" order="DESC" show_search="true" show_filters="true"]
+     * Landing page con buscador + filtros + grilla de todos los paquetes
+     */
+    public static function render_catalogo( $atts ) {
+        $atts = shortcode_atts([
+            'limit'        => -1,
+            'columns'      => 3,
+            'orderby'      => 'date',
+            'order'        => 'DESC',
+            'show_search'  => 'true',
+            'show_filters' => 'true',
+        ], $atts, 'tp_catalogo' );
+
+        wp_enqueue_style(  'tp-public' );
+        wp_enqueue_script( 'tp-public' );
+
+        $args = [
+            'post_type'      => 'paquete_viaje',
+            'post_status'    => 'publish',
+            'posts_per_page' => (int) $atts['limit'],
+            'orderby'        => sanitize_key($atts['orderby']),
+            'order'          => $atts['order'] === 'ASC' ? 'ASC' : 'DESC',
+        ];
+
+        $query = new WP_Query($args);
+
+        $cols    = in_array( (int)$atts['columns'], [1,2,3,4] ) ? (int)$atts['columns'] : 3;
+        $destinos = get_terms([ 'taxonomy' => 'destino', 'hide_empty' => true ]);
+
+        ob_start(); ?>
+        <div class="tp-catalogo" data-columns="<?php echo $cols; ?>">
+
+            <?php if ( $atts['show_search'] === 'true' || $atts['show_filters'] === 'true' ) : ?>
+            <div class="tp-catalogo-toolbar">
+                <?php if ( $atts['show_search'] === 'true' ) : ?>
+                <div class="tp-catalogo-search">
+                    <svg class="tp-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="search" id="tp-catalogo-search" class="tp-catalogo-search-input" placeholder="<?php esc_attr_e('Buscar paquetes por nombre, destino…', 'travel-packages'); ?>">
+                </div>
+                <?php endif; ?>
+
+                <?php if ( $atts['show_filters'] === 'true' ) : ?>
+                <div class="tp-catalogo-filters">
+                    <select id="tp-filter-destino" class="tp-catalogo-select">
+                        <option value=""><?php _e('Todos los destinos', 'travel-packages'); ?></option>
+                        <?php foreach ( $destinos as $destino ) : ?>
+                        <option value="<?php echo esc_attr($destino->slug); ?>"><?php echo esc_html($destino->name); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select id="tp-filter-orderby" class="tp-catalogo-select">
+                        <option value="default"><?php _e('Ordenar por', 'travel-packages'); ?></option>
+                        <option value="title"><?php _e('Nombre', 'travel-packages'); ?></option>
+                        <option value="price"><?php _e('Precio', 'travel-packages'); ?></option>
+                        <option value="date"><?php _e('Fecha', 'travel-packages'); ?></option>
+                    </select>
+                    <select id="tp-filter-order" class="tp-catalogo-select">
+                        <option value="ASC"><?php _e('Ascendente', 'travel-packages'); ?></option>
+                        <option value="DESC" selected><?php _e('Descendente', 'travel-packages'); ?></option>
+                    </select>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <div class="tp-catalogo-count">
+                <span id="tp-catalogo-total"><?php echo $query->found_posts; ?></span>
+                <?php _e('paquetes encontrados', 'travel-packages'); ?>
+            </div>
+
+            <?php if ( $query->have_posts() ) : ?>
+            <div class="tp-grid tp-cols-<?php echo $cols; ?>" id="tp-catalogo-grid">
+                <?php while ( $query->have_posts() ) : $query->the_post();
+                    $price      = get_post_meta( get_the_ID(), '_tp_price', true );
+                    $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
+                    $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
+                    $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
+                    $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
+                    $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
+                    $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
+                    $terms      = get_the_terms( get_the_ID(), 'destino' );
+                    $next_date  = '';
+
+                    if ( is_array($dates) && count($dates) ) {
+                        $future = [];
+                        foreach ( $dates as $d ) {
+                            $from = is_array($d) ? ($d['from'] ?? '') : $d;
+                            if ( ! $from ) continue;
+                            $ts = strtotime( str_replace('/', '-', $from) );
+                            if ( $ts >= strtotime('today') ) $future[] = $from;
+                        }
+                        if ( $future ) $next_date = reset($future);
+                    }
+
+                    $destino_slugs = [];
+                    $destino_names = [];
+                    if ( $terms && ! is_wp_error($terms) ) {
+                        foreach ( $terms as $t ) {
+                            $destino_slugs[] = $t->slug;
+                            $destino_names[] = $t->name;
+                        }
+                    }
+
+                    $search_text = strtolower( get_the_title() . ' ' . implode(' ', $destino_names) . ' ' . ($short_desc ?? '') );
+                ?>
+                <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>"
+                    data-title="<?php echo esc_attr( strtolower(get_the_title()) ); ?>"
+                    data-destinos="<?php echo esc_attr( implode(' ', $destino_slugs) ); ?>"
+                    data-price="<?php echo esc_attr( $price ?: '0' ); ?>"
+                    data-search="<?php echo esc_attr( $search_text ); ?>"
+                    data-date="<?php echo esc_attr( get_the_date('U') ); ?>">
+
+                    <?php if ( $featured ) : ?>
+                    <div class="tp-badge-featured">⭐ <?php _e('Destacado', 'travel-packages'); ?></div>
+                    <?php endif; ?>
+
+                    <a href="<?php the_permalink(); ?>" class="tp-card-image-link">
+                        <?php if ( $thumb_url ) : ?>
+                        <img src="<?php echo esc_url($thumb_url); ?>" alt="<?php the_title_attribute(); ?>" class="tp-card-img" loading="lazy">
+                        <?php else : ?>
+                        <div class="tp-card-img-placeholder"><span class="dashicons dashicons-airplane"></span></div>
+                        <?php endif; ?>
+                        <?php if ( $next_date ) : ?>
+                        <div class="tp-card-next-date">
+                            <span class="dashicons dashicons-calendar-alt"></span>
+                            <?php echo esc_html($next_date); ?>
+                        </div>
+                        <?php endif; ?>
+                    </a>
+
+                    <div class="tp-card-body">
+                        <?php if ( $terms && ! is_wp_error($terms) ) : ?>
+                        <div class="tp-card-terms">
+                            <?php foreach ( $terms as $term ) : ?>
+                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term"><?php echo esc_html($term->name); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <h3 class="tp-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
+
+                        <?php if ( $short_desc ) : ?>
+                        <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
+                        <?php endif; ?>
+
+                        <?php if ( $price ) : ?>
+                        <div class="tp-card-price">
+                            <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
+                            <span class="tp-price-amount"><?php echo esc_html($currency); ?> <strong><?php echo number_format((float)$price, 0, ',', '.'); ?></strong></span>
+                            <?php if ( $price_note ) : ?><span class="tp-price-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
+                    </div>
+                </article>
+                <?php endwhile; wp_reset_postdata(); ?>
+            </div>
+
+            <div class="tp-catalogo-empty" style="display:none;">
+                <span class="tp-catalogo-empty-icon">🔍</span>
+                <p><?php _e('No se encontraron paquetes con los filtros seleccionados.', 'travel-packages'); ?></p>
+            </div>
+            <?php else : ?>
+            <p class="tp-no-results"><?php _e('No hay paquetes disponibles en este momento.', 'travel-packages'); ?></p>
+            <?php endif; ?>
+        </div>
+        <?php
         return ob_get_clean();
     }
 }

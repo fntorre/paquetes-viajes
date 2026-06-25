@@ -339,14 +339,14 @@ class TP_Admin {
                     <div class="tp-card-header tp-filters-header">
                         <h2><?php _e('Listado de paquetes', 'travel-packages'); ?></h2>
                         <div class="tp-filters-bar">
-                            <input type="search" id="tp-package-search" class="tp-package-search" placeholder="<?php esc_attr_e('Buscar paquete por nombre...', 'travel-packages'); ?>" style="margin-top:0;">
-                            <button type="button" id="tp-toggle-filters" class="button <?php if ($filtro_destino || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url) echo 'button-primary'; ?>" style="display:inline-flex;align-items:center;gap:4px;">
+                            <input type="search" id="tp-package-search" class="tp-package-search" placeholder="<?php esc_attr_e('Buscar paquete por nombre...', 'travel-packages'); ?>">
+                            <button type="button" id="tp-toggle-filters" class="button tp-bar-btn <?php if ($filtro_destino || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url) echo 'button-primary'; ?>">
                                 <span class="dashicons dashicons-filter"></span> <?php _e( 'Filtros', 'travel-packages' ); ?>
                             </button>
-                            <a href="<?php echo esc_url( admin_url( 'admin-post.php?action=tp_export_packages' ) . '&tp_export_nonce=' . wp_create_nonce( 'tp_export_packages' ) ); ?>" class="button" style="display:inline-flex;align-items:center;gap:4px;">
+                            <a href="<?php echo esc_url( admin_url( 'admin-post.php?action=tp_export_packages' ) . '&tp_export_nonce=' . wp_create_nonce( 'tp_export_packages' ) ); ?>" class="button tp-bar-btn">
                                 <span class="dashicons dashicons-download"></span> <?php _e( 'Exportar', 'travel-packages' ); ?>
                             </a>
-                            <button type="button" id="tp-import-btn" class="button" style="display:inline-flex;align-items:center;gap:4px;">
+                            <button type="button" id="tp-import-btn" class="button tp-bar-btn">
                                 <span class="dashicons dashicons-upload"></span> <?php _e( 'Importar', 'travel-packages' ); ?>
                             </button>
                             <form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tp-import-form" style="display:none;">
@@ -364,36 +364,71 @@ class TP_Admin {
                     <div class="tp-filters-form" style="display:<?php echo $has_active_filters ? 'block' : 'none'; ?>;">
                         <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="tp-filters-inline">
                             <input type="hidden" name="page" value="tp-packages">
-                            <input type="search" name="tp_filtro_search" placeholder="<?php esc_attr_e( 'Buscar…', 'travel-packages' ); ?>" value="<?php echo esc_attr( $filtro_search ); ?>">
-                            <select name="tp_filtro_destino">
-                                <option value=""><?php _e( 'Todos los destinos', 'travel-packages' ); ?></option>
-                                <?php foreach ( $destinos as $destino ) : ?>
-                                <option value="<?php echo esc_attr( $destino->slug ); ?>" <?php selected( $filtro_destino, $destino->slug ); ?>><?php echo esc_html( $destino->name ); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <input type="number" name="tp_filtro_precio_min" placeholder="<?php esc_attr_e( 'Precio min', 'travel-packages' ); ?>" value="<?php echo $filtro_precio_min ?: ''; ?>" min="0" step="1">
-                            <input type="number" name="tp_filtro_precio_max" placeholder="<?php esc_attr_e( 'Precio max', 'travel-packages' ); ?>" value="<?php echo $filtro_precio_max ?: ''; ?>" min="0" step="1">
-                            <select name="tp_filtro_slider">
-                                <option value=""><?php _e( 'Slider: Todos', 'travel-packages' ); ?></option>
-                                <option value="yes" <?php selected( $filtro_slider, 'yes' ); ?>><?php _e( 'Slider: Sí', 'travel-packages' ); ?></option>
-                                <option value="no" <?php selected( $filtro_slider, 'no' ); ?>><?php _e( 'Slider: No', 'travel-packages' ); ?></option>
-                            </select>
-                            <select name="tp_filtro_featured">
-                                <option value=""><?php _e( 'Destacado: Todos', 'travel-packages' ); ?></option>
-                                <option value="yes" <?php selected( $filtro_featured, 'yes' ); ?>><?php _e( 'Destacado: Sí', 'travel-packages' ); ?></option>
-                                <option value="no" <?php selected( $filtro_featured, 'no' ); ?>><?php _e( 'Destacado: No', 'travel-packages' ); ?></option>
-                            </select>
-                            <select name="tp_orderby">
-                                <option value="date" <?php selected( $orderby_url ?: 'date', 'date' ); ?>><?php _e( 'Ordenar por fecha', 'travel-packages' ); ?></option>
-                                <option value="title" <?php selected( $orderby_url, 'title' ); ?>><?php _e( 'Ordenar por título', 'travel-packages' ); ?></option>
-                                <option value="meta_value_num" <?php selected( $orderby_url, 'meta_value_num' ); ?>><?php _e( 'Ordenar por precio', 'travel-packages' ); ?></option>
-                            </select>
-                            <select name="tp_order">
-                                <option value="DESC" <?php selected( $order_url, 'DESC' ); ?>>DESC</option>
-                                <option value="ASC" <?php selected( $order_url, 'ASC' ); ?>>ASC</option>
-                            </select>
-                            <button type="submit" class="button button-primary"><?php _e( 'Aplicar filtros', 'travel-packages' ); ?></button>
-                            <a href="<?php echo esc_url( $base_url ); ?>" class="button"><?php _e( 'Limpiar', 'travel-packages' ); ?></a>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Buscar', 'travel-packages' ); ?></label>
+                                <input type="search" name="tp_filtro_search" placeholder="<?php esc_attr_e( 'Nombre del paquete…', 'travel-packages' ); ?>" value="<?php echo esc_attr( $filtro_search ); ?>">
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Destino', 'travel-packages' ); ?></label>
+                                <select name="tp_filtro_destino">
+                                    <option value=""><?php _e( 'Todos los destinos', 'travel-packages' ); ?></option>
+                                    <?php foreach ( $destinos as $destino ) : ?>
+                                    <option value="<?php echo esc_attr( $destino->slug ); ?>" <?php selected( $filtro_destino, $destino->slug ); ?>><?php echo esc_html( $destino->name ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Precio min', 'travel-packages' ); ?></label>
+                                <input type="number" name="tp_filtro_precio_min" placeholder="0" value="<?php echo $filtro_precio_min ?: ''; ?>" min="0" step="1">
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Precio max', 'travel-packages' ); ?></label>
+                                <input type="number" name="tp_filtro_precio_max" placeholder="0" value="<?php echo $filtro_precio_max ?: ''; ?>" min="0" step="1">
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Slider', 'travel-packages' ); ?></label>
+                                <select name="tp_filtro_slider">
+                                    <option value=""><?php _e( 'Todos', 'travel-packages' ); ?></option>
+                                    <option value="yes" <?php selected( $filtro_slider, 'yes' ); ?>><?php _e( 'Sí', 'travel-packages' ); ?></option>
+                                    <option value="no" <?php selected( $filtro_slider, 'no' ); ?>><?php _e( 'No', 'travel-packages' ); ?></option>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Destacado', 'travel-packages' ); ?></label>
+                                <select name="tp_filtro_featured">
+                                    <option value=""><?php _e( 'Todos', 'travel-packages' ); ?></option>
+                                    <option value="yes" <?php selected( $filtro_featured, 'yes' ); ?>><?php _e( 'Sí', 'travel-packages' ); ?></option>
+                                    <option value="no" <?php selected( $filtro_featured, 'no' ); ?>><?php _e( 'No', 'travel-packages' ); ?></option>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Ordenar por', 'travel-packages' ); ?></label>
+                                <select name="tp_orderby">
+                                    <option value="date" <?php selected( $orderby_url ?: 'date', 'date' ); ?>><?php _e( 'Fecha', 'travel-packages' ); ?></option>
+                                    <option value="title" <?php selected( $orderby_url, 'title' ); ?>><?php _e( 'Título', 'travel-packages' ); ?></option>
+                                    <option value="meta_value_num" <?php selected( $orderby_url, 'meta_value_num' ); ?>><?php _e( 'Precio', 'travel-packages' ); ?></option>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Dirección', 'travel-packages' ); ?></label>
+                                <select name="tp_order">
+                                    <option value="DESC" <?php selected( $order_url, 'DESC' ); ?>>DESC</option>
+                                    <option value="ASC" <?php selected( $order_url, 'ASC' ); ?>>ASC</option>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field tp-filter-actions">
+                                <button type="submit" class="button button-primary"><?php _e( 'Aplicar filtros', 'travel-packages' ); ?></button>
+                                <a href="<?php echo esc_url( $base_url ); ?>" class="button"><?php _e( 'Limpiar', 'travel-packages' ); ?></a>
+                            </div>
                         </form>
                     </div>
 
@@ -1103,6 +1138,34 @@ class TP_Admin {
                         </table>
                         <h3><?php _e('Ejemplo:', 'travel-packages'); ?></h3>
                         <div class="tp-code-block"><code>[tp_paquete id="123"]</code></div>
+                    </div>
+                </div>
+
+                <div class="tp-sc-section">
+                    <div class="tp-sc-header">
+                        <span class="tp-sc-icon">📂</span>
+                        <div>
+                            <h2>[tp_catalogo]</h2>
+                            <p><?php _e('Landing page completa con buscador, filtros y grilla de todos los paquetes.', 'travel-packages'); ?></p>
+                        </div>
+                    </div>
+                    <div class="tp-sc-body">
+                        <h3><?php _e('Parámetros disponibles:', 'travel-packages'); ?></h3>
+                        <table class="tp-params-table">
+                            <thead><tr><th>Parámetro</th><th>Defecto</th><th>Descripción</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>limit</code></td><td><code>-1</code></td><td><?php _e('Cantidad de paquetes (-1 = todos)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>columns</code></td><td><code>3</code></td><td><?php _e('Columnas: 1, 2, 3 o 4', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>show_search</code></td><td><code>true</code></td><td><?php _e('Mostrar buscador por texto', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>show_filters</code></td><td><code>true</code></td><td><?php _e('Mostrar filtros (destino, orden)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>orderby</code></td><td><code>date</code></td><td><?php _e('Ordenar por: date, title', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>order</code></td><td><code>DESC</code></td><td><?php _e('Dirección: ASC o DESC', 'travel-packages'); ?></td></tr>
+                            </tbody>
+                        </table>
+                        <h3><?php _e('Ejemplos:', 'travel-packages'); ?></h3>
+                        <div class="tp-code-block"><code>[tp_catalogo]</code><span class="tp-code-comment"><?php _e('// catálogo completo con todos los paquetes', 'travel-packages'); ?></span></div>
+                        <div class="tp-code-block"><code>[tp_catalogo columns="4" limit="12"]</code></div>
+                        <div class="tp-code-block"><code>[tp_catalogo show_search="false" show_filters="false"]</code></div>
                     </div>
                 </div>
 
