@@ -227,27 +227,60 @@ jQuery(document).ready(function($) {
 $('.tp-grid-carousel').each(function() {
     var $wrap   = $(this);
     var $track  = $wrap.find('.tp-grid-carousel-track');
-    var $pages  = $wrap.find('.tp-grid-carousel-page');
+    var $slides = $wrap.find('.tp-grid-carousel-item');
     var $prev   = $wrap.find('.tp-carousel-prev');
     var $next   = $wrap.find('.tp-carousel-next');
     var $dots   = $wrap.find('.tp-carousel-dots');
-    var total   = $pages.length;
+    var total   = $slides.length;
     var current = 0;
-    if ( total <= 1 ) return;
+    var pages   = 0;
 
-    for ( var i = 0; i < total; i++ ) {
-        $dots.append('<button class="tp-carousel-dot" data-index="' + i + '" aria-label="Page ' + (i+1) + '"></button>');
+    if ( total <= 0 ) return;
+
+    var desktopPer = parseInt($wrap.data('desktop')) || 1;
+    var mobilePer  = parseInt($wrap.data('movile'))  || 1;
+    var mobileBreakpoint = 767;
+
+    function perView() {
+        return window.innerWidth <= mobileBreakpoint ? mobilePer : desktopPer;
+    }
+
+    function buildDots() {
+        $dots.empty();
+        for ( var i = 0; i < pages; i++ ) {
+            $dots.append('<button class="tp-carousel-dot" data-index="' + i + '" aria-label="Page ' + (i+1) + '"></button>');
+        }
+    }
+
+    function refresh() {
+        var per = perView();
+        $slides.css('flex', '0 0 calc(100% / ' + per + ')');
+
+        pages = Math.max(1, Math.ceil(total / per));
+        buildDots();
+        if ( current > pages - 1 ) current = pages - 1;
+        goTo(current);
+
+        var hasPages = pages > 1;
+        $prev.toggle(hasPages);
+        $next.toggle(hasPages);
+        $dots.toggle(hasPages);
     }
 
     function goTo(index) {
-        if ( index < 0 ) index = total - 1;
-        if ( index >= total ) index = 0;
+        if ( pages <= 1 ) {
+            current = 0;
+            $track.css('transform', 'translateX(0)');
+            return;
+        }
+        if ( index < 0 ) index = pages - 1;
+        if ( index >= pages ) index = 0;
         current = index;
         $track.css('transform', 'translateX(-' + (current * 100) + '%)');
         $dots.find('.tp-carousel-dot').removeClass('is-active').eq(current).addClass('is-active');
     }
 
-    goTo(0);
+    refresh();
 
     $prev.on('click', function() { goTo(current - 1); });
     $next.on('click', function() { goTo(current + 1); });
@@ -266,6 +299,13 @@ $('.tp-grid-carousel').each(function() {
             goTo( dx > 0 ? current + 1 : current - 1 );
         }
     }, { passive: true });
+
+    // Recompute on resize (breakpoint changes per-view count)
+    var resizeTimer = null;
+    $(window).on('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(refresh, 150);
+    });
 });
 
 /* ============================================

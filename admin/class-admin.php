@@ -1204,6 +1204,8 @@ class TP_Admin {
                                 <tr><td><code>columns</code></td><td><code>3</code></td><td><?php _e('Columnas: 1, 2, 3 o 4', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>destacados</code></td><td><code>false</code></td><td><?php _e('Solo mostrar paquetes destacados (true/false)', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>carousel</code></td><td><code>false</code></td><td><?php _e('Modo carrusel horizontal con swipe y flechas (true/false)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>desktop</code></td><td><code>columns</code></td><td><?php _e('Carrusel: paquetes visibles por página en desktop', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>movile</code></td><td><code>desktop</code></td><td><?php _e('Carrusel: paquetes visibles por página en mobile', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>destino</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('Filtrar por slug de destino (ej: europa)', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>tipologia</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('Filtrar por slug de tipología (ej: playa)', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>ids</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('IDs específicos separados por coma (ej: 12,34,56)', 'travel-packages'); ?></td></tr>
@@ -1215,6 +1217,7 @@ class TP_Admin {
                         <div class="tp-code-block"><code>[tp_grid]</code><span class="tp-code-comment"><?php _e('// últimos 6 paquetes, 3 columnas', 'travel-packages'); ?></span></div>
                         <div class="tp-code-block"><code>[tp_grid destacados="true" limit="4" columns="2"]</code></div>
                         <div class="tp-code-block"><code>[tp_grid destacados="true" carousel="true" limit="8" columns="4"]</code><span class="tp-code-comment"><?php _e('// carrusel de destacados', 'travel-packages'); ?></span></div>
+                        <div class="tp-code-block"><code>[tp_grid destacados="true" carousel="true" limit="12" desktop="3" movile="1"]</code><span class="tp-code-comment"><?php _e('// carrusel responsive: 3 en desktop, 1 en mobile', 'travel-packages'); ?></span></div>
                         <div class="tp-code-block"><code>[tp_grid destino="caribe" limit="8" columns="4"]</code></div>
                         <div class="tp-code-block"><code>[tp_grid tipologia="playa" limit="12" columns="3"]</code></div>
                         <div class="tp-code-block"><code>[tp_grid ids="12,34,56" columns="3"]</code></div>

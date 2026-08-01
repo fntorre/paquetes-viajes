@@ -210,12 +210,14 @@
     transition: transform .45s cubic-bezier(.25,.46,.45,.94);
     will-change: transform;
 }
-.tp-grid-carousel-page {
-    display: grid;
-    gap: 24px;
+.tp-grid-carousel-item {
+    box-sizing: border-box;
     flex: 0 0 100%;
     min-width: 0;
+    padding-right: 24px;
 }
+.tp-grid-carousel-item:last-child { padding-right: 0; }
+.tp-grid-carousel-item .tp-card { height: 100%; }
 .tp-carousel-prev,
 .tp-carousel-next {
     position: absolute;

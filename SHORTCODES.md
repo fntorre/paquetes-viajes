@@ -57,6 +57,8 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 | `columns` | 1/2/3/4 | 3 | Número de columnas en la grilla |
 | `destacados` | true/false | false | Mostrar solo paquetes marcados como destacados |
 | `carousel` | true/false | false | Modo carrusel horizontal con swipe y flechas |
+| `desktop` | número | columns | (carrusel) Paquetes visibles por página en desktop |
+| `movile` | número | desktop | (carrusel) Paquetes visibles por página en mobile |
 | `destino` | texto (slug) | "" | Filtrar por destino específico (ej: "europa") |
 | `tipologia` | texto (slug) | "" | Filtrar por tipología específica (ej: "playa") |
 | `orderby` | date/title | date | Ordenar por fecha o título |
@@ -98,6 +100,12 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 #### Carrusel general
 ```
 [tp_grid carousel="true" limit="10" columns="3"]
+```
+
+#### Carrusel responsive (desktop vs mobile)
+`desktop` indica cuántos paquetes se ven por página en desktop y `movile` cuántos en pantallas chicas (≤767px). En mobile los paquetes se desplazan horizontalmente con flechas/swipe.
+```
+[tp_grid destacados="true" carousel="true" limit="12" desktop="3" movile="1"]
 ```
 
 ---

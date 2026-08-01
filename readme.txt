@@ -49,6 +49,13 @@ Props disponibles para tp_slider:
 **Grilla:**
 `[tp_grid limit="6" columns="3" destacados="false" destino="" ids=""]`
 
+Props carrusel para tp_grid:
+- carousel: activar modo carrusel (true/false)
+- desktop: paquetes visibles por página en desktop (default: columns)
+- movile: paquetes visibles por página en mobile (default: desktop)
+
+Ejemplo: `[tp_grid destacados="true" carousel="true" limit="12" desktop="3" movile="1"]`
+
 **Paquete individual:**
 `[tp_paquete id="123"]`
 

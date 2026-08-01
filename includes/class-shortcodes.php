@@ -116,6 +116,10 @@ class TP_Shortcodes {
     /**
      * [tp_grid limit="6" destacados="true" columns="3" destino="europa"]
      * Muestra una grilla de paquetes
+     *
+     * Props carousel:
+     * - desktop: cantidad de paquetes visibles por página en desktop (default: columns)
+     * - movile:  cantidad de paquetes visibles por página en mobile (default: desktop)
      */
     public static function render_grid( $atts ) {
         $atts = shortcode_atts([
@@ -123,6 +127,9 @@ class TP_Shortcodes {
             'destacados'  => 'false',
             'columns'     => 3,
             'carousel'    => 'false',
+            'desktop'     => '',
+            'movile'      => '',
+            'mobile'      => '',
             'destino'     => '',
             'tipologia'   => '',
             'orderby'     => 'date',
@@ -188,22 +195,25 @@ class TP_Shortcodes {
         $cols = in_array( (int)$atts['columns'], [1,2,3,4] ) ? (int)$atts['columns'] : 3;
         $is_carousel = $atts['carousel'] === 'true';
 
+        $desktop = (int) $atts['desktop'];
+        if ( $desktop < 1 ) $desktop = $cols;
+
+        $movile = (int) $atts['movile'];
+        if ( $movile < 1 ) $movile = (int) $atts['mobile'];
+        if ( $movile < 1 ) $movile = $desktop;
+
         ob_start();
 
         if ( $is_carousel ) :
 
-            $total_posts = $query->post_count;
-            $pages = ceil( $total_posts / $cols );
+            $unique_id = 'tp-grid-carousel-' . uniqid();
+            $desktop   = max( 1, $desktop );
+            $movile    = max( 1, $movile );
         ?>
-        <div class="tp-grid-carousel" data-columns="<?php echo $cols; ?>" data-pages="<?php echo $pages; ?>">
+        <div class="tp-grid-carousel" id="<?php echo esc_attr($unique_id); ?>" data-desktop="<?php echo $desktop; ?>" data-movile="<?php echo $movile; ?>">
             <div class="tp-grid-carousel-track">
                 <?php
-                $count = 0;
                 while ( $query->have_posts() ) : $query->the_post();
-                    if ( $count % $cols === 0 ) {
-                        if ( $count > 0 ) echo '</div>';
-                        echo '<div class="tp-grid-carousel-page tp-cols-' . $cols . '">';
-                    }
                     $price      = get_post_meta( get_the_ID(), '_tp_price', true );
                     $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
                     $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
@@ -232,6 +242,7 @@ class TP_Shortcodes {
                         if ( $future ) $next_date = reset($future);
                     }
                 ?>
+                <div class="tp-grid-carousel-item">
                 <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>">
                     <?php if ( $featured ) : ?>
                     <div class="tp-badge-featured">⭐ <?php _e('Destacado', 'travel-packages'); ?></div>
@@ -278,18 +289,12 @@ class TP_Shortcodes {
                         <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
                     </div>
                 </article>
-                <?php
-                    $count++;
-                endwhile;
-                if ( $count > 0 ) echo '</div>';
-                wp_reset_postdata();
-                ?>
+                </div>
+                <?php endwhile; wp_reset_postdata(); ?>
             </div>
-            <?php if ( $pages > 1 ) : ?>
             <button class="tp-carousel-prev" aria-label="Anterior">‹</button>
             <button class="tp-carousel-next" aria-label="Siguiente">›</button>
             <div class="tp-carousel-dots"></div>
-            <?php endif; ?>
         </div>
         <?php
 
