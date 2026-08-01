@@ -352,4 +352,17 @@ jQuery(document).ready(function($) {
     });
 
     $(document).trigger('tpPackagesReady');
+
+    // Prefill form from server-side selected package (e.g. ?package_id=X)
+    var $selectedData = $('#tp-selected-package-data');
+    if ( $selectedData.length && $selectedData.val() && $selectedData.val() !== '[]' && $selectedData.val() !== '{}' ) {
+        try {
+            var selected = JSON.parse( $selectedData.val() );
+            if ( selected && selected.ID ) {
+                fillPackageForm(selected);
+            }
+        } catch ( e ) {
+            // ignore malformed JSON
+        }
+    }
 });

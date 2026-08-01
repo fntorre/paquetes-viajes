@@ -266,84 +266,9 @@ class TP_MetaBoxes {
         if ( ! isset($_POST['tp_meta_nonce']) ) return;
         if ( ! wp_verify_nonce($_POST['tp_meta_nonce'], 'tp_save_meta') ) return;
         if ( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ) return;
-        if ( $post->post_type !== 'paquete_viaje' ) return;
+        if ( $post->post_type !== TP_Package_Data::POST_TYPE ) return;
         if ( ! current_user_can('edit_post', $post_id) ) return;
 
-        // Remove action to prevent recursion when wp_update_post is called in custom flows
-        remove_action( 'save_post', [ __CLASS__, 'save' ], 10 );
-
-        $text_fields = [
-            'tp_short_desc'  => '_tp_short_desc',
-            'tp_price'       => '_tp_price',
-            'tp_price_note'  => '_tp_price_note',
-            'tp_currency'    => '_tp_currency',
-            'tp_gallery'     => '_tp_gallery',
-        ];
-
-        foreach ( $text_fields as $key => $meta_key ) {
-            if ( isset($_POST[$key]) ) {
-                update_post_meta( $post_id, $meta_key, sanitize_text_field($_POST[$key]) );
-            }
-        }
-
-        // Toggle fields
-        update_post_meta( $post_id, '_tp_slider',   isset($_POST['tp_slider'])   ? '1' : '0' );
-        update_post_meta( $post_id, '_tp_featured', isset($_POST['tp_featured']) ? '1' : '0' );
-
-        // Custom fields
-        TP_CustomFields::save_post_fields( $post_id );
-
-        // Tech fields
-        $tech_keys = isset($_POST['tp_tech_key']) ? (array)$_POST['tp_tech_key'] : [];
-        $tech_vals = isset($_POST['tp_tech_val']) ? (array)$_POST['tp_tech_val'] : [];
-        $tech_data = [];
-        foreach ( $tech_keys as $i => $key ) {
-            $k = sanitize_text_field($key);
-            $v = sanitize_text_field($tech_vals[$i] ?? '');
-            if ( $k ) $tech_data[] = [ 'key' => $k, 'val' => $v ];
-        }
-        update_post_meta( $post_id, '_tp_tech_fields', $tech_data );
-
-        // Dates
-        // Dates: paired arrays from/to
-        $dates_from = isset($_POST['tp_dates_from']) ? (array) $_POST['tp_dates_from'] : [];
-        $dates_to   = isset($_POST['tp_dates_to'])   ? (array) $_POST['tp_dates_to']   : [];
-        $dates_data = [];
-        $max = max( count($dates_from), count($dates_to) );
-        for ( $i = 0; $i < $max; $i++ ) {
-            $from = isset($dates_from[$i]) ? sanitize_text_field( $dates_from[$i] ) : '';
-            $to   = isset($dates_to[$i])   ? sanitize_text_field( $dates_to[$i] )   : '';
-            if ( $from || $to ) {
-                // Normalize: if to < from, set to = from
-                if ( $from && $to ) {
-                    $from_ts = strtotime( str_replace('/', '-', $from) );
-                    $to_ts   = strtotime( str_replace('/', '-', $to) );
-                    if ( $from_ts && $to_ts && $to_ts < $from_ts ) {
-                        $to = $from;
-                    }
-                }
-                $dates_data[] = [ 'from' => $from, 'to' => $to ];
-            }
-        }
-        // Backwards compatibility: if legacy single-field posted
-        if ( empty($dates_data) && isset($_POST['tp_dates']) ) {
-            $legacy = (array) $_POST['tp_dates'];
-            foreach ( $legacy as $d ) {
-                $d = sanitize_text_field($d);
-                if ( $d ) $dates_data[] = [ 'from' => $d, 'to' => '' ];
-            }
-        }
-        update_post_meta( $post_id, '_tp_dates', $dates_data );
-
-        // Featured image (attach as post thumbnail)
-        if ( isset($_POST['tp_featured_image']) && $_POST['tp_featured_image'] !== '' ) {
-            $fid = intval( $_POST['tp_featured_image'] );
-            if ( $fid ) {
-                set_post_thumbnail( $post_id, $fid );
-            }
-        }
-
-        // Re-add save action removed earlier as safety measure
-        add_action( 'save_post', [ __CLASS__, 'save' ], 10, 2 );
+        TP_Package_Data::save_from_post( $post_id, $_POST );
     }
 }
