@@ -56,6 +56,8 @@ Props carrusel para tp_grid:
 
 Ejemplo: `[tp_grid destacados="true" carousel="true" limit="12" desktop="3" movile="1"]`
 
+El carrusel es de scroll infinito: envuelve al llegar al final sin saltos visibles.
+
 **Paquete individual:**
 `[tp_paquete id="123"]`
 

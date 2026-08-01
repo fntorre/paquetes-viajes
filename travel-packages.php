@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TP_VERSION',     '2.0.1' );
+define( 'TP_VERSION',     '2.0.3' );
 define( 'TP_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
 define( 'TP_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );
 define( 'TP_PLUGIN_FILE', __FILE__ );

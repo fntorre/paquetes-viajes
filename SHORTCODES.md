@@ -59,6 +59,8 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 | `carousel` | true/false | false | Modo carrusel horizontal con swipe y flechas |
 | `desktop` | número | columns | (carrusel) Paquetes visibles por página en desktop |
 | `movile` | número | desktop | (carrusel) Paquetes visibles por página en mobile |
+
+> **Nota:** El carrusel es de **scroll infinito**: al llegar al final se envuelve sin saltos visibles (técnica de clonado).
 | `destino` | texto (slug) | "" | Filtrar por destino específico (ej: "europa") |
 | `tipologia` | texto (slug) | "" | Filtrar por tipología específica (ej: "playa") |
 | `orderby` | date/title | date | Ordenar por fecha o título |

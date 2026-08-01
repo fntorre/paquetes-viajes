@@ -203,7 +203,6 @@
 .tp-grid-carousel {
     position: relative;
     overflow: hidden;
-    padding: 0 44px;
 }
 .tp-grid-carousel-track {
     display: flex;
@@ -239,8 +238,8 @@
     box-shadow: 0 2px 8px rgba(0,0,0,.1);
     line-height: 1;
 }
-.tp-carousel-prev { left: 0; }
-.tp-carousel-next { right: 0; }
+.tp-carousel-prev { left: 12px; }
+.tp-carousel-next { right: 12px; }
 .tp-carousel-prev:hover,
 .tp-carousel-next:hover {
     background: #fff;
@@ -269,7 +268,6 @@
     background: var(--tp-accent);
 }
 @media (max-width: 768px) {
-    .tp-grid-carousel { padding: 0 36px; }
     .tp-carousel-prev,
     .tp-carousel-next { width: 32px; height: 32px; font-size: 18px; }
 }

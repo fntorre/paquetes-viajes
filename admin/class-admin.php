@@ -815,12 +815,12 @@ class TP_Admin {
             }
         }
 
-        $destino = isset( $_POST['tp_destino'] ) ? sanitize_text_field( $_POST['tp_destino'] ) : '';
-        $new_destino = isset( $_POST['tp_new_destino'] ) ? sanitize_text_field( $_POST['tp_new_destino'] ) : '';
+        $destino     = isset( $_POST['tp_destino'] ) ? sanitize_text_field( wp_unslash( $_POST['tp_destino'] ) ) : '';
+        $new_destino = isset( $_POST['tp_new_destino'] ) ? sanitize_text_field( wp_unslash( $_POST['tp_new_destino'] ) ) : '';
         $destinos = [];
 
         if ( $destino ) {
-            $destinos[] = $destino;
+            $destinos[] = sanitize_title( $destino );
         }
 
         if ( $new_destino ) {
@@ -829,20 +829,26 @@ class TP_Admin {
                 $term = wp_insert_term( $new_destino, 'destino' );
             }
             if ( ! is_wp_error( $term ) ) {
-                $destinos[] = is_array( $term ) ? $term['term_id'] : $term;
+                $term_id   = is_array( $term ) ? $term['term_id'] : $term;
+                $term_obj  = get_term( $term_id, 'destino' );
+                if ( $term_obj && ! is_wp_error( $term_obj ) ) {
+                    $destinos[] = $term_obj->slug;
+                }
             }
         }
 
         if ( $destinos ) {
             wp_set_post_terms( $package_id, $destinos, 'destino', false );
+        } else {
+            wp_delete_object_term_relationships( $package_id, 'destino' );
         }
 
-        $tipologia = isset( $_POST['tp_tipologia'] ) ? sanitize_text_field( $_POST['tp_tipologia'] ) : '';
-        $new_tipologia = isset( $_POST['tp_new_tipologia'] ) ? sanitize_text_field( $_POST['tp_new_tipologia'] ) : '';
+        $tipologia     = isset( $_POST['tp_tipologia'] ) ? sanitize_text_field( wp_unslash( $_POST['tp_tipologia'] ) ) : '';
+        $new_tipologia = isset( $_POST['tp_new_tipologia'] ) ? sanitize_text_field( wp_unslash( $_POST['tp_new_tipologia'] ) ) : '';
         $tipologias = [];
 
         if ( $tipologia ) {
-            $tipologias[] = $tipologia;
+            $tipologias[] = sanitize_title( $tipologia );
         }
 
         if ( $new_tipologia ) {
@@ -851,12 +857,18 @@ class TP_Admin {
                 $term = wp_insert_term( $new_tipologia, 'tipologia' );
             }
             if ( ! is_wp_error( $term ) ) {
-                $tipologias[] = is_array( $term ) ? $term['term_id'] : $term;
+                $term_id   = is_array( $term ) ? $term['term_id'] : $term;
+                $term_obj  = get_term( $term_id, 'tipologia' );
+                if ( $term_obj && ! is_wp_error( $term_obj ) ) {
+                    $tipologias[] = $term_obj->slug;
+                }
             }
         }
 
         if ( $tipologias ) {
             wp_set_post_terms( $package_id, $tipologias, 'tipologia', false );
+        } else {
+            wp_delete_object_term_relationships( $package_id, 'tipologia' );
         }
 
         $redirect_url = admin_url( 'admin.php?page=tp-packages&status=success' );
@@ -1054,35 +1066,45 @@ class TP_Admin {
 
             // Import destinations
             if ( isset( $item['destinos'] ) && is_array( $item['destinos'] ) ) {
-                $term_ids = [];
+                $term_slugs = [];
                 foreach ( $item['destinos'] as $dest_name ) {
+                    $dest_name = sanitize_text_field( $dest_name );
                     $term = term_exists( $dest_name, 'destino' );
                     if ( ! $term ) {
                         $term = wp_insert_term( $dest_name, 'destino' );
                     }
                     if ( ! is_wp_error( $term ) ) {
-                        $term_ids[] = is_array( $term ) ? $term['term_id'] : $term;
+                        $term_id  = is_array( $term ) ? $term['term_id'] : $term;
+                        $term_obj = get_term( $term_id, 'destino' );
+                        if ( $term_obj && ! is_wp_error( $term_obj ) ) {
+                            $term_slugs[] = $term_obj->slug;
+                        }
                     }
                 }
-                if ( $term_ids ) {
-                    wp_set_post_terms( $post_id, $term_ids, 'destino' );
+                if ( $term_slugs ) {
+                    wp_set_post_terms( $post_id, $term_slugs, 'destino' );
                 }
             }
 
             // Import tipologias
             if ( isset( $item['tipologias'] ) && is_array( $item['tipologias'] ) ) {
-                $term_ids = [];
+                $term_slugs = [];
                 foreach ( $item['tipologias'] as $tip_name ) {
+                    $tip_name = sanitize_text_field( $tip_name );
                     $term = term_exists( $tip_name, 'tipologia' );
                     if ( ! $term ) {
                         $term = wp_insert_term( $tip_name, 'tipologia' );
                     }
                     if ( ! is_wp_error( $term ) ) {
-                        $term_ids[] = is_array( $term ) ? $term['term_id'] : $term;
+                        $term_id  = is_array( $term ) ? $term['term_id'] : $term;
+                        $term_obj = get_term( $term_id, 'tipologia' );
+                        if ( $term_obj && ! is_wp_error( $term_obj ) ) {
+                            $term_slugs[] = $term_obj->slug;
+                        }
                     }
                 }
-                if ( $term_ids ) {
-                    wp_set_post_terms( $post_id, $term_ids, 'tipologia' );
+                if ( $term_slugs ) {
+                    wp_set_post_terms( $post_id, $term_slugs, 'tipologia' );
                 }
             }
 

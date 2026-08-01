@@ -227,22 +227,63 @@ jQuery(document).ready(function($) {
 $('.tp-grid-carousel').each(function() {
     var $wrap   = $(this);
     var $track  = $wrap.find('.tp-grid-carousel-track');
-    var $slides = $wrap.find('.tp-grid-carousel-item');
     var $prev   = $wrap.find('.tp-carousel-prev');
     var $next   = $wrap.find('.tp-carousel-next');
     var $dots   = $wrap.find('.tp-carousel-dots');
-    var total   = $slides.length;
-    var current = 0;
-    var pages   = 0;
 
-    if ( total <= 0 ) return;
+    var $orig     = $track.find('.tp-grid-carousel-item');
+    var count     = $orig.length;
+    if ( count <= 0 ) return;
 
     var desktopPer = parseInt($wrap.data('desktop')) || 1;
     var mobilePer  = parseInt($wrap.data('movile'))  || 1;
     var mobileBreakpoint = 767;
 
+    // Clone the slides before + after to enable seamless infinite scroll
+    $track.prepend($orig.clone(true, true));
+    $track.append($orig.clone(true, true));
+
+    var $slides = $track.find('.tp-grid-carousel-item');
+    var per        = 1;
+    var pages      = 1;
+    var currentSlide = count; // index of the first original slide within the track
+
     function perView() {
         return window.innerWidth <= mobileBreakpoint ? mobilePer : desktopPer;
+    }
+
+    function translateTo(slideIndex, animate) {
+        $track.css('transition', animate ? '' : 'none');
+        $track.css('transform', 'translateX(-' + (slideIndex * 100 / per) + '%)');
+    }
+
+    function activePage() {
+        var offset = currentSlide - count;
+        if ( offset < 0 ) offset += count;
+        offset = offset % count;
+        return Math.floor(offset / per);
+    }
+
+    function updateDots() {
+        $dots.find('.tp-carousel-dot').removeClass('is-active').eq(activePage()).addClass('is-active');
+    }
+
+    function goTo(slideIndex, animate) {
+        translateTo(slideIndex, animate);
+        currentSlide = slideIndex;
+        updateDots();
+    }
+
+    // After a transition ends, snap back to the original copy (invisible jump)
+    function normalize() {
+        var next = currentSlide;
+        if ( next >= 2 * count ) next -= count;
+        else if ( next < count ) next += count;
+        if ( next !== currentSlide ) {
+            currentSlide = next;
+            translateTo(currentSlide, false);
+            updateDots();
+        }
     }
 
     function buildDots() {
@@ -253,39 +294,37 @@ $('.tp-grid-carousel').each(function() {
     }
 
     function refresh() {
-        var per = perView();
+        per = perView();
         $slides.css('flex', '0 0 calc(100% / ' + per + ')');
 
-        pages = Math.max(1, Math.ceil(total / per));
-        buildDots();
-        if ( current > pages - 1 ) current = pages - 1;
-        goTo(current);
+        pages = Math.max(1, Math.ceil(count / per));
 
-        var hasPages = pages > 1;
+        // Snap current position to a valid page boundary inside the original copy
+        var offset = currentSlide - count;
+        if ( offset < 0 ) offset = 0;
+        if ( offset > count - 1 ) offset = count - 1;
+        currentSlide = count + Math.floor(offset / per) * per;
+
+        buildDots();
+        translateTo(currentSlide, false);
+        updateDots();
+
+        var hasPages = pages > 1 && count > per;
         $prev.toggle(hasPages);
         $next.toggle(hasPages);
         $dots.toggle(hasPages);
     }
 
-    function goTo(index) {
-        if ( pages <= 1 ) {
-            current = 0;
-            $track.css('transform', 'translateX(0)');
-            return;
-        }
-        if ( index < 0 ) index = pages - 1;
-        if ( index >= pages ) index = 0;
-        current = index;
-        $track.css('transform', 'translateX(-' + (current * 100) + '%)');
-        $dots.find('.tp-carousel-dot').removeClass('is-active').eq(current).addClass('is-active');
-    }
+    $track.on('transitionend', function() {
+        normalize();
+    });
 
     refresh();
 
-    $prev.on('click', function() { goTo(current - 1); });
-    $next.on('click', function() { goTo(current + 1); });
+    $prev.on('click', function() { goTo(currentSlide - per, true); });
+    $next.on('click', function() { goTo(currentSlide + per, true); });
     $dots.on('click', '.tp-carousel-dot', function() {
-        goTo( parseInt($(this).data('index')) );
+        goTo( count + parseInt($(this).data('index'), 10) * per, true );
     });
 
     // Touch swipe
@@ -296,7 +335,7 @@ $('.tp-grid-carousel').each(function() {
     $wrap[0].addEventListener('touchend', function(e) {
         var dx = touchStartX - e.changedTouches[0].clientX;
         if ( Math.abs(dx) > 50 ) {
-            goTo( dx > 0 ? current + 1 : current - 1 );
+            goTo( dx > 0 ? currentSlide + per : currentSlide - per, true );
         }
     }, { passive: true });
 
