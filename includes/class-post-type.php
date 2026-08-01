@@ -6,6 +6,7 @@ class TP_PostType {
     public static function init() {
         add_action( 'init', [ __CLASS__, 'register_post_type' ] );
         add_action( 'init', [ __CLASS__, 'register_taxonomy' ] );
+        add_action( 'init', [ __CLASS__, 'register_taxonomy_tipologia' ] );
         add_filter( 'manage_paquete_viaje_posts_columns',       [ __CLASS__, 'custom_columns' ] );
         add_action( 'manage_paquete_viaje_posts_custom_column', [ __CLASS__, 'custom_column_content' ], 10, 2 );
         add_filter( 'manage_edit-paquete_viaje_sortable_columns', [ __CLASS__, 'sortable_columns' ] );
@@ -114,9 +115,31 @@ class TP_PostType {
         return $columns;
     }
 
+    public static function register_taxonomy_tipologia() {
+        $labels = [
+            'name'              => __( 'Tipologías', 'travel-packages' ),
+            'singular_name'     => __( 'Tipología',  'travel-packages' ),
+            'search_items'      => __( 'Buscar Tipologías', 'travel-packages' ),
+            'all_items'         => __( 'Todas las Tipologías', 'travel-packages' ),
+            'edit_item'         => __( 'Editar Tipología', 'travel-packages' ),
+            'add_new_item'      => __( 'Agregar Tipología', 'travel-packages' ),
+            'menu_name'         => __( 'Tipologías', 'travel-packages' ),
+        ];
+
+        register_taxonomy( 'tipologia', 'paquete_viaje', [
+            'labels'            => $labels,
+            'hierarchical'      => true,
+            'public'            => true,
+            'show_ui'           => true,
+            'show_admin_column' => true,
+            'rewrite'           => [ 'slug' => 'tipologia' ],
+        ]);
+    }
+
     public static function flush_rules() {
         self::register_post_type();
         self::register_taxonomy();
+        self::register_taxonomy_tipologia();
         flush_rewrite_rules();
     }
 }

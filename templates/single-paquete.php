@@ -113,6 +113,6 @@ if ( ! defined('ABSPATH') ) exit;
         </div>
         <?php endif; ?>
         <?php endif; ?>
-
+<div class="todos"><a href="/todos-paquetes-viajes">Ver todos los paquetes</a></div>
     </div><!-- /.tp-single-body -->
 </div><!-- /.tp-single-embed -->

@@ -88,16 +88,17 @@ class TP_Shortcodes {
                     <div class="tp-slide-bg" style="background-image:url('<?php echo esc_url($thumb_url); ?>')"></div>
                     <div class="tp-slide-overlay"></div>
                     <div class="tp-slide-content">
-                        <?php if ( $price ) : ?>
+                    
+                        <h2 class="tp-slide-title"><?php the_title(); ?></h2>
+                        <?php if ( $short_desc ) : ?>
+                        <p class="tp-slide-desc"><?php echo esc_html($short_desc); ?></p>
+                        <?php endif; ?>
+                            <?php if ( $price ) : ?>
                         <div class="tp-slide-price">
                             <span class="tp-from"><?php _e('Desde', 'travel-packages'); ?></span>
                             <span class="tp-amount"><?php echo esc_html($currency . ' ' . number_format((float)$price, 0, ',', '.')); ?></span>
                             <?php if ( $price_note ) : ?><span class="tp-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
                         </div>
-                        <?php endif; ?>
-                        <h2 class="tp-slide-title"><?php the_title(); ?></h2>
-                        <?php if ( $short_desc ) : ?>
-                        <p class="tp-slide-desc"><?php echo esc_html($short_desc); ?></p>
                         <?php endif; ?>
                         <a href="<?php the_permalink(); ?>" class="tp-btn-slide"><?php _e('Ver paquete', 'travel-packages'); ?> →</a>
                     </div>
@@ -121,7 +122,9 @@ class TP_Shortcodes {
             'limit'       => 6,
             'destacados'  => 'false',
             'columns'     => 3,
+            'carousel'    => 'false',
             'destino'     => '',
+            'tipologia'   => '',
             'orderby'     => 'date',
             'order'       => 'DESC',
             'ids'         => '',
@@ -154,12 +157,26 @@ class TP_Shortcodes {
         }
 
         // Filter by taxonomy
+        $tax_query = [];
+
         if ( $atts['destino'] ) {
-            $args['tax_query'] = [[
+            $tax_query[] = [
                 'taxonomy' => 'destino',
                 'field'    => 'slug',
                 'terms'    => sanitize_text_field($atts['destino']),
-            ]];
+            ];
+        }
+
+        if ( $atts['tipologia'] ) {
+            $tax_query[] = [
+                'taxonomy' => 'tipologia',
+                'field'    => 'slug',
+                'terms'    => sanitize_text_field($atts['tipologia']),
+            ];
+        }
+
+        if ( $tax_query ) {
+            $args['tax_query'] = $tax_query;
         }
 
         $query = new WP_Query($args);
@@ -169,8 +186,114 @@ class TP_Shortcodes {
         }
 
         $cols = in_array( (int)$atts['columns'], [1,2,3,4] ) ? (int)$atts['columns'] : 3;
+        $is_carousel = $atts['carousel'] === 'true';
 
-        ob_start(); ?>
+        ob_start();
+
+        if ( $is_carousel ) :
+
+            $total_posts = $query->post_count;
+            $pages = ceil( $total_posts / $cols );
+        ?>
+        <div class="tp-grid-carousel" data-columns="<?php echo $cols; ?>" data-pages="<?php echo $pages; ?>">
+            <div class="tp-grid-carousel-track">
+                <?php
+                $count = 0;
+                while ( $query->have_posts() ) : $query->the_post();
+                    if ( $count % $cols === 0 ) {
+                        if ( $count > 0 ) echo '</div>';
+                        echo '<div class="tp-grid-carousel-page tp-cols-' . $cols . '">';
+                    }
+                    $price      = get_post_meta( get_the_ID(), '_tp_price', true );
+                    $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
+                    $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
+                    $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
+                    $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
+                    $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
+                    $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
+                    $terms      = get_the_terms( get_the_ID(), 'destino' );
+                    $tipologia_terms = get_the_terms( get_the_ID(), 'tipologia' );
+                    $next_date  = '';
+                    if ( is_array($dates) && count($dates) ) {
+                        $future = [];
+                        foreach ( $dates as $d ) {
+                            $from = '';
+                            if ( is_array($d) ) {
+                                $from = $d['from'] ?? '';
+                            } else {
+                                $from = $d;
+                            }
+                            if ( ! $from ) continue;
+                            $ts = strtotime( str_replace('/', '-', $from) );
+                            if ( $ts >= strtotime('today') ) {
+                                $future[] = $from;
+                            }
+                        }
+                        if ( $future ) $next_date = reset($future);
+                    }
+                ?>
+                <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>">
+                    <?php if ( $featured ) : ?>
+                    <div class="tp-badge-featured">⭐ <?php _e('Destacado', 'travel-packages'); ?></div>
+                    <?php endif; ?>
+                    <a href="<?php the_permalink(); ?>" class="tp-card-image-link">
+                        <?php if ( $thumb_url ) : ?>
+                        <img src="<?php echo esc_url($thumb_url); ?>" alt="<?php the_title_attribute(); ?>" class="tp-card-img" loading="lazy">
+                        <?php else : ?>
+                        <div class="tp-card-img-placeholder"><span class="dashicons dashicons-airplane"></span></div>
+                        <?php endif; ?>
+                        <?php if ( $next_date ) : ?>
+                        <div class="tp-card-next-date">
+                            <span class="dashicons dashicons-calendar-alt"></span>
+                            <?php echo esc_html($next_date); ?>
+                        </div>
+                        <?php endif; ?>
+                    </a>
+                    <div class="tp-card-body">
+                        <?php if ( $terms && ! is_wp_error($terms) ) : ?>
+                        <div class="tp-card-terms">
+                            <?php foreach ( $terms as $term ) : ?>
+                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term"><?php echo esc_html($term->name); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) : ?>
+                        <div class="tp-card-terms tp-card-terms-tipologia">
+                            <?php foreach ( $tipologia_terms as $term ) : ?>
+                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term tp-term-tipologia"><?php echo esc_html($term->name); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+                        <h3 class="tp-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
+                        <?php if ( $short_desc ) : ?>
+                        <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
+                        <?php endif; ?>
+                        <?php if ( $price ) : ?>
+                        <div class="tp-card-price">
+                            <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
+                            <span class="tp-price-amount"><?php echo esc_html($currency); ?> <strong><?php echo number_format((float)$price, 0, ',', '.'); ?></strong></span>
+                            <?php if ( $price_note ) : ?><span class="tp-price-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+                        <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
+                    </div>
+                </article>
+                <?php
+                    $count++;
+                endwhile;
+                if ( $count > 0 ) echo '</div>';
+                wp_reset_postdata();
+                ?>
+            </div>
+            <?php if ( $pages > 1 ) : ?>
+            <button class="tp-carousel-prev" aria-label="Anterior">‹</button>
+            <button class="tp-carousel-next" aria-label="Siguiente">›</button>
+            <div class="tp-carousel-dots"></div>
+            <?php endif; ?>
+        </div>
+        <?php
+
+        else : // standard grid ?>
         <div class="tp-grid tp-cols-<?php echo $cols; ?>">
             <?php while ( $query->have_posts() ) : $query->the_post();
                 $price      = get_post_meta( get_the_ID(), '_tp_price', true );
@@ -181,6 +304,7 @@ class TP_Shortcodes {
                 $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
                 $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
                 $terms      = get_the_terms( get_the_ID(), 'destino' );
+                $tipologia_terms = get_the_terms( get_the_ID(), 'tipologia' );
                 $next_date  = '';
                 if ( is_array($dates) && count($dates) ) {
                     $future = [];
@@ -225,6 +349,13 @@ class TP_Shortcodes {
                         <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
+                    <?php if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) : ?>
+                    <div class="tp-card-terms tp-card-terms-tipologia">
+                        <?php foreach ( $tipologia_terms as $term ) : ?>
+                        <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term tp-term-tipologia"><?php echo esc_html($term->name); ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                     <h3 class="tp-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
                     <?php if ( $short_desc ) : ?>
                     <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
@@ -241,7 +372,8 @@ class TP_Shortcodes {
             </article>
             <?php endwhile; wp_reset_postdata(); ?>
         </div>
-        <?php
+        <?php endif;
+
         return ob_get_clean();
     }
 
@@ -301,10 +433,25 @@ class TP_Shortcodes {
             'order'          => $atts['order'] === 'ASC' ? 'ASC' : 'DESC',
         ];
 
+        // Support URL params for pre-filtered catalog landing pages
+        $url_destino   = isset( $_GET['destino'] ) ? sanitize_text_field( $_GET['destino'] ) : '';
+        $url_tipologia = isset( $_GET['tipologia'] ) ? sanitize_text_field( $_GET['tipologia'] ) : '';
+        $tax_query = [];
+        if ( $url_destino ) {
+            $tax_query[] = [ 'taxonomy' => 'destino', 'field' => 'slug', 'terms' => $url_destino ];
+        }
+        if ( $url_tipologia ) {
+            $tax_query[] = [ 'taxonomy' => 'tipologia', 'field' => 'slug', 'terms' => $url_tipologia ];
+        }
+        if ( $tax_query ) {
+            $args['tax_query'] = $tax_query;
+        }
+
         $query = new WP_Query($args);
 
         $cols    = in_array( (int)$atts['columns'], [1,2,3,4] ) ? (int)$atts['columns'] : 3;
         $destinos = get_terms([ 'taxonomy' => 'destino', 'hide_empty' => true ]);
+        $tipologias = get_terms([ 'taxonomy' => 'tipologia', 'hide_empty' => true ]);
 
         ob_start(); ?>
         <div class="tp-catalogo" data-columns="<?php echo $cols; ?>">
@@ -323,9 +470,17 @@ class TP_Shortcodes {
                     <select id="tp-filter-destino" class="tp-catalogo-select">
                         <option value=""><?php _e('Todos los destinos', 'travel-packages'); ?></option>
                         <?php foreach ( $destinos as $destino ) : ?>
-                        <option value="<?php echo esc_attr($destino->slug); ?>"><?php echo esc_html($destino->name); ?></option>
+                        <option value="<?php echo esc_attr($destino->slug); ?>" <?php selected( $url_destino, $destino->slug ); ?>><?php echo esc_html($destino->name); ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?php if ( ! empty( $tipologias ) ) : ?>
+                    <select id="tp-filter-tipologia" class="tp-catalogo-select">
+                        <option value=""><?php _e('Todas las tipologías', 'travel-packages'); ?></option>
+                        <?php foreach ( $tipologias as $tipologia ) : ?>
+                        <option value="<?php echo esc_attr($tipologia->slug); ?>" <?php selected( $url_tipologia, $tipologia->slug ); ?>><?php echo esc_html($tipologia->name); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php endif; ?>
                     <select id="tp-filter-orderby" class="tp-catalogo-select">
                         <option value="default"><?php _e('Ordenar por', 'travel-packages'); ?></option>
                         <option value="title"><?php _e('Nombre', 'travel-packages'); ?></option>
@@ -357,6 +512,7 @@ class TP_Shortcodes {
                     $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
                     $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
                     $terms      = get_the_terms( get_the_ID(), 'destino' );
+                    $tipologia_terms = get_the_terms( get_the_ID(), 'tipologia' );
                     $next_date  = '';
 
                     if ( is_array($dates) && count($dates) ) {
@@ -379,11 +535,21 @@ class TP_Shortcodes {
                         }
                     }
 
-                    $search_text = strtolower( get_the_title() . ' ' . implode(' ', $destino_names) . ' ' . ($short_desc ?? '') );
+                    $tipologia_slugs = [];
+                    $tipologia_names = [];
+                    if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) {
+                        foreach ( $tipologia_terms as $t ) {
+                            $tipologia_slugs[] = $t->slug;
+                            $tipologia_names[] = $t->name;
+                        }
+                    }
+
+                    $search_text = strtolower( get_the_title() . ' ' . implode(' ', $destino_names) . ' ' . implode(' ', $tipologia_names) . ' ' . ($short_desc ?? '') );
                 ?>
                 <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>"
                     data-title="<?php echo esc_attr( strtolower(get_the_title()) ); ?>"
                     data-destinos="<?php echo esc_attr( implode(' ', $destino_slugs) ); ?>"
+                    data-tipologia="<?php echo esc_attr( implode(' ', $tipologia_slugs) ); ?>"
                     data-price="<?php echo esc_attr( $price ?: '0' ); ?>"
                     data-search="<?php echo esc_attr( $search_text ); ?>"
                     data-date="<?php echo esc_attr( get_the_date('U') ); ?>">
@@ -411,6 +577,13 @@ class TP_Shortcodes {
                         <div class="tp-card-terms">
                             <?php foreach ( $terms as $term ) : ?>
                             <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term"><?php echo esc_html($term->name); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) : ?>
+                        <div class="tp-card-terms tp-card-terms-tipologia">
+                            <?php foreach ( $tipologia_terms as $term ) : ?>
+                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term tp-term-tipologia"><?php echo esc_html($term->name); ?></a>
                             <?php endforeach; ?>
                         </div>
                         <?php endif; ?>

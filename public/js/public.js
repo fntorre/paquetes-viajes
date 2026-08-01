@@ -118,6 +118,7 @@ jQuery(document).ready(function($) {
     var $empty    = $catalogo.find('.tp-catalogo-empty');
     var $search   = $catalogo.find('#tp-catalogo-search');
     var $destino  = $catalogo.find('#tp-filter-destino');
+    var $tipologia = $catalogo.find('#tp-filter-tipologia');
     var $orderby  = $catalogo.find('#tp-filter-orderby');
     var $orderDir = $catalogo.find('#tp-filter-order');
 
@@ -145,6 +146,13 @@ jQuery(document).ready(function($) {
             if ( show && destSlug ) {
                 var destinos = ($c.data('destinos') || '').split(' ');
                 if ( destinos.indexOf(destSlug) === -1 ) show = false;
+            }
+
+            // Tipologia filter
+            var tipSlug = $tipologia.val() || '';
+            if ( show && tipSlug ) {
+                var tipologias = ($c.data('tipologia') || '').split(' ');
+                if ( tipologias.indexOf(tipSlug) === -1 ) show = false;
             }
 
             $c.toggle(show);
@@ -191,12 +199,74 @@ jQuery(document).ready(function($) {
 
     $search.on('input', filterAndSort);
     $destino.on('change', filterAndSort);
+    if ( $tipologia.length ) $tipologia.on('change', filterAndSort);
     $orderby.on('change', filterAndSort);
     $orderDir.on('change', filterAndSort);
 
+    // Read URL params for pre-filtering (e.g. ?destino=caribe&tipologia=playa)
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlDestino = urlParams.get('destino');
+    var urlTipologia = urlParams.get('tipologia');
+    var shouldFilter = $orderby.val() !== 'default';
+    if ( urlDestino && $destino.length ) {
+        $destino.val(urlDestino);
+        shouldFilter = true;
+    }
+    if ( urlTipologia && $tipologia.length ) {
+        $tipologia.val(urlTipologia);
+        shouldFilter = true;
+    }
+
     // Initial sort if non-default order is selected
-    if ( $orderby.val() !== 'default' ) filterAndSort();
+    if ( shouldFilter ) filterAndSort();
 })();
+
+/* ============================================
+   CAROUSEL — tp-grid carousel mode
+============================================ */
+$('.tp-grid-carousel').each(function() {
+    var $wrap   = $(this);
+    var $track  = $wrap.find('.tp-grid-carousel-track');
+    var $pages  = $wrap.find('.tp-grid-carousel-page');
+    var $prev   = $wrap.find('.tp-carousel-prev');
+    var $next   = $wrap.find('.tp-carousel-next');
+    var $dots   = $wrap.find('.tp-carousel-dots');
+    var total   = $pages.length;
+    var current = 0;
+    if ( total <= 1 ) return;
+
+    for ( var i = 0; i < total; i++ ) {
+        $dots.append('<button class="tp-carousel-dot" data-index="' + i + '" aria-label="Page ' + (i+1) + '"></button>');
+    }
+
+    function goTo(index) {
+        if ( index < 0 ) index = total - 1;
+        if ( index >= total ) index = 0;
+        current = index;
+        $track.css('transform', 'translateX(-' + (current * 100) + '%)');
+        $dots.find('.tp-carousel-dot').removeClass('is-active').eq(current).addClass('is-active');
+    }
+
+    goTo(0);
+
+    $prev.on('click', function() { goTo(current - 1); });
+    $next.on('click', function() { goTo(current + 1); });
+    $dots.on('click', '.tp-carousel-dot', function() {
+        goTo( parseInt($(this).data('index')) );
+    });
+
+    // Touch swipe
+    var touchStartX = 0;
+    $wrap[0].addEventListener('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    $wrap[0].addEventListener('touchend', function(e) {
+        var dx = touchStartX - e.changedTouches[0].clientX;
+        if ( Math.abs(dx) > 50 ) {
+            goTo( dx > 0 ? current + 1 : current - 1 );
+        }
+    }, { passive: true });
+});
 
 /* ============================================
    GALLERY LIGHTBOX (single paquete) — full UI

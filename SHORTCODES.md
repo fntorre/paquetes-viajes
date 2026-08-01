@@ -56,7 +56,9 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 | `limit` | número | 6 | Cantidad máxima de paquetes a mostrar |
 | `columns` | 1/2/3/4 | 3 | Número de columnas en la grilla |
 | `destacados` | true/false | false | Mostrar solo paquetes marcados como destacados |
+| `carousel` | true/false | false | Modo carrusel horizontal con swipe y flechas |
 | `destino` | texto (slug) | "" | Filtrar por destino específico (ej: "europa") |
+| `tipologia` | texto (slug) | "" | Filtrar por tipología específica (ej: "playa") |
 | `orderby` | date/title | date | Ordenar por fecha o título |
 | `order` | ASC/DESC | DESC | Orden ascendente o descendente |
 | `ids` | lista de IDs | "" | Mostrar paquetes específicos (ej: "1,3,5") |
@@ -83,6 +85,21 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 [tp_grid ids="10,25,33,42" columns="2"]
 ```
 
+#### Grilla por tipología (playa, montaña, etc.)
+```
+[tp_grid tipologia="playa" limit="12" columns="3"]
+```
+
+#### Carrusel de paquetes destacados
+```
+[tp_grid destacados="true" carousel="true" limit="8" columns="4"]
+```
+
+#### Carrusel general
+```
+[tp_grid carousel="true" limit="10" columns="3"]
+```
+
 ---
 
 ## [tp_paquete]
@@ -104,6 +121,54 @@ Muestra un paquete individual incrustado en una página.
 
 ---
 
+## [tp_catalogo]
+
+Catálogo completo con buscador y filtros. Soporta pre-filtrado vía URL.
+
+### Props (Atributos)
+
+| Prop | Tipo | Default | Descripción |
+|------|------|---------|-------------|
+| `limit` | número | -1 | Cantidad máxima de paquetes (-1 = todos) |
+| `columns` | 1/2/3/4 | 3 | Número de columnas en la grilla |
+| `show_search` | true/false | true | Mostrar/ocultar buscador por texto |
+| `show_filters` | true/false | true | Mostrar/ocultar filtros (destino, tipología, orden) |
+| `orderby` | date/title | date | Ordenar por fecha o título |
+| `order` | ASC/DESC | DESC | Orden ascendente o descendente |
+
+### Pre-filtrado por URL
+
+Podés enlazar directamente a un catálogo pre-filtrado usando parámetros en la URL:
+
+| Parámetro | Ejemplo | Descripción |
+|-----------|---------|-------------|
+| `?destino=` | `?destino=caribe` | Filtra por destino |
+| `?tipologia=` | `?tipologia=playa` | Filtra por tipología |
+
+### Ejemplos
+
+```
+[tp_catalogo]
+```
+
+```
+[tp_catalogo columns="4" show_filters="false"]
+```
+
+Enlace a catálogo filtrado por tipología:
+```
+<a href="/paquetes/?tipologia=playa">Ver paquetes de playa</a>
+```
+
+## Tipologías (taxonomía)
+
+La taxonomía `tipologia` permite agrupar paquetes por tipo (playa, montaña, aventura, nacionales, internacionales, etc.).
+
+- Los términos se administran desde el menú **Paquetes de Viaje → Tipologías**
+- Cada tipología tiene su propia página de archivo en `/tipologia/[slug]/`
+- Se muestran como badges dorados en las tarjetas de paquetes
+- Se pueden usar en shortcodes (`[tp_grid tipologia="playa"]`) o en URL (`?tipologia=playa`)
+
 ## Tips
 
 - **Responsive**: Todos los shortcodes son completamente responsive
@@ -115,5 +180,6 @@ Muestra un paquete individual incrustado en una página.
 
 - Los tiempos se especifican en **milisegundos** (1000ms = 1 segundo)
 - Los valores de `true/false` se escriben en minúsculas
-- Los slugs de destino son **case-sensitive** y deben coincidir con los creados en la administración
+- Los slugs de destino/tipología son **case-sensitive** y deben coincidir con los creados en la administración
 - El `id` en `[tp_paquete]` es el ID del post de WordPress, que ves en la URL del panel de administración
+- Al activar el plugin por primera vez después de agregar la tipología, hay que ir a **Ajustes → Enlaces permanentes** y hacer clic en "Guardar cambios" para regenerar las reglas de reescritura

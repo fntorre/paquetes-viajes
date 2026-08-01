@@ -157,6 +157,8 @@ jQuery(document).ready(function($) {
         $('#tp_post_status').val(data.post_status || 'draft');
         $('#tp_destino').val((data.destinos && data.destinos[0]) || '');
         $('#tp_new_destino').val('');
+        $('#tp_tipologia').val((data.tipologias && data.tipologias[0]) || '');
+        $('#tp_new_tipologia').val('');
 
         // Load featured image
         var featuredImageId = data.tp_featured_image || '';
@@ -226,6 +228,8 @@ jQuery(document).ready(function($) {
         $('#tp_featured_image').val('');
         $('#tp-featured-preview-main').empty();
         $('#tp_currency').val('USD');
+        $('#tp_tipologia').val('');
+        $('#tp_new_tipologia').val('');
         $('#tp-delete-package').hide();
         // Reset custom fields
         $('.tp-cf-field').each(function() {

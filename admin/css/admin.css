@@ -177,6 +177,8 @@
 .tp-package-card-meta { display: block; font-size: 12px; color: #64748b; }
 .tp-package-card-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; font-size: 11px; color: #0f4c81; font-weight: 500; }
 .tp-package-card-tags::before { content: 'Destino: '; font-weight: 600; color: #475569; }
+.tp-tags-tipologia { color: #92400e; }
+.tp-tags-tipologia::before { content: 'Tipología: '; color: #92400e; }
 .tp-package-card-actions { display: block; margin-top: 6px; }
 .tp-card-dup-link { font-size: 11px; color: #0f4c81; text-decoration: none; cursor: pointer; font-weight: 500; }
 .tp-card-dup-link:hover { text-decoration: underline; color: #0a3a6b; }

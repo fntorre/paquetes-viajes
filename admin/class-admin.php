@@ -55,6 +55,15 @@ class TP_Admin {
             'edit-tags.php?taxonomy=destino&post_type=paquete_viaje'
         );
 
+        // Submenu: tipologies
+        add_submenu_page(
+            'tp-dashboard',
+            __( 'Tipologías', 'travel-packages' ),
+            __( 'Tipologías', 'travel-packages' ),
+            'manage_categories',
+            'edit-tags.php?taxonomy=tipologia&post_type=paquete_viaje'
+        );
+
         // Submenu: shortcodes helper
         add_submenu_page(
             'tp-dashboard',
@@ -250,6 +259,7 @@ class TP_Admin {
 
         // Advanced filters
         $filtro_destino   = isset( $_GET['tp_filtro_destino'] ) ? sanitize_text_field( $_GET['tp_filtro_destino'] ) : '';
+        $filtro_tipologia = isset( $_GET['tp_filtro_tipologia'] ) ? sanitize_text_field( $_GET['tp_filtro_tipologia'] ) : '';
         $filtro_precio_min = isset( $_GET['tp_filtro_precio_min'] ) ? floatval( $_GET['tp_filtro_precio_min'] ) : 0;
         $filtro_precio_max = isset( $_GET['tp_filtro_precio_max'] ) ? floatval( $_GET['tp_filtro_precio_max'] ) : 0;
         $filtro_slider    = isset( $_GET['tp_filtro_slider'] ) ? sanitize_text_field( $_GET['tp_filtro_slider'] ) : '';
@@ -267,12 +277,26 @@ class TP_Admin {
             $args['order']   = $order_url;
         }
 
+        $tax_query = [];
+
         if ( $filtro_destino ) {
-            $args['tax_query'] = [[
+            $tax_query[] = [
                 'taxonomy' => 'destino',
                 'field'    => 'slug',
                 'terms'    => $filtro_destino,
-            ]];
+            ];
+        }
+
+        if ( $filtro_tipologia ) {
+            $tax_query[] = [
+                'taxonomy' => 'tipologia',
+                'field'    => 'slug',
+                'terms'    => $filtro_tipologia,
+            ];
+        }
+
+        if ( $tax_query ) {
+            $args['tax_query'] = $tax_query;
         }
 
         if ( $filtro_search ) {
@@ -305,6 +329,7 @@ class TP_Admin {
         $total_pages   = $package_query->max_num_pages;
 
         $destinos = get_terms([ 'taxonomy' => 'destino', 'hide_empty' => false ]);
+        $tipologias = get_terms([ 'taxonomy' => 'tipologia', 'hide_empty' => false ]);
         $status   = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
         $base_url = admin_url( 'admin.php?page=tp-packages' );
         ?>
@@ -359,7 +384,7 @@ class TP_Admin {
                     </div>
 
                     <?php
-                    $has_active_filters = $filtro_destino || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url;
+                    $has_active_filters = $filtro_destino || $filtro_tipologia || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url;
                     ?>
                     <div class="tp-filters-form" style="display:<?php echo $has_active_filters ? 'block' : 'none'; ?>;">
                         <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="tp-filters-inline">
@@ -376,6 +401,16 @@ class TP_Admin {
                                     <option value=""><?php _e( 'Todos los destinos', 'travel-packages' ); ?></option>
                                     <?php foreach ( $destinos as $destino ) : ?>
                                     <option value="<?php echo esc_attr( $destino->slug ); ?>" <?php selected( $filtro_destino, $destino->slug ); ?>><?php echo esc_html( $destino->name ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Tipología', 'travel-packages' ); ?></label>
+                                <select name="tp_filtro_tipologia">
+                                    <option value=""><?php _e( 'Todas las tipologías', 'travel-packages' ); ?></option>
+                                    <?php foreach ( $tipologias as $tipologia ) : ?>
+                                    <option value="<?php echo esc_attr( $tipologia->slug ); ?>" <?php selected( $filtro_tipologia, $tipologia->slug ); ?>><?php echo esc_html( $tipologia->name ); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -465,6 +500,7 @@ class TP_Admin {
                                 'tp_tech_fields'=> get_post_meta( $package->ID, '_tp_tech_fields', true ),
                                 'tp_custom_fields' => TP_CustomFields::get_package_data( $package->ID ),
                                 'destinos'      => wp_get_post_terms( $package->ID, 'destino', ['fields' => 'slugs'] ),
+                                'tipologias'    => wp_get_post_terms( $package->ID, 'tipologia', ['fields' => 'slugs'] ),
                             ]);
                         ?>
                         <button type="button" class="tp-package-card" data-package='<?php echo esc_attr( $package_data ); ?>'>
@@ -479,6 +515,7 @@ class TP_Admin {
                                 <strong><?php echo esc_html( $package->post_title ); ?></strong>
                                 <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo esc_html( $currency . ' ' . number_format((float)$price,0,',','.')); ?></span>
                                 <span class="tp-package-card-tags"><?php echo esc_html( implode(', ', wp_get_post_terms($package->ID,'destino', ['fields'=>'names']) ) ); ?></span>
+                                <span class="tp-package-card-tags tp-tags-tipologia"><?php echo esc_html( implode(', ', wp_get_post_terms($package->ID,'tipologia', ['fields'=>'names']) ) ); ?></span>
                                 <span class="tp-package-card-actions">
                                     <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tp_duplicate_package&tp_package_id=' . $package->ID ), 'tp_duplicate_package', 'tp_duplicate_nonce' ) ); ?>" class="tp-card-dup-link" title="<?php esc_attr_e( 'Duplicar paquete', 'travel-packages' ); ?>" onclick="event.stopPropagation();">📋 <?php _e( 'Duplicar', 'travel-packages' ); ?></a>
                                 </span>
@@ -583,10 +620,10 @@ class TP_Admin {
                         </div>
 
                         <div class="tp-panel">
-                            <h2><?php _e('Destino y etiquetas', 'travel-packages'); ?></h2>
+                            <h2><?php _e('Destino y tipología', 'travel-packages'); ?></h2>
                             <div class="tp-field-grid tp-two-columns">
                                 <div class="tp-field-group">
-                                    <label class="tp-label" for="tp_destino"><?php _e('Destino existente', 'travel-packages'); ?></label>
+                                    <label class="tp-label" for="tp_destino"><?php _e('Destino', 'travel-packages'); ?></label>
                                     <select name="tp_destino" id="tp_destino">
                                         <option value=""><?php _e('-- Seleccionar destino --', 'travel-packages'); ?></option>
                                         <?php foreach ( $destinos as $destino ) : ?>
@@ -597,6 +634,21 @@ class TP_Admin {
                                 <div class="tp-field-group">
                                     <label class="tp-label" for="tp_new_destino"><?php _e('Crear nuevo destino', 'travel-packages'); ?></label>
                                     <input type="text" name="tp_new_destino" id="tp_new_destino" placeholder="<?php esc_attr_e('Ej: Caribe, Europa, Mendoza', 'travel-packages'); ?>">
+                                </div>
+                            </div>
+                            <div class="tp-field-grid tp-two-columns" style="margin-top:12px;">
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_tipologia"><?php _e('Tipología existente', 'travel-packages'); ?></label>
+                                    <select name="tp_tipologia" id="tp_tipologia">
+                                        <option value=""><?php _e('-- Seleccionar tipología --', 'travel-packages'); ?></option>
+                                        <?php foreach ( $tipologias as $tipologia ) : ?>
+                                        <option value="<?php echo esc_attr( $tipologia->slug ); ?>"><?php echo esc_html( $tipologia->name ); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_new_tipologia"><?php _e('Crear nueva tipología', 'travel-packages'); ?></label>
+                                    <input type="text" name="tp_new_tipologia" id="tp_new_tipologia" placeholder="<?php esc_attr_e('Ej: Playa, Montaña, Ciudad', 'travel-packages'); ?>">
                                 </div>
                             </div>
                         </div>
@@ -785,6 +837,28 @@ class TP_Admin {
             wp_set_post_terms( $package_id, $destinos, 'destino', false );
         }
 
+        $tipologia = isset( $_POST['tp_tipologia'] ) ? sanitize_text_field( $_POST['tp_tipologia'] ) : '';
+        $new_tipologia = isset( $_POST['tp_new_tipologia'] ) ? sanitize_text_field( $_POST['tp_new_tipologia'] ) : '';
+        $tipologias = [];
+
+        if ( $tipologia ) {
+            $tipologias[] = $tipologia;
+        }
+
+        if ( $new_tipologia ) {
+            $term = term_exists( $new_tipologia, 'tipologia' );
+            if ( ! $term ) {
+                $term = wp_insert_term( $new_tipologia, 'tipologia' );
+            }
+            if ( ! is_wp_error( $term ) ) {
+                $tipologias[] = is_array( $term ) ? $term['term_id'] : $term;
+            }
+        }
+
+        if ( $tipologias ) {
+            wp_set_post_terms( $package_id, $tipologias, 'tipologia', false );
+        }
+
         $redirect_url = admin_url( 'admin.php?page=tp-packages&status=success' );
         if ( $package_id ) {
             $redirect_url = add_query_arg( 'package_id', $package_id, $redirect_url );
@@ -860,6 +934,11 @@ class TP_Admin {
             wp_set_post_terms( $new_id, $terms, 'destino' );
         }
 
+        $tipologia_terms = wp_get_post_terms( $original_id, 'tipologia', [ 'fields' => 'slugs' ] );
+        if ( $tipologia_terms && ! is_wp_error( $tipologia_terms ) ) {
+            wp_set_post_terms( $new_id, $tipologia_terms, 'tipologia' );
+        }
+
         wp_redirect( admin_url( 'admin.php?page=tp-packages&status=duplicated' ) );
         exit;
     }
@@ -901,6 +980,7 @@ class TP_Admin {
                 'slider'        => get_post_meta( $p->ID, '_tp_slider', true ),
                 'featured'      => get_post_meta( $p->ID, '_tp_featured', true ),
                 'destinos'      => wp_get_post_terms( $p->ID, 'destino', [ 'fields' => 'names' ] ),
+                'tipologias'    => wp_get_post_terms( $p->ID, 'tipologia', [ 'fields' => 'names' ] ),
                 'featured_image_url' => get_the_post_thumbnail_url( $p->ID, 'full' ) ?: '',
                 'gallery_urls'  => $gallery_urls,
                 'tech_fields'   => get_post_meta( $p->ID, '_tp_tech_fields', true ),
@@ -986,6 +1066,23 @@ class TP_Admin {
                 }
                 if ( $term_ids ) {
                     wp_set_post_terms( $post_id, $term_ids, 'destino' );
+                }
+            }
+
+            // Import tipologias
+            if ( isset( $item['tipologias'] ) && is_array( $item['tipologias'] ) ) {
+                $term_ids = [];
+                foreach ( $item['tipologias'] as $tip_name ) {
+                    $term = term_exists( $tip_name, 'tipologia' );
+                    if ( ! $term ) {
+                        $term = wp_insert_term( $tip_name, 'tipologia' );
+                    }
+                    if ( ! is_wp_error( $term ) ) {
+                        $term_ids[] = is_array( $term ) ? $term['term_id'] : $term;
+                    }
+                }
+                if ( $term_ids ) {
+                    wp_set_post_terms( $post_id, $term_ids, 'tipologia' );
                 }
             }
 
@@ -1106,7 +1203,9 @@ class TP_Admin {
                                 <tr><td><code>limit</code></td><td><code>6</code></td><td><?php _e('Cantidad de paquetes a mostrar', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>columns</code></td><td><code>3</code></td><td><?php _e('Columnas: 1, 2, 3 o 4', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>destacados</code></td><td><code>false</code></td><td><?php _e('Solo mostrar paquetes destacados (true/false)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>carousel</code></td><td><code>false</code></td><td><?php _e('Modo carrusel horizontal con swipe y flechas (true/false)', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>destino</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('Filtrar por slug de destino (ej: europa)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>tipologia</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('Filtrar por slug de tipología (ej: playa)', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>ids</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('IDs específicos separados por coma (ej: 12,34,56)', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>orderby</code></td><td><code>date</code></td><td><?php _e('Ordenar por: date, title, meta_value_num', 'travel-packages'); ?></td></tr>
                                 <tr><td><code>order</code></td><td><code>DESC</code></td><td><?php _e('Dirección: ASC o DESC', 'travel-packages'); ?></td></tr>
@@ -1115,7 +1214,9 @@ class TP_Admin {
                         <h3><?php _e('Ejemplos:', 'travel-packages'); ?></h3>
                         <div class="tp-code-block"><code>[tp_grid]</code><span class="tp-code-comment"><?php _e('// últimos 6 paquetes, 3 columnas', 'travel-packages'); ?></span></div>
                         <div class="tp-code-block"><code>[tp_grid destacados="true" limit="4" columns="2"]</code></div>
+                        <div class="tp-code-block"><code>[tp_grid destacados="true" carousel="true" limit="8" columns="4"]</code><span class="tp-code-comment"><?php _e('// carrusel de destacados', 'travel-packages'); ?></span></div>
                         <div class="tp-code-block"><code>[tp_grid destino="caribe" limit="8" columns="4"]</code></div>
+                        <div class="tp-code-block"><code>[tp_grid tipologia="playa" limit="12" columns="3"]</code></div>
                         <div class="tp-code-block"><code>[tp_grid ids="12,34,56" columns="3"]</code></div>
                     </div>
                 </div>
