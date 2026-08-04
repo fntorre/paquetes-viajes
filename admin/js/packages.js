@@ -159,6 +159,12 @@ jQuery(document).ready(function($) {
         $('#tp_new_destino').val('');
         $('#tp_tipologia').val((data.tipologias && data.tipologias[0]) || '');
         $('#tp_new_tipologia').val('');
+        $('input[name="tp_tipo_viaje"]').prop('checked', false);
+        if ( data.tp_tipo_viaje ) {
+            $('input[name="tp_tipo_viaje"][value="' + data.tp_tipo_viaje + '"]').prop('checked', true);
+        } else {
+            $('input[name="tp_tipo_viaje"][value=""]').prop('checked', true);
+        }
 
         // Load featured image
         var featuredImageId = data.tp_featured_image || '';
@@ -230,6 +236,7 @@ jQuery(document).ready(function($) {
         $('#tp_currency').val('USD');
         $('#tp_tipologia').val('');
         $('#tp_new_tipologia').val('');
+        $('input[name="tp_tipo_viaje"][value=""]').prop('checked', true);
         $('#tp-delete-package').hide();
         // Reset custom fields
         $('.tp-cf-field').each(function() {

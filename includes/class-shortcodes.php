@@ -132,6 +132,7 @@ class TP_Shortcodes {
             'mobile'      => '',
             'destino'     => '',
             'tipologia'   => '',
+            'tipo_viaje'  => '',
             'orderby'     => 'date',
             'order'       => 'DESC',
             'ids'         => '',
@@ -184,6 +185,13 @@ class TP_Shortcodes {
 
         if ( $tax_query ) {
             $args['tax_query'] = $tax_query;
+        }
+
+        if ( in_array( $atts['tipo_viaje'], [ 'nacional', 'internacional' ], true ) ) {
+            $args['meta_query'] = array_merge( $args['meta_query'] ?? [], [[
+                'key'   => TP_Package_Data::META_TIPO_VIAJE,
+                'value' => $atts['tipo_viaje'],
+            ]] );
         }
 
         $query = new WP_Query($args);
@@ -441,6 +449,7 @@ class TP_Shortcodes {
         // Support URL params for pre-filtered catalog landing pages
         $url_destino   = isset( $_GET['destino'] ) ? sanitize_text_field( $_GET['destino'] ) : '';
         $url_tipologia = isset( $_GET['tipologia'] ) ? sanitize_text_field( $_GET['tipologia'] ) : '';
+        $url_tipo_viaje = isset( $_GET['tipo_viaje'] ) ? sanitize_text_field( $_GET['tipo_viaje'] ) : '';
         $tax_query = [];
         if ( $url_destino ) {
             $tax_query[] = [ 'taxonomy' => 'destino', 'field' => 'slug', 'terms' => $url_destino ];
@@ -450,6 +459,12 @@ class TP_Shortcodes {
         }
         if ( $tax_query ) {
             $args['tax_query'] = $tax_query;
+        }
+        if ( in_array( $url_tipo_viaje, [ 'nacional', 'internacional' ], true ) ) {
+            $args['meta_query'] = [[
+                'key'   => TP_Package_Data::META_TIPO_VIAJE,
+                'value' => $url_tipo_viaje,
+            ]];
         }
 
         $query = new WP_Query($args);
@@ -486,6 +501,11 @@ class TP_Shortcodes {
                         <?php endforeach; ?>
                     </select>
                     <?php endif; ?>
+                    <div class="tp-filter-toggle" id="tp-filter-tipo-viaje">
+                        <button type="button" class="tp-toggle-btn" data-value=""><?php _e('Todos', 'travel-packages'); ?></button>
+                        <button type="button" class="tp-toggle-btn" data-value="nacional"><?php _e('Nacional', 'travel-packages'); ?></button>
+                        <button type="button" class="tp-toggle-btn" data-value="internacional"><?php _e('Internacional', 'travel-packages'); ?></button>
+                    </div>
                     <select id="tp-filter-orderby" class="tp-catalogo-select">
                         <option value="default"><?php _e('Ordenar por', 'travel-packages'); ?></option>
                         <option value="title"><?php _e('Nombre', 'travel-packages'); ?></option>
@@ -550,11 +570,13 @@ class TP_Shortcodes {
                     }
 
                     $search_text = strtolower( get_the_title() . ' ' . implode(' ', $destino_names) . ' ' . implode(' ', $tipologia_names) . ' ' . ($short_desc ?? '') );
+                    $tipo_viaje_val = get_post_meta( get_the_ID(), TP_Package_Data::META_TIPO_VIAJE, true );
                 ?>
                 <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>"
                     data-title="<?php echo esc_attr( strtolower(get_the_title()) ); ?>"
                     data-destinos="<?php echo esc_attr( implode(' ', $destino_slugs) ); ?>"
                     data-tipologia="<?php echo esc_attr( implode(' ', $tipologia_slugs) ); ?>"
+                    data-tipo-viaje="<?php echo esc_attr( $tipo_viaje_val ); ?>"
                     data-price="<?php echo esc_attr( $price ?: '0' ); ?>"
                     data-search="<?php echo esc_attr( $search_text ); ?>"
                     data-date="<?php echo esc_attr( get_the_date('U') ); ?>">

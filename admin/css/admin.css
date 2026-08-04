@@ -197,6 +197,8 @@
 .tp-package-card-tags::before { content: 'Destino: '; font-weight: 600; color: #475569; }
 .tp-tags-tipologia { color: #92400e; }
 .tp-tags-tipologia::before { content: 'Tipología: '; color: #92400e; }
+.tp-tags-tipo-viaje { color: #0e7490; }
+.tp-tags-tipo-viaje::before { content: ''; }
 .tp-package-card-actions { display: block; margin-top: 6px; }
 .tp-card-dup-link { font-size: 11px; color: #0f4c81; text-decoration: none; cursor: pointer; font-weight: 500; }
 .tp-card-dup-link:hover { text-decoration: underline; color: #0a3a6b; }
@@ -259,6 +261,35 @@
 }
 .tp-toggle-row:hover { border-color: #cbd5e1; background: #fff; }
 .tp-toggle-row span { font-weight: 600; color: #0f172a; font-size: 14px; }
+
+.tp-radio-group {
+    display: inline-flex;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+}
+.tp-radio-pill {
+    cursor: pointer;
+}
+.tp-radio-pill input { display: none; }
+.tp-radio-pill span {
+    display: block;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    background: transparent;
+    transition: all .2s;
+    border-right: 1px solid #e2e8f0;
+}
+.tp-radio-pill:last-child span { border-right: none; }
+.tp-radio-pill:hover span { background: #f1f5f9; color: #334155; }
+.tp-radio-pill input:checked + span {
+    background: #0f4c81;
+    color: #fff;
+    font-weight: 600;
+}
 
 /* ---- Dates & Tech Fields ---- */
 .tp-dates-wrap { display: grid; gap: 10px; margin-bottom: 16px; }

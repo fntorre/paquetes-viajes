@@ -121,6 +121,19 @@ jQuery(document).ready(function($) {
     var $tipologia = $catalogo.find('#tp-filter-tipologia');
     var $orderby  = $catalogo.find('#tp-filter-orderby');
     var $orderDir = $catalogo.find('#tp-filter-order');
+    var $tipoViajeToggle = $catalogo.find('#tp-filter-tipo-viaje');
+    var tipoViajeVal = '';
+
+    if ( $tipoViajeToggle.length ) {
+        $tipoViajeToggle.find('.tp-toggle-btn').on('click', function() {
+            var $btn = $(this);
+            $tipoViajeToggle.find('.tp-toggle-btn').removeClass('is-active');
+            $btn.addClass('is-active');
+            tipoViajeVal = $btn.data('value') || '';
+            filterAndSort();
+        });
+        $tipoViajeToggle.find('.tp-toggle-btn[data-value=""]').addClass('is-active');
+    }
 
     if ( $cards.length === 0 ) return;
 
@@ -153,6 +166,12 @@ jQuery(document).ready(function($) {
             if ( show && tipSlug ) {
                 var tipologias = ($c.data('tipologia') || '').split(' ');
                 if ( tipologias.indexOf(tipSlug) === -1 ) show = false;
+            }
+
+            // Tipo viaje filter
+            if ( show && tipoViajeVal ) {
+                var cardTipoViaje = $c.data('tipo-viaje') || '';
+                if ( cardTipoViaje !== tipoViajeVal ) show = false;
             }
 
             $c.toggle(show);
@@ -203,10 +222,11 @@ jQuery(document).ready(function($) {
     $orderby.on('change', filterAndSort);
     $orderDir.on('change', filterAndSort);
 
-    // Read URL params for pre-filtering (e.g. ?destino=caribe&tipologia=playa)
+    // Read URL params for pre-filtering (e.g. ?destino=caribe&tipologia=playa&tipo_viaje=nacional)
     var urlParams = new URLSearchParams(window.location.search);
     var urlDestino = urlParams.get('destino');
     var urlTipologia = urlParams.get('tipologia');
+    var urlTipoViaje = urlParams.get('tipo_viaje');
     var shouldFilter = $orderby.val() !== 'default';
     if ( urlDestino && $destino.length ) {
         $destino.val(urlDestino);
@@ -214,6 +234,12 @@ jQuery(document).ready(function($) {
     }
     if ( urlTipologia && $tipologia.length ) {
         $tipologia.val(urlTipologia);
+        shouldFilter = true;
+    }
+    if ( urlTipoViaje && $tipoViajeToggle.length ) {
+        $tipoViajeToggle.find('.tp-toggle-btn').removeClass('is-active');
+        $tipoViajeToggle.find('.tp-toggle-btn[data-value="' + urlTipoViaje + '"]').addClass('is-active');
+        tipoViajeVal = urlTipoViaje;
         shouldFilter = true;
     }
 

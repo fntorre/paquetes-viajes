@@ -13,6 +13,7 @@ class TP_Package_Data {
     const POST_TYPE      = 'paquete_viaje';
     const TAX_DESTINO    = 'destino';
     const TAX_TIPOLOGIA  = 'tipologia';
+    const META_TIPO_VIAJE = '_tp_tipo_viaje';
 
     /** Mapeo campo de formulario -> meta key. */
     const META_MAP = [
@@ -103,6 +104,7 @@ class TP_Package_Data {
             'tp_dates'         => get_post_meta( $post->ID, '_tp_dates', true ),
             'tp_tech_fields'   => get_post_meta( $post->ID, '_tp_tech_fields', true ),
             'tp_custom_fields' => TP_CustomFields::get_package_data( $post->ID ),
+            'tp_tipo_viaje'    => get_post_meta( $post->ID, self::META_TIPO_VIAJE, true ),
             'destinos'         => self::get_term_slugs( $post->ID, self::TAX_DESTINO ),
             'tipologias'       => self::get_term_slugs( $post->ID, self::TAX_TIPOLOGIA ),
         ];
@@ -146,6 +148,13 @@ class TP_Package_Data {
 
         update_post_meta( $post_id, '_tp_slider',   empty( $input['tp_slider'] )   ? '0' : '1' );
         update_post_meta( $post_id, '_tp_featured', empty( $input['tp_featured'] ) ? '0' : '1' );
+
+        $tipo_viaje = isset( $input['tp_tipo_viaje'] ) ? sanitize_text_field( $input['tp_tipo_viaje'] ) : '';
+        if ( in_array( $tipo_viaje, [ 'nacional', 'internacional' ], true ) ) {
+            update_post_meta( $post_id, self::META_TIPO_VIAJE, $tipo_viaje );
+        } else {
+            delete_post_meta( $post_id, self::META_TIPO_VIAJE );
+        }
     }
 
     private static function save_featured_image( $post_id, $input ) {
@@ -325,7 +334,7 @@ class TP_Package_Data {
                 update_post_meta( $to_id, $meta_key, $val );
             }
         }
-        foreach ( [ '_tp_tech_fields', '_tp_dates' ] as $meta_key ) {
+        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_TIPO_VIAJE ] as $meta_key ) {
             $val = get_post_meta( $from_id, $meta_key, true );
             if ( $val !== '' ) {
                 update_post_meta( $to_id, $meta_key, $val );

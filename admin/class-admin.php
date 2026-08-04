@@ -314,6 +314,11 @@ class TP_Admin {
                 $meta_query[] = [ 'key' => $meta_key, 'value' => '0' ];
             }
         }
+
+        $filtro_tipo_viaje_q = isset( $_GET['tp_filtro_tipo_viaje'] ) ? sanitize_text_field( $_GET['tp_filtro_tipo_viaje'] ) : '';
+        if ( in_array( $filtro_tipo_viaje_q, [ 'nacional', 'internacional' ], true ) ) {
+            $meta_query[] = [ 'key' => TP_Package_Data::META_TIPO_VIAJE, 'value' => $filtro_tipo_viaje_q ];
+        }
         if ( $meta_query ) {
             $args['meta_query'] = $meta_query;
         }
@@ -330,6 +335,7 @@ class TP_Admin {
         $thumb        = get_the_post_thumbnail_url( $package->ID, 'thumbnail' );
         $destinos     = TP_Package_Data::get_term_names( $package->ID, TP_Package_Data::TAX_DESTINO );
         $tipologias   = TP_Package_Data::get_term_names( $package->ID, TP_Package_Data::TAX_TIPOLOGIA );
+        $tipo_viaje   = get_post_meta( $package->ID, TP_Package_Data::META_TIPO_VIAJE, true );
         ?>
         <button type="button" class="tp-package-card" data-package='<?php echo esc_attr( $package_data ); ?>'>
             <div class="tp-package-card-thumb">
@@ -344,6 +350,9 @@ class TP_Admin {
                 <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo esc_html( $currency . ' ' . number_format( (float) $price, 0, ',', '.' ) ); ?></span>
                 <span class="tp-package-card-tags"><?php echo esc_html( implode( ', ', $destinos ) ); ?></span>
                 <span class="tp-package-card-tags tp-tags-tipologia"><?php echo esc_html( implode( ', ', $tipologias ) ); ?></span>
+                <?php if ( $tipo_viaje ) : ?>
+                <span class="tp-package-card-tags tp-tags-tipo-viaje"><?php echo esc_html( $tipo_viaje === 'nacional' ? 'Nacional' : 'Internacional' ); ?></span>
+                <?php endif; ?>
                 <span class="tp-package-card-actions">
                     <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tp_duplicate_package&tp_package_id=' . $package->ID ), 'tp_duplicate_package', 'tp_duplicate_nonce' ) ); ?>" class="tp-card-dup-link" title="<?php esc_attr_e( 'Duplicar paquete', 'travel-packages' ); ?>" onclick="event.stopPropagation();">📋 <?php _e( 'Duplicar', 'travel-packages' ); ?></a>
                 </span>
@@ -377,11 +386,12 @@ class TP_Admin {
         $filtro_precio_max = isset( $_GET['tp_filtro_precio_max'] ) ? floatval( $_GET['tp_filtro_precio_max'] ) : 0;
         $filtro_slider     = isset( $_GET['tp_filtro_slider'] ) ? sanitize_text_field( $_GET['tp_filtro_slider'] ) : '';
         $filtro_featured   = isset( $_GET['tp_filtro_featured'] ) ? sanitize_text_field( $_GET['tp_filtro_featured'] ) : '';
+        $filtro_tipo_viaje = isset( $_GET['tp_filtro_tipo_viaje'] ) ? sanitize_text_field( $_GET['tp_filtro_tipo_viaje'] ) : '';
         $filtro_search     = isset( $_GET['tp_filtro_search'] ) ? sanitize_text_field( $_GET['tp_filtro_search'] ) : '';
         $orderby_url       = isset( $_GET['tp_orderby'] ) ? sanitize_key( $_GET['tp_orderby'] ) : '';
         $order_url         = isset( $_GET['tp_order'] ) && $_GET['tp_order'] === 'ASC' ? 'ASC' : 'DESC';
 
-        $has_active_filters = $filtro_destino || $filtro_tipologia || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url;
+        $has_active_filters = $filtro_destino || $filtro_tipologia || $filtro_tipo_viaje || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url;
         ?>
         <div class="wrap tp-admin-wrap tp-packages-wrap">
             <div class="tp-admin-header">
@@ -460,6 +470,15 @@ class TP_Admin {
                                     <?php foreach ( $tipologias as $tipologia ) : ?>
                                     <option value="<?php echo esc_attr( $tipologia->slug ); ?>" <?php selected( $filtro_tipologia, $tipologia->slug ); ?>><?php echo esc_html( $tipologia->name ); ?></option>
                                     <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="tp-filter-field">
+                                <label><?php _e( 'Tipo de viaje', 'travel-packages' ); ?></label>
+                                <select name="tp_filtro_tipo_viaje">
+                                    <option value=""><?php _e( 'Todos', 'travel-packages' ); ?></option>
+                                    <option value="nacional" <?php selected( $filtro_tipo_viaje, 'nacional' ); ?>><?php _e( 'Nacional', 'travel-packages' ); ?></option>
+                                    <option value="internacional" <?php selected( $filtro_tipo_viaje, 'internacional' ); ?>><?php _e( 'Internacional', 'travel-packages' ); ?></option>
                                 </select>
                             </div>
 
@@ -618,6 +637,23 @@ class TP_Admin {
 
                         <div class="tp-panel">
                             <h2><?php _e('Destino y tipología', 'travel-packages'); ?></h2>
+                            <div class="tp-field-group" style="margin-bottom:16px;">
+                                <label class="tp-label"><?php _e('Tipo de viaje', 'travel-packages'); ?></label>
+                                <div class="tp-radio-group">
+                                    <label class="tp-radio-pill">
+                                        <input type="radio" name="tp_tipo_viaje" value="nacional">
+                                        <span><?php _e('Nacional', 'travel-packages'); ?></span>
+                                    </label>
+                                    <label class="tp-radio-pill">
+                                        <input type="radio" name="tp_tipo_viaje" value="internacional">
+                                        <span><?php _e('Internacional', 'travel-packages'); ?></span>
+                                    </label>
+                                    <label class="tp-radio-pill">
+                                        <input type="radio" name="tp_tipo_viaje" value="" checked>
+                                        <span><?php _e('No definido', 'travel-packages'); ?></span>
+                                    </label>
+                                </div>
+                            </div>
                             <div class="tp-field-grid tp-two-columns">
                                 <div class="tp-field-group">
                                     <label class="tp-label" for="tp_destino"><?php _e('Destino', 'travel-packages'); ?></label>

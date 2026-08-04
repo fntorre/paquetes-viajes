@@ -109,6 +109,7 @@ class TP_Admin_Handlers {
                 'currency'           => get_post_meta( $p->ID, '_tp_currency', true ) ?: 'USD',
                 'slider'             => get_post_meta( $p->ID, '_tp_slider', true ),
                 'featured'           => get_post_meta( $p->ID, '_tp_featured', true ),
+                'tipo_viaje'         => get_post_meta( $p->ID, TP_Package_Data::META_TIPO_VIAJE, true ),
                 'destinos'           => TP_Package_Data::get_term_names( $p->ID, TP_Package_Data::TAX_DESTINO ),
                 'tipologias'         => TP_Package_Data::get_term_names( $p->ID, TP_Package_Data::TAX_TIPOLOGIA ),
                 'featured_image_url' => get_the_post_thumbnail_url( $p->ID, 'full' ) ?: '',
@@ -166,6 +167,7 @@ class TP_Admin_Handlers {
                 '_tp_currency'    => 'currency',
                 '_tp_slider'      => 'slider',
                 '_tp_featured'    => 'featured',
+                '_tp_tipo_viaje'  => 'tipo_viaje',
                 '_tp_tech_fields' => 'tech_fields',
                 '_tp_dates'       => 'dates',
             ];
