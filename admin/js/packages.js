@@ -68,6 +68,17 @@ jQuery(document).ready(function($) {
         addDateField('','');
     });
 
+    $(document).on('click', '#tp-add-price', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        addPriceField('', '', 'USD', false);
+    });
+
+    $(document).on('click', '.tp-remove-price', function(e) {
+        e.preventDefault();
+        $(this).closest('.tp-price-item').remove();
+    });
+
     $(document).on('click', '#tp-add-tech-field', function() {
         addTechField('', '');
     });
@@ -149,9 +160,6 @@ jQuery(document).ready(function($) {
         $('#tp_title').val(data.post_title || '');
         $('#tp_short_desc').val(data.tp_short_desc || '').trigger('input');
         $('#tp_content').val(data.post_content || '');
-        $('#tp_currency').val(data.tp_currency || 'USD');
-        $('#tp_price').val(data.tp_price || '');
-        $('#tp_price_note').val(data.tp_price_note || '');
         $('#tp_slider').prop('checked', data.tp_slider === '1');
         $('#tp_featured').prop('checked', data.tp_featured === '1');
         $('#tp_post_status').val(data.post_status || 'draft');
@@ -186,6 +194,11 @@ jQuery(document).ready(function($) {
         } else {
             $('#tp-featured-preview-main').empty();
         }
+
+        $('#tp-prices-list').empty();
+        (data.tp_prices || []).forEach(function(p) {
+            addPriceField(p.price || '', p.note || '', p.currency || 'USD', !!p.highlighted);
+        });
 
         $('#tp-dates-list').empty();
         (data.tp_dates || []).forEach(function(date) {
@@ -227,13 +240,13 @@ jQuery(document).ready(function($) {
         packageForm[0].reset();
         $('#tp_package_id').val('0');
         $('#tp-short-count').text('0');
+        $('#tp-prices-list').empty();
         $('#tp-dates-list').empty();
         $('#tp-tech-fields').empty();
         $('#tp-gallery-preview').empty();
         $('#tp_gallery_ids').val('');
         $('#tp_featured_image').val('');
         $('#tp-featured-preview-main').empty();
-        $('#tp_currency').val('USD');
         $('#tp_tipologia').val('');
         $('#tp_new_tipologia').val('');
         $('input[name="tp_tipo_viaje"][value=""]').prop('checked', true);
@@ -248,6 +261,24 @@ jQuery(document).ready(function($) {
             }
         });
     }
+
+    function addPriceField(price, note, currency, highlighted) {
+        var checked = highlighted ? ' checked' : '';
+        var field = '<div class="tp-price-item">' +
+            '<select name="tp_currency_item[]" class="tp-price-currency">' +
+                '<option value="USD"' + (currency === 'USD' ? ' selected' : '') + '>USD</option>' +
+                '<option value="ARS"' + (currency === 'ARS' ? ' selected' : '') + '>ARS</option>' +
+                '<option value="EUR"' + (currency === 'EUR' ? ' selected' : '') + '>EUR</option>' +
+                '<option value="BRL"' + (currency === 'BRL' ? ' selected' : '') + '>BRL</option>' +
+            '</select>' +
+            '<input type="number" name="tp_price_item[]" class="tp-price-value" step="0.01" min="0" placeholder="Precio" value="' + (price || '') + '">' +
+            '<input type="text" name="tp_price_note_item[]" class="tp-price-note" placeholder="Nota (ej: por persona en doble)" value="' + (note || '') + '">' +
+            '<label class="tp-price-highlight-label"><input type="checkbox" name="tp_price_highlighted[]" value="1"' + checked + '> Destacar</label>' +
+            '<button type="button" class="tp-remove-price tp-btn-icon" title="Eliminar precio">✕</button>' +
+            '</div>';
+        $('#tp-prices-list').append(field);
+    }
+    window.tpAddPriceField = addPriceField;
 
     function addDateField(from, to) {
         var field = '<div class="tp-date-item"><span class="dashicons dashicons-calendar-alt"></span>' +

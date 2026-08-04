@@ -408,14 +408,28 @@
 .tp-single-body  { padding: 24px; }
 .tp-single-title { font-size: 26px; font-weight: 800; margin: 0 0 12px; color: var(--tp-dark); }
 .tp-single-short { font-size: 16px; color: var(--tp-text); margin: 0 0 20px; line-height: 1.6; }
-.tp-single-price-box { background: linear-gradient(135deg, #f8f9fa, #e8f4fd); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.tp-single-price-box { background: linear-gradient(135deg, #f8f9fa, #e8f4fd); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
 .tp-single-price-big { font-size: 32px; font-weight: 800; color: var(--tp-accent); }
 .tp-single-price-note { font-size: 13px; color: #666; }
 
+.tp-single-prices-section { margin-bottom: 16px; }
+.tp-single-prices-section h4 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--tp-dark); display: flex; align-items: center; gap: 6px; }
+.tp-prices-table { width: 100%; border-collapse: collapse; }
+.tp-prices-table th,
+.tp-prices-table td { padding: 10px 14px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--tp-border); }
+.tp-prices-table th { font-weight: 700; color: var(--tp-dark); background: #f8f9fa; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.tp-prices-table td { color: var(--tp-text); }
+.tp-prices-table tr.tp-price-highlighted { background: #f0fdf4; }
+.tp-prices-table tr.tp-price-highlighted td:first-child::before { content: '✓ '; color: #16a34a; font-weight: 700; }
+
 .tp-single-dates { margin-bottom: 20px; }
-.tp-single-dates h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--tp-dark); display: flex; align-items: center; gap: 6px; }
-.tp-dates-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tp-date-chip { padding: 4px 12px; background: #f0f6fc; color: var(--tp-primary); border-radius: 20px; font-size: 12px; font-weight: 600; }
+.tp-single-dates h4 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--tp-dark); display: flex; align-items: center; gap: 6px; }
+.tp-single-dates-highlighted { background: linear-gradient(135deg, #eff6ff, #f0f9ff); border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px 20px; }
+.tp-dates-table { width: 100%; border-collapse: collapse; }
+.tp-dates-table th,
+.tp-dates-table td { padding: 10px 14px; text-align: left; font-size: 14px; border-bottom: 1px solid #dbeafe; }
+.tp-dates-table th { font-weight: 700; color: #1e40af; background: rgba(219,234,254,.5); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.tp-dates-table td { color: var(--tp-text); }
 
 .tp-tech-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
 .tp-tech-table th,

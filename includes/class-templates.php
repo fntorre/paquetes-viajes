@@ -20,14 +20,12 @@ class TP_Templates {
         }
 
         global $post;
-        $price       = get_post_meta( $post->ID, '_tp_price', true );
-        $currency    = get_post_meta( $post->ID, '_tp_currency', true ) ?: 'USD';
-        $price_note  = get_post_meta( $post->ID, '_tp_price_note', true );
-        $short_desc  = get_post_meta( $post->ID, '_tp_short_desc', true );
-        $tech_fields = get_post_meta( $post->ID, '_tp_tech_fields', true );
-        $dates       = get_post_meta( $post->ID, '_tp_dates', true );
-        $gallery_ids = get_post_meta( $post->ID, '_tp_gallery', true );
-        $thumb_url   = get_the_post_thumbnail_url( $post->ID, 'full' );
+        $prices       = TP_Package_Data::get_prices( $post->ID );
+        $short_desc   = get_post_meta( $post->ID, '_tp_short_desc', true );
+        $tech_fields  = get_post_meta( $post->ID, '_tp_tech_fields', true );
+        $dates        = get_post_meta( $post->ID, '_tp_dates', true );
+        $gallery_ids  = get_post_meta( $post->ID, '_tp_gallery', true );
+        $thumb_url    = get_the_post_thumbnail_url( $post->ID, 'full' );
 
         $custom_field_defs = TP_CustomFields::get_definitions();
         $custom_field_values = TP_CustomFields::get_all_values( $post->ID );

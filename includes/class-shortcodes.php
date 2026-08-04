@@ -77,9 +77,7 @@ class TP_Shortcodes {
             data-showdots="<?php echo esc_attr($showDots); ?>">
             <div class="tp-slider-track">
                 <?php while ( $query->have_posts() ) : $query->the_post();
-                    $price      = get_post_meta( get_the_ID(), '_tp_price', true );
-                    $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
-                    $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
+                    $best_price = TP_Package_Data::get_best_price( get_the_ID() );
                     $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
                     $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'full' );
                     if ( ! $thumb_url ) $thumb_url = TP_PLUGIN_URL . 'public/img/placeholder.jpg';
@@ -93,11 +91,11 @@ class TP_Shortcodes {
                         <?php if ( $short_desc ) : ?>
                         <p class="tp-slide-desc"><?php echo esc_html($short_desc); ?></p>
                         <?php endif; ?>
-                            <?php if ( $price ) : ?>
+                            <?php if ( $best_price ) : ?>
                         <div class="tp-slide-price">
                             <span class="tp-from"><?php _e('Desde', 'travel-packages'); ?></span>
-                            <span class="tp-amount"><?php echo esc_html($currency . ' ' . number_format((float)$price, 0, ',', '.')); ?></span>
-                            <?php if ( $price_note ) : ?><span class="tp-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
+                            <span class="tp-amount"><?php echo esc_html($best_price['currency'] . ' ' . number_format((float)$best_price['price'], 0, ',', '.')); ?></span>
+                            <?php if ( $best_price['note'] ) : ?><span class="tp-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
                         <a href="<?php the_permalink(); ?>" class="tp-btn-slide"><?php _e('Ver paquete', 'travel-packages'); ?> →</a>
@@ -222,9 +220,7 @@ class TP_Shortcodes {
             <div class="tp-grid-carousel-track">
                 <?php
                 while ( $query->have_posts() ) : $query->the_post();
-                    $price      = get_post_meta( get_the_ID(), '_tp_price', true );
-                    $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
-                    $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
+                    $best_price = TP_Package_Data::get_best_price( get_the_ID() );
                     $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
                     $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
                     $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
@@ -287,11 +283,11 @@ class TP_Shortcodes {
                         <?php if ( $short_desc ) : ?>
                         <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
                         <?php endif; ?>
-                        <?php if ( $price ) : ?>
+                        <?php if ( $best_price ) : ?>
                         <div class="tp-card-price">
                             <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
-                            <span class="tp-price-amount"><?php echo esc_html($currency); ?> <strong><?php echo number_format((float)$price, 0, ',', '.'); ?></strong></span>
-                            <?php if ( $price_note ) : ?><span class="tp-price-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
+                            <span class="tp-price-amount"><?php echo esc_html($best_price['currency']); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
+                            <?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
                         <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
@@ -309,9 +305,7 @@ class TP_Shortcodes {
         else : // standard grid ?>
         <div class="tp-grid tp-cols-<?php echo $cols; ?>">
             <?php while ( $query->have_posts() ) : $query->the_post();
-                $price      = get_post_meta( get_the_ID(), '_tp_price', true );
-                $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
-                $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
+                $best_price = TP_Package_Data::get_best_price( get_the_ID() );
                 $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
                 $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
                 $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
@@ -373,11 +367,11 @@ class TP_Shortcodes {
                     <?php if ( $short_desc ) : ?>
                     <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
                     <?php endif; ?>
-                    <?php if ( $price ) : ?>
+                    <?php if ( $best_price ) : ?>
                     <div class="tp-card-price">
                         <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
-                        <span class="tp-price-amount"><?php echo esc_html($currency); ?> <strong><?php echo number_format((float)$price, 0, ',', '.'); ?></strong></span>
-                        <?php if ( $price_note ) : ?><span class="tp-price-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
+                        <span class="tp-price-amount"><?php echo esc_html($best_price['currency']); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
+                        <?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                     </div>
                     <?php endif; ?>
                     <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
@@ -404,14 +398,12 @@ class TP_Shortcodes {
         $post = get_post( (int) $atts['id'] );
         if ( ! $post || $post->post_type !== 'paquete_viaje' ) return '';
 
-        $price       = get_post_meta( $post->ID, '_tp_price', true );
-        $currency    = get_post_meta( $post->ID, '_tp_currency', true ) ?: 'USD';
-        $price_note  = get_post_meta( $post->ID, '_tp_price_note', true );
-        $short_desc  = get_post_meta( $post->ID, '_tp_short_desc', true );
-        $tech_fields = get_post_meta( $post->ID, '_tp_tech_fields', true );
-        $dates       = get_post_meta( $post->ID, '_tp_dates', true );
-        $gallery_ids = get_post_meta( $post->ID, '_tp_gallery', true );
-        $thumb_url   = get_the_post_thumbnail_url( $post->ID, 'full' );
+        $prices       = TP_Package_Data::get_prices( $post->ID );
+        $short_desc   = get_post_meta( $post->ID, '_tp_short_desc', true );
+        $tech_fields  = get_post_meta( $post->ID, '_tp_tech_fields', true );
+        $dates        = get_post_meta( $post->ID, '_tp_dates', true );
+        $gallery_ids  = get_post_meta( $post->ID, '_tp_gallery', true );
+        $thumb_url    = get_the_post_thumbnail_url( $post->ID, 'full' );
 
         $custom_field_defs = TP_CustomFields::get_definitions();
         $custom_field_values = TP_CustomFields::get_all_values( $post->ID );
@@ -529,9 +521,7 @@ class TP_Shortcodes {
             <?php if ( $query->have_posts() ) : ?>
             <div class="tp-grid tp-cols-<?php echo $cols; ?>" id="tp-catalogo-grid">
                 <?php while ( $query->have_posts() ) : $query->the_post();
-                    $price      = get_post_meta( get_the_ID(), '_tp_price', true );
-                    $currency   = get_post_meta( get_the_ID(), '_tp_currency', true ) ?: 'USD';
-                    $price_note = get_post_meta( get_the_ID(), '_tp_price_note', true );
+                    $best_price = TP_Package_Data::get_best_price( get_the_ID() );
                     $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
                     $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
                     $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
@@ -621,11 +611,11 @@ class TP_Shortcodes {
                         <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
                         <?php endif; ?>
 
-                        <?php if ( $price ) : ?>
+                        <?php if ( $best_price ) : ?>
                         <div class="tp-card-price">
                             <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
-                            <span class="tp-price-amount"><?php echo esc_html($currency); ?> <strong><?php echo number_format((float)$price, 0, ',', '.'); ?></strong></span>
-                            <?php if ( $price_note ) : ?><span class="tp-price-note"><?php echo esc_html($price_note); ?></span><?php endif; ?>
+                            <span class="tp-price-amount"><?php echo esc_html($best_price['currency']); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
+                            <?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
 

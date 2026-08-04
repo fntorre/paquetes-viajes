@@ -69,15 +69,30 @@ if ( ! defined('ABSPATH') ) exit;
             </table>
             <?php endif; ?>
 
-            <?php if ( $price ) : ?>
-           
-                <div class="tp-single-price-box-container">
-                    <div class="tp-from-small"><?php _e('Precio desde', 'travel-packages'); ?></div>
-                    <div class="tp-single-price-big"><?php echo esc_html($currency . ' ' . number_format((float)$price, 0, ',', '.')); ?></div>
-                    <?php if ( $price_note ) : ?><div class="tp-single-price-note"><?php echo esc_html($price_note); ?></div><?php endif; ?>
+            <?php if ( ! empty( $prices ) ) : ?>
+                <div class="tp-single-prices-section">
+                    <h4>💰 <?php _e('Precios disponibles', 'travel-packages'); ?></h4>
+                    <table class="tp-prices-table">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Moneda', 'travel-packages'); ?></th>
+                                <th><?php _e('Precio', 'travel-packages'); ?></th>
+                                <th><?php _e('Condición', 'travel-packages'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $prices as $p ) : ?>
+                            <tr<?php echo ! empty( $p['highlighted'] ) ? ' class="tp-price-highlighted"' : ''; ?>>
+                                <td><?php echo esc_html( $p['currency'] ); ?></td>
+                                <td><strong><?php echo esc_html( number_format( (float) $p['price'], 0, ',', '.' ) ); ?></strong></td>
+                                <td><?php echo esc_html( $p['note'] ?: '—' ); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-            </div>
             <?php endif; ?>
+            </div><!-- /.tp-single-price-box -->
 
         </div><!-- /.tp-single-filas -->
         <?php endif; ?>
@@ -96,20 +111,29 @@ if ( ! defined('ABSPATH') ) exit;
                 if ( ! $from ) continue;
                 $ts = strtotime( str_replace('/', '-', $from) );
                 if ( $ts >= strtotime('today') ) {
-                    $label = $from;
-                    if ( $to ) $label .= ' → ' . $to;
-                    $future[] = $label;
+                    $future[] = [ 'from' => $from, 'to' => $to ];
                 }
             }
         ?>
         <?php if ( count($future) ) : ?>
-        <div class="tp-single-dates">
+        <div class="tp-single-dates tp-single-dates-highlighted">
             <h4>📅 <?php _e('Próximas salidas', 'travel-packages'); ?></h4>
-            <div class="tp-dates-chips">
-                <?php foreach ( array_slice($future, 0, 8) as $d ) : ?>
-                <span class="tp-date-chip"><?php echo esc_html($d); ?></span>
-                <?php endforeach; ?>
-            </div>
+            <table class="tp-dates-table">
+                <thead>
+                    <tr>
+                        <th><?php _e('Salida', 'travel-packages'); ?></th>
+                        <th><?php _e('Regreso', 'travel-packages'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( array_slice($future, 0, 10) as $d ) : ?>
+                    <tr>
+                        <td><?php echo esc_html( $d['from'] ); ?></td>
+                        <td><?php echo esc_html( $d['to'] ?: '—' ); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
         <?php endif; ?>
         <?php endif; ?>

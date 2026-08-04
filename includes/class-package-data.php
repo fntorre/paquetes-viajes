@@ -10,23 +10,67 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 class TP_Package_Data {
 
-    const POST_TYPE      = 'paquete_viaje';
-    const TAX_DESTINO    = 'destino';
-    const TAX_TIPOLOGIA  = 'tipologia';
+    const POST_TYPE       = 'paquete_viaje';
+    const TAX_DESTINO     = 'destino';
+    const TAX_TIPOLOGIA   = 'tipologia';
     const META_TIPO_VIAJE = '_tp_tipo_viaje';
+    const META_PRICES     = '_tp_prices';
 
     /** Mapeo campo de formulario -> meta key. */
     const META_MAP = [
         'tp_short_desc' => '_tp_short_desc',
-        'tp_price'      => '_tp_price',
-        'tp_price_note' => '_tp_price_note',
-        'tp_currency'   => '_tp_currency',
         'tp_gallery'    => '_tp_gallery',
     ];
 
     /* =========================================================
      * LECTURA
      * ========================================================= */
+
+    /**
+     * Devuelve el mejor precio de un paquete.
+     * Prioridad: precio destacado > precio más bajo.
+     * Retorna array [price, note, currency] o false si no hay precios.
+     */
+    public static function get_best_price( $post_id ) {
+        $prices = get_post_meta( $post_id, self::META_PRICES, true );
+        if ( ! is_array( $prices ) || empty( $prices ) ) {
+            $price    = get_post_meta( $post_id, '_tp_price', true );
+            $note     = get_post_meta( $post_id, '_tp_price_note', true );
+            $currency = get_post_meta( $post_id, '_tp_currency', true ) ?: 'USD';
+            if ( $price !== '' && $price !== false ) {
+                return [ 'price' => $price, 'note' => $note, 'currency' => $currency ];
+            }
+            return false;
+        }
+        foreach ( $prices as $p ) {
+            if ( ! empty( $p['highlighted'] ) ) {
+                return $p;
+            }
+        }
+        $lowest = false;
+        foreach ( $prices as $p ) {
+            $val = (float) ( $p['price'] ?? 0 );
+            if ( $val > 0 && ( $lowest === false || $val < (float)$lowest['price'] ) ) {
+                $lowest = $p;
+            }
+        }
+        return $lowest ?: false;
+    }
+
+    /** Devuelve todos los precios de un paquete. */
+    public static function get_prices( $post_id ) {
+        $prices = get_post_meta( $post_id, self::META_PRICES, true );
+        if ( ! is_array( $prices ) ) {
+            $price    = get_post_meta( $post_id, '_tp_price', true );
+            $note     = get_post_meta( $post_id, '_tp_price_note', true );
+            $currency = get_post_meta( $post_id, '_tp_currency', true ) ?: 'USD';
+            if ( $price !== '' && $price !== false ) {
+                return [ [ 'price' => $price, 'note' => $note, 'currency' => $currency, 'highlighted' => true ] ];
+            }
+            return [];
+        }
+        return $prices;
+    }
 
     public static function get_meta( $post_id ) {
         $data = [];
@@ -94,9 +138,7 @@ class TP_Package_Data {
             'post_content'     => $post->post_content,
             'post_status'      => $post->post_status,
             'tp_short_desc'    => get_post_meta( $post->ID, '_tp_short_desc', true ),
-            'tp_price'         => get_post_meta( $post->ID, '_tp_price', true ),
-            'tp_price_note'    => get_post_meta( $post->ID, '_tp_price_note', true ),
-            'tp_currency'      => get_post_meta( $post->ID, '_tp_currency', true ) ?: 'USD',
+            'tp_prices'        => self::get_prices( $post->ID ),
             'tp_slider'        => get_post_meta( $post->ID, '_tp_slider', true ),
             'tp_featured'      => get_post_meta( $post->ID, '_tp_featured', true ),
             'tp_featured_image'=> get_post_thumbnail_id( $post->ID ) ?: '',
@@ -154,6 +196,47 @@ class TP_Package_Data {
             update_post_meta( $post_id, self::META_TIPO_VIAJE, $tipo_viaje );
         } else {
             delete_post_meta( $post_id, self::META_TIPO_VIAJE );
+        }
+
+        self::save_prices( $post_id, $input );
+    }
+
+    /**
+     * Guarda el array de precios desde $_POST.
+     * Sincroniza _tp_price/_tp_price_note/_tp_currency con el precio destacado.
+     */
+    private static function save_prices( $post_id, $input ) {
+        $raw_prices = isset( $input['tp_price_item'] ) && is_array( $input['tp_price_item'] ) ? $input['tp_price_item'] : [];
+        $raw_notes  = isset( $input['tp_price_note_item'] ) && is_array( $input['tp_price_note_item'] ) ? $input['tp_price_note_item'] : [];
+        $raw_currs  = isset( $input['tp_currency_item'] ) && is_array( $input['tp_currency_item'] ) ? $input['tp_currency_item'] : [];
+        $raw_high   = isset( $input['tp_price_highlighted'] ) && is_array( $input['tp_price_highlighted'] ) ? $input['tp_price_highlighted'] : [];
+
+        $prices = [];
+        $count  = max( count( $raw_prices ), count( $raw_notes ), count( $raw_currs ) );
+        for ( $i = 0; $i < $count; $i++ ) {
+            $p = sanitize_text_field( wp_unslash( $raw_prices[ $i ] ?? '' ) );
+            if ( $p === '' ) continue;
+            $prices[] = [
+                'price'       => $p,
+                'note'        => sanitize_text_field( wp_unslash( $raw_notes[ $i ] ?? '' ) ),
+                'currency'    => sanitize_text_field( wp_unslash( $raw_currs[ $i ] ?? '' ) ) ?: 'USD',
+                'highlighted' => in_array( $i, $raw_high, true ),
+            ];
+        }
+
+        update_post_meta( $post_id, self::META_PRICES, $prices );
+
+        $best = false;
+        foreach ( $prices as $p ) {
+            if ( ! empty( $p['highlighted'] ) ) { $best = $p; break; }
+        }
+        if ( ! $best && ! empty( $prices ) ) {
+            $best = $prices[0];
+        }
+        if ( $best ) {
+            update_post_meta( $post_id, '_tp_price', $best['price'] );
+            update_post_meta( $post_id, '_tp_price_note', $best['note'] );
+            update_post_meta( $post_id, '_tp_currency', $best['currency'] );
         }
     }
 
@@ -334,7 +417,7 @@ class TP_Package_Data {
                 update_post_meta( $to_id, $meta_key, $val );
             }
         }
-        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_TIPO_VIAJE ] as $meta_key ) {
+        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_TIPO_VIAJE, self::META_PRICES ] as $meta_key ) {
             $val = get_post_meta( $from_id, $meta_key, true );
             if ( $val !== '' ) {
                 update_post_meta( $to_id, $meta_key, $val );

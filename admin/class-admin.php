@@ -95,7 +95,7 @@ class TP_Admin {
             wp_enqueue_script( 'jquery-ui-datepicker' );
             wp_enqueue_style( 'jquery-ui', 'https://code.jquery.com/ui/1.13.2/themes/smoothness/jquery-ui.css' );
             wp_enqueue_media();
-            wp_enqueue_script( 'tp-admin-packages', TP_PLUGIN_URL . 'admin/js/packages.js', [ 'jquery', 'jquery-ui-datepicker' ], TP_VERSION, true );
+            wp_enqueue_script( 'tp-admin-packages', TP_PLUGIN_URL . 'admin/js/packages.js', [ 'jquery', 'jquery-ui-datepicker' ], TP_VERSION . '.' . gmdate('YmdHis'), true );
             wp_localize_script( 'tp-admin-packages', 'TP_ADMIN', [
                 'nonce'        => wp_create_nonce('tp_admin_nonce'),
                 'delete_nonce' => wp_create_nonce('tp_delete_package'),
@@ -187,10 +187,9 @@ class TP_Admin {
                         </thead>
                         <tbody>
                             <?php if ( $recent->have_posts() ) : while ( $recent->have_posts() ) : $recent->the_post();
-                                $price    = get_post_meta(get_the_ID(), '_tp_price', true);
-                                $currency = get_post_meta(get_the_ID(), '_tp_currency', true) ?: 'USD';
-                                $slider   = get_post_meta(get_the_ID(), '_tp_slider', true);
-                                $featured = get_post_meta(get_the_ID(), '_tp_featured', true);
+                                $best_p   = TP_Package_Data::get_best_price( get_the_ID() );
+                                $slider   = get_post_meta( get_the_ID(), '_tp_slider', true );
+                                $featured = get_post_meta( get_the_ID(), '_tp_featured', true );
                             ?>
                             <tr>
                                 <td>
@@ -201,7 +200,7 @@ class TP_Admin {
                                         <strong><?php the_title(); ?></strong>
                                     </div>
                                 </td>
-                                <td><?php echo $price ? esc_html($currency.' '.number_format((float)$price,0,',','.')) : '—'; ?></td>
+                                <td><?php echo $best_p ? esc_html($best_p['currency'].' '.number_format((float)$best_p['price'],0,',','.')) : '—'; ?></td>
                                 <td>
                                     <button class="tp-quick-toggle <?php echo $slider=='1' ? 'active' : ''; ?>" data-post="<?php the_ID(); ?>" data-action="tp_toggle_slider" title="<?php esc_attr_e('Toggle slider','travel-packages'); ?>">
                                         <?php echo $slider=='1' ? '✓' : '○'; ?>
@@ -329,8 +328,7 @@ class TP_Admin {
     /** Renderiza una card del listado con su JSON embebido. */
     private static function render_package_card( $package ) {
         $package_data = wp_json_encode( TP_Package_Data::get_admin_data( $package->ID ) );
-        $price        = get_post_meta( $package->ID, '_tp_price', true );
-        $currency     = get_post_meta( $package->ID, '_tp_currency', true ) ?: 'USD';
+        $best_price   = TP_Package_Data::get_best_price( $package->ID );
         $status_label = $package->post_status === 'publish' ? __( 'Publicado', 'travel-packages' ) : __( 'Borrador', 'travel-packages' );
         $thumb        = get_the_post_thumbnail_url( $package->ID, 'thumbnail' );
         $destinos     = TP_Package_Data::get_term_names( $package->ID, TP_Package_Data::TAX_DESTINO );
@@ -347,7 +345,7 @@ class TP_Admin {
             </div>
             <div class="tp-package-card-body">
                 <strong><?php echo esc_html( $package->post_title ); ?></strong>
-                <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo esc_html( $currency . ' ' . number_format( (float) $price, 0, ',', '.' ) ); ?></span>
+                <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo $best_price ? esc_html( $best_price['currency'] . ' ' . number_format( (float) $best_price['price'], 0, ',', '.' ) ) : '—'; ?></span>
                 <span class="tp-package-card-tags"><?php echo esc_html( implode( ', ', $destinos ) ); ?></span>
                 <span class="tp-package-card-tags tp-tags-tipologia"><?php echo esc_html( implode( ', ', $tipologias ) ); ?></span>
                 <?php if ( $tipo_viaje ) : ?>
@@ -592,26 +590,11 @@ class TP_Admin {
                         </div>
 
                         <div class="tp-panel">
-                            <h2><?php _e('Precio & Condiciones', 'travel-packages'); ?></h2>
-                            <div class="tp-field-grid tp-two-columns">
-                                <div class="tp-field-group">
-                                    <label class="tp-label" for="tp_currency"><?php _e('Moneda', 'travel-packages'); ?></label>
-                                    <select name="tp_currency" id="tp_currency">
-                                        <option value="USD">USD – Dólar</option>
-                                        <option value="ARS">ARS – Peso Arg.</option>
-                                        <option value="EUR">EUR – Euro</option>
-                                        <option value="BRL">BRL – Real</option>
-                                    </select>
-                                </div>
-                                <div class="tp-field-group">
-                                    <label class="tp-label" for="tp_price"><?php _e('Precio por persona', 'travel-packages'); ?></label>
-                                    <input type="number" name="tp_price" id="tp_price" step="0.01" min="0" placeholder="0.00">
-                                </div>
-                            </div>
-                            <div class="tp-field-group">
-                                <label class="tp-label" for="tp_price_note"><?php _e('Nota de precio', 'travel-packages'); ?></label>
-                                <input type="text" name="tp_price_note" id="tp_price_note" placeholder="<?php esc_attr_e('por persona en doble, impuestos incluidos...', 'travel-packages'); ?>">
-                            </div>
+                            <h2><?php _e('Precios & Condiciones', 'travel-packages'); ?></h2>
+                            <div id="tp-prices-list" class="tp-prices-wrap"></div>
+                            <button type="button" id="tp-add-price" class="tp-btn tp-btn-secondary" onclick="if(window.tpAddPriceField){tpAddPriceField('','','USD',false);}">
+                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar precio', 'travel-packages'); ?>
+                            </button>
                         </div>
 
                         <div class="tp-panel">

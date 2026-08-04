@@ -104,9 +104,7 @@ class TP_Admin_Handlers {
                 'content'            => $p->post_content,
                 'status'             => $p->post_status,
                 'short_desc'         => get_post_meta( $p->ID, '_tp_short_desc', true ),
-                'price'              => get_post_meta( $p->ID, '_tp_price', true ),
-                'price_note'         => get_post_meta( $p->ID, '_tp_price_note', true ),
-                'currency'           => get_post_meta( $p->ID, '_tp_currency', true ) ?: 'USD',
+                'prices'             => TP_Package_Data::get_prices( $p->ID ),
                 'slider'             => get_post_meta( $p->ID, '_tp_slider', true ),
                 'featured'           => get_post_meta( $p->ID, '_tp_featured', true ),
                 'tipo_viaje'         => get_post_meta( $p->ID, TP_Package_Data::META_TIPO_VIAJE, true ),
@@ -162,9 +160,6 @@ class TP_Admin_Handlers {
 
             $meta_map = [
                 '_tp_short_desc'  => 'short_desc',
-                '_tp_price'       => 'price',
-                '_tp_price_note'  => 'price_note',
-                '_tp_currency'    => 'currency',
                 '_tp_slider'      => 'slider',
                 '_tp_featured'    => 'featured',
                 '_tp_tipo_viaje'  => 'tipo_viaje',
@@ -176,6 +171,37 @@ class TP_Admin_Handlers {
                     $val = is_string( $item[ $item_key ] ) ? sanitize_text_field( $item[ $item_key ] ) : $item[ $item_key ];
                     update_post_meta( $post_id, $meta_key, $val );
                 }
+            }
+
+            if ( isset( $item['prices'] ) && is_array( $item['prices'] ) ) {
+                $prices = [];
+                foreach ( $item['prices'] as $p ) {
+                    $prices[] = [
+                        'price'       => sanitize_text_field( $p['price'] ?? '' ),
+                        'note'        => sanitize_text_field( $p['note'] ?? '' ),
+                        'currency'    => sanitize_text_field( $p['currency'] ?? '' ) ?: 'USD',
+                        'highlighted' => ! empty( $p['highlighted'] ),
+                    ];
+                }
+                update_post_meta( $post_id, TP_Package_Data::META_PRICES, $prices );
+                if ( ! empty( $prices ) ) {
+                    $best = $prices[0];
+                    foreach ( $prices as $p ) { if ( ! empty( $p['highlighted'] ) ) { $best = $p; break; } }
+                    update_post_meta( $post_id, '_tp_price', $best['price'] );
+                    update_post_meta( $post_id, '_tp_price_note', $best['note'] );
+                    update_post_meta( $post_id, '_tp_currency', $best['currency'] );
+                }
+            } elseif ( isset( $item['price'] ) || isset( $item['price_note'] ) || isset( $item['currency'] ) ) {
+                $prices = [[
+                    'price'       => sanitize_text_field( $item['price'] ?? '' ),
+                    'note'        => sanitize_text_field( $item['price_note'] ?? '' ),
+                    'currency'    => sanitize_text_field( $item['currency'] ?? '' ) ?: 'USD',
+                    'highlighted' => true,
+                ]];
+                update_post_meta( $post_id, TP_Package_Data::META_PRICES, $prices );
+                update_post_meta( $post_id, '_tp_price', $prices[0]['price'] );
+                update_post_meta( $post_id, '_tp_price_note', $prices[0]['note'] );
+                update_post_meta( $post_id, '_tp_currency', $prices[0]['currency'] );
             }
 
             if ( isset( $item['custom_fields'] ) && is_array( $item['custom_fields'] ) ) {
