@@ -77,6 +77,7 @@ jQuery(document).ready(function($) {
     $(document).on('click', '.tp-remove-price', function(e) {
         e.preventDefault();
         $(this).closest('.tp-price-item').remove();
+        reindexPriceHighlightCheckboxes();
     });
 
     $(document).on('click', '#tp-add-tech-field', function() {
@@ -263,6 +264,7 @@ jQuery(document).ready(function($) {
     }
 
     function addPriceField(price, note, currency, highlighted) {
+        var idx = $('#tp-prices-list .tp-price-item').length;
         var checked = highlighted ? ' checked' : '';
         var field = '<div class="tp-price-item">' +
             '<select name="tp_currency_item[]" class="tp-price-currency">' +
@@ -273,12 +275,18 @@ jQuery(document).ready(function($) {
             '</select>' +
             '<input type="number" name="tp_price_item[]" class="tp-price-value" step="0.01" min="0" placeholder="Precio" value="' + (price || '') + '">' +
             '<input type="text" name="tp_price_note_item[]" class="tp-price-note" placeholder="Nota (ej: por persona en doble)" value="' + (note || '') + '">' +
-            '<label class="tp-price-highlight-label"><input type="checkbox" name="tp_price_highlighted[]" value="1"' + checked + '> Destacar</label>' +
+            '<label class="tp-price-highlight-label"><input type="checkbox" name="tp_price_highlighted[]" value="' + idx + '"' + checked + '> Destacar</label>' +
             '<button type="button" class="tp-remove-price tp-btn-icon" title="Eliminar precio">✕</button>' +
             '</div>';
         $('#tp-prices-list').append(field);
     }
     window.tpAddPriceField = addPriceField;
+
+    function reindexPriceHighlightCheckboxes() {
+        $('#tp-prices-list .tp-price-item').each(function(i) {
+            $(this).find('input[name="tp_price_highlighted[]"]').val(i);
+        });
+    }
 
     function addDateField(from, to) {
         var field = '<div class="tp-date-item"><span class="dashicons dashicons-calendar-alt"></span>' +

@@ -220,7 +220,7 @@ class TP_Package_Data {
                 'price'       => $p,
                 'note'        => sanitize_text_field( wp_unslash( $raw_notes[ $i ] ?? '' ) ),
                 'currency'    => sanitize_text_field( wp_unslash( $raw_currs[ $i ] ?? '' ) ) ?: 'USD',
-                'highlighted' => in_array( $i, $raw_high, true ),
+                'highlighted' => in_array( (string) $i, $raw_high ),
             ];
         }
 
