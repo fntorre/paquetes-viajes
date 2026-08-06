@@ -263,8 +263,6 @@ class TP_Shortcodes {
                             <?php echo esc_html($next_date); ?>
                         </div>
                         <?php endif; ?>
-                    </a>
-                    <div class="tp-card-body">
                         <?php if ( $terms && ! is_wp_error($terms) ) : ?>
                         <div class="tp-card-terms">
                             <?php foreach ( $terms as $term ) : ?>
@@ -279,6 +277,8 @@ class TP_Shortcodes {
                             <?php endforeach; ?>
                         </div>
                         <?php endif; ?>
+                    </a>
+                    <div class="tp-card-body">
                         <h3 class="tp-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
                         <?php if ( $short_desc ) : ?>
                         <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
@@ -347,8 +347,6 @@ class TP_Shortcodes {
                         <?php echo esc_html($next_date); ?>
                     </div>
                     <?php endif; ?>
-                </a>
-                <div class="tp-card-body">
                     <?php if ( $terms && ! is_wp_error($terms) ) : ?>
                     <div class="tp-card-terms">
                         <?php foreach ( $terms as $term ) : ?>
@@ -363,6 +361,8 @@ class TP_Shortcodes {
                         <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
+                </a>
+                <div class="tp-card-body">
                     <h3 class="tp-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
                     <?php if ( $short_desc ) : ?>
                     <p class="tp-card-desc"><?php echo esc_html($short_desc); ?></p>
@@ -587,9 +587,6 @@ class TP_Shortcodes {
                             <?php echo esc_html($next_date); ?>
                         </div>
                         <?php endif; ?>
-                    </a>
-
-                    <div class="tp-card-body">
                         <?php if ( $terms && ! is_wp_error($terms) ) : ?>
                         <div class="tp-card-terms">
                             <?php foreach ( $terms as $term ) : ?>
@@ -604,7 +601,9 @@ class TP_Shortcodes {
                             <?php endforeach; ?>
                         </div>
                         <?php endif; ?>
+                    </a>
 
+                    <div class="tp-card-body">
                         <h3 class="tp-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
 
                         <?php if ( $short_desc ) : ?>

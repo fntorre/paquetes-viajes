@@ -146,6 +146,7 @@ class TP_Package_Data {
             'tp_dates'         => get_post_meta( $post->ID, '_tp_dates', true ),
             'tp_tech_fields'   => get_post_meta( $post->ID, '_tp_tech_fields', true ),
             'tp_custom_fields' => TP_CustomFields::get_package_data( $post->ID ),
+            'tp_cf_order'      => get_post_meta( $post->ID, '_tp_cf_order', true ),
             'tp_tipo_viaje'    => get_post_meta( $post->ID, self::META_TIPO_VIAJE, true ),
             'destinos'         => self::get_term_slugs( $post->ID, self::TAX_DESTINO ),
             'tipologias'       => self::get_term_slugs( $post->ID, self::TAX_TIPOLOGIA ),
@@ -197,6 +198,9 @@ class TP_Package_Data {
         } else {
             delete_post_meta( $post_id, self::META_TIPO_VIAJE );
         }
+
+        $cf_order = isset( $input['tp_cf_order'] ) ? sanitize_text_field( wp_unslash( $input['tp_cf_order'] ) ) : '';
+        update_post_meta( $post_id, '_tp_cf_order', $cf_order );
 
         self::save_prices( $post_id, $input );
     }

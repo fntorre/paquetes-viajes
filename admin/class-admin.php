@@ -689,6 +689,7 @@ class TP_Admin {
                             <h2><?php _e('Galería', 'travel-packages'); ?></h2>
                             <div id="tp-gallery-preview" class="tp-gallery-grid"></div>
                             <input type="hidden" name="tp_gallery" id="tp_gallery_ids" value="">
+                            <input type="hidden" name="tp_cf_order" id="tp_cf_order" value="">
                             <button type="button" id="tp-add-gallery" class="tp-btn tp-btn-secondary">
                                 <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar imágenes', 'travel-packages'); ?>
                             </button>

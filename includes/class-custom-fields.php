@@ -110,6 +110,7 @@ class TP_CustomFields {
                     <table class="wp-list-table widefat fixed striped" id="tp-cf-table">
                         <thead>
                             <tr>
+                                <th style="width:30px;"></th>
                                 <th style="width:30px;">#</th>
                                 <th><?php _e( 'Etiqueta', 'travel-packages' ); ?></th>
                                 <th><?php _e( 'Clave interna', 'travel-packages' ); ?></th>
@@ -122,13 +123,14 @@ class TP_CustomFields {
                         <tbody id="tp-cf-rows">
                             <?php if ( empty( $definitions ) ) : ?>
                             <tr class="tp-cf-empty">
-                                <td colspan="7" style="text-align:center;color:#999;padding:32px;">
+                                <td colspan="8" style="text-align:center;color:#999;padding:32px;">
                                     <?php _e( 'No hay campos definidos. Hacé clic en "Agregar campo" para empezar.', 'travel-packages' ); ?>
                                 </td>
                             </tr>
                             <?php else : ?>
                                 <?php foreach ( $definitions as $i => $field ) : ?>
-                                <tr class="tp-cf-row">
+                                <tr class="tp-cf-row" draggable="true">
+                                    <td class="tp-cf-drag-handle" title="Arrastrar para reordenar">⋮⋮</td>
                                     <td class="tp-cf-order"><?php echo $i + 1; ?></td>
                                     <td><input type="text" name="tp_cf_def[label][<?php echo $i; ?>]" value="<?php echo esc_attr( $field['label'] ); ?>" class="tp-cf-label" placeholder="Ej: Duración" style="width:100%;"></td>
                                     <td><input type="text" name="tp_cf_def[key][<?php echo $i; ?>]" value="<?php echo esc_attr( $field['key'] ); ?>" class="tp-cf-key" placeholder="duracion" style="width:100%;"></td>
@@ -171,7 +173,8 @@ class TP_CustomFields {
                 $.each(types, function(val, label) {
                     typeOptions += '<option value="' + val + '">' + label + '</option>';
                 });
-                var row = '<tr class="tp-cf-row">' +
+                var row = '<tr class="tp-cf-row" draggable="true">' +
+                    '<td class="tp-cf-drag-handle" title="Arrastrar para reordenar">⋮⋮</td>' +
                     '<td class="tp-cf-order">' + rowIndex + '</td>' +
                     '<td><input type="text" name="tp_cf_def[label][' + rowIndex + ']" class="tp-cf-label" placeholder="Ej: Duración" style="width:100%;"></td>' +
                     '<td><input type="text" name="tp_cf_def[key][' + rowIndex + ']" class="tp-cf-key" placeholder="duracion" style="width:100%;"></td>' +
@@ -186,6 +189,7 @@ class TP_CustomFields {
 
             $(document).on('click', '.tp-cf-remove', function() {
                 $(this).closest('tr').remove();
+                reindexCfRows();
             });
 
             $(document).on('input', '.tp-cf-label', function() {
@@ -202,6 +206,45 @@ class TP_CustomFields {
             $(document).on('input', '.tp-cf-key', function() {
                 $(this).data('manual', true);
             });
+
+            /* ---- Drag & Drop Reorder ---- */
+            var cfDragSrc = null;
+            $(document).on('dragstart', '#tp-cf-rows .tp-cf-row', function(e) {
+                cfDragSrc = this;
+                $(this).addClass('tp-cf-dragging');
+                e.originalEvent.dataTransfer.effectAllowed = 'move';
+            });
+            $(document).on('dragend', '#tp-cf-rows .tp-cf-row', function() {
+                $(this).removeClass('tp-cf-dragging');
+                $('#tp-cf-rows .tp-cf-row').removeClass('tp-cf-drag-over');
+            });
+            $(document).on('dragover', '#tp-cf-rows .tp-cf-row', function(e) {
+                e.preventDefault();
+                e.originalEvent.dataTransfer.dropEffect = 'move';
+                $(this).addClass('tp-cf-drag-over');
+            });
+            $(document).on('dragleave', '#tp-cf-rows .tp-cf-row', function() {
+                $(this).removeClass('tp-cf-drag-over');
+            });
+            $(document).on('drop', '#tp-cf-rows .tp-cf-row', function(e) {
+                e.preventDefault();
+                if ( cfDragSrc && cfDragSrc !== this ) {
+                    $(cfDragSrc).insertBefore($(this));
+                }
+                $(this).removeClass('tp-cf-drag-over');
+                reindexCfRows();
+            });
+
+            function reindexCfRows() {
+                $('#tp-cf-rows .tp-cf-row').each(function(i) {
+                    $(this).find('.tp-cf-order').text(i + 1);
+                    $(this).find('input, select').each(function() {
+                        var name = $(this).attr('name');
+                        if (!name) return;
+                        $(this).attr('name', name.replace(/\[\d+\]/, '[' + i + ']'));
+                    });
+                });
+            }
         });
         </script>
         <?php
@@ -270,7 +313,7 @@ class TP_CustomFields {
         $required_attr = ! empty( $field['required'] ) ? ' required' : '';
         $output = '';
 
-        $output .= '<div class="tp-field-group tp-cf-field" data-key="' . $key . '">';
+        $output .= '<div class="tp-field-group tp-cf-field" data-key="' . $key . '" draggable="true">';
         $output .= '<label class="tp-label" for="' . $id . '">' . $label . ( ! empty( $field['required'] ) ? ' <span class="tp-required">*</span>' : '' ) . '</label>';
 
         switch ( $type ) {

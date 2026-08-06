@@ -694,10 +694,41 @@
 /* ---- Custom Fields in Packages Manager ---- */
 #tp-custom-fields-wrap .tp-cf-field {
     padding: 10px 0;
+    cursor: grab;
+    border-left: 3px solid transparent;
+    transition: border-color .15s, background .15s;
+}
+#tp-custom-fields-wrap .tp-cf-field:hover {
+    border-left-color: #cbd5e1;
+}
+#tp-custom-fields-wrap .tp-cf-field.tp-cf-dragging {
+    opacity: .4;
+    background: #f8fafc;
+}
+#tp-custom-fields-wrap .tp-cf-field.tp-cf-drag-over {
+    border-top: 2px dashed #0f4c81;
 }
 #tp-custom-fields-wrap .tp-cf-field input[type="text"],
 #tp-custom-fields-wrap .tp-cf-field input[type="number"],
 #tp-custom-fields-wrap .tp-cf-field select,
 #tp-custom-fields-wrap .tp-cf-field textarea {
     width: 100%;
+}
+
+/* ---- Custom Fields Settings - Drag & Drop ---- */
+#tp-cf-table .tp-cf-drag-handle {
+    cursor: grab;
+    color: #94a3b8;
+    font-size: 16px;
+    user-select: none;
+}
+#tp-cf-table .tp-cf-drag-handle:hover {
+    color: #475569;
+}
+#tp-cf-table tr.tp-cf-dragging {
+    opacity: .4;
+    background: #f8fafc;
+}
+#tp-cf-table tr.tp-cf-drag-over td {
+    border-top: 2px dashed #0f4c81;
 }
