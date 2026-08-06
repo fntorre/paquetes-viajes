@@ -15,6 +15,9 @@ class TP_Shortcodes {
     public static function enqueue_assets() {
         wp_register_style(  'tp-public', TP_PLUGIN_URL . 'public/css/public.css', [], TP_VERSION );
         wp_register_script( 'tp-public', TP_PLUGIN_URL . 'public/js/public.js',  [ 'jquery' ], TP_VERSION, true );
+        if ( ! wp_style_is( 'dashicons', 'registered' ) ) {
+            wp_register_style( 'dashicons' );
+        }
     }
 
     /**
@@ -42,6 +45,7 @@ class TP_Shortcodes {
         ], $atts, 'tp_slider' );
 
         wp_enqueue_style(  'tp-public' );
+        wp_enqueue_style( 'dashicons' );
         wp_enqueue_script( 'tp-public' );
 
         $query = new WP_Query([
@@ -137,6 +141,7 @@ class TP_Shortcodes {
         ], $atts, 'tp_grid' );
 
         wp_enqueue_style(  'tp-public' );
+        wp_enqueue_style( 'dashicons' );
         wp_enqueue_script( 'tp-public' );
 
         $args = [
@@ -393,6 +398,7 @@ class TP_Shortcodes {
         if ( ! $atts['id'] ) return '';
 
         wp_enqueue_style(  'tp-public' );
+        wp_enqueue_style( 'dashicons' );
         wp_enqueue_script( 'tp-public' );
 
         $post = get_post( (int) $atts['id'] );
@@ -428,6 +434,7 @@ class TP_Shortcodes {
         ], $atts, 'tp_catalogo' );
 
         wp_enqueue_style(  'tp-public' );
+        wp_enqueue_style( 'dashicons' );
         wp_enqueue_script( 'tp-public' );
 
         $args = [

@@ -16,6 +16,7 @@ class TP_Templates {
         if ( function_exists('wp_enqueue_style') ) {
             // These handles are registered in TP_Shortcodes::enqueue_assets
             wp_enqueue_style( 'tp-public' );
+            wp_enqueue_style( 'dashicons' );
             wp_enqueue_script( 'tp-public' );
         }
 
