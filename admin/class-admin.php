@@ -15,64 +15,81 @@ class TP_Admin {
     }
 
     public static function register_menu() {
-        // Main menu
+        $licensed = TP_Remote_License::is_licensed();
+
+        // Main menu - always show but with different slug based on license
+        $menu_slug = $licensed ? 'tp-dashboard' : 'tp-license';
+        $menu_callback = $licensed ? [ __CLASS__, 'render_dashboard' ] : [ __CLASS__, 'render_license_page' ];
+
         add_menu_page(
             __( 'Paquetes de Viaje', 'travel-packages' ),
             __( 'Paquetes de Viaje', 'travel-packages' ),
             'manage_options',
-            'tp-dashboard',
-            [ __CLASS__, 'render_dashboard' ],
+            $menu_slug,
+            $menu_callback,
             'dashicons-airplane',
             20
         );
 
-        // Submenu: list
-        add_submenu_page(
-            'tp-dashboard',
-            __( 'Gestión de Paquetes', 'travel-packages' ),
-            __( 'Gestión de Paquetes', 'travel-packages' ),
-            'edit_posts',
-            'tp-packages',
-            [ __CLASS__, 'render_packages_page' ]
-        );
+        if ( $licensed ) {
+            // Submenu: list
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Gestión de Paquetes', 'travel-packages' ),
+                __( 'Gestión de Paquetes', 'travel-packages' ),
+                'edit_posts',
+                'tp-packages',
+                [ __CLASS__, 'render_packages_page' ]
+            );
 
-        // Submenu: add new
-        add_submenu_page(
-            'tp-dashboard',
-            __( 'Agregar Paquete', 'travel-packages' ),
-            __( '+ Agregar Paquete', 'travel-packages' ),
-            'edit_posts',
-            'tp-package-new',
-            [ __CLASS__, 'render_packages_page' ]
-        );
+            // Submenu: add new
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Agregar Paquete', 'travel-packages' ),
+                __( '+ Agregar Paquete', 'travel-packages' ),
+                'edit_posts',
+                'tp-package-new',
+                [ __CLASS__, 'render_packages_page' ]
+            );
 
-        // Submenu: destinations
-        add_submenu_page(
-            'tp-dashboard',
-            __( 'Destinos', 'travel-packages' ),
-            __( 'Destinos', 'travel-packages' ),
-            'manage_categories',
-            'edit-tags.php?taxonomy=destino&post_type=paquete_viaje'
-        );
+            // Submenu: destinations
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Destinos', 'travel-packages' ),
+                __( 'Destinos', 'travel-packages' ),
+                'manage_categories',
+                'edit-tags.php?taxonomy=destino&post_type=paquete_viaje'
+            );
 
-        // Submenu: tipologies
-        add_submenu_page(
-            'tp-dashboard',
-            __( 'Tipologías', 'travel-packages' ),
-            __( 'Tipologías', 'travel-packages' ),
-            'manage_categories',
-            'edit-tags.php?taxonomy=tipologia&post_type=paquete_viaje'
-        );
+            // Submenu: tipologies
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Tipologías', 'travel-packages' ),
+                __( 'Tipologías', 'travel-packages' ),
+                'manage_categories',
+                'edit-tags.php?taxonomy=tipologia&post_type=paquete_viaje'
+            );
 
-        // Submenu: shortcodes helper
-        add_submenu_page(
-            'tp-dashboard',
-            __( 'Shortcodes', 'travel-packages' ),
-            __( 'Guía de Shortcodes', 'travel-packages' ),
-            'edit_posts',
-            'tp-shortcodes',
-            [ __CLASS__, 'render_shortcodes_page' ]
-        );
+            // Submenu: shortcodes helper
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Shortcodes', 'travel-packages' ),
+                __( 'Guía de Shortcodes', 'travel-packages' ),
+                'edit_posts',
+                'tp-shortcodes',
+                [ __CLASS__, 'render_shortcodes_page' ]
+            );
+
+            // Submenu: license status
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Estado de Licencia', 'travel-packages' ),
+                __( 'Licencia', 'travel-packages' ) . ' ' . TP_Remote_License::get_status_html(),
+                'manage_options',
+                'tp-license',
+                [ __CLASS__, 'render_license_page' ]
+            );
+        }
     }
 
     public static function enqueue( $hook ) {
@@ -848,6 +865,69 @@ class TP_Admin {
                     </div>
                 </div>
 
+            </div>
+        </div>
+        <?php
+    }
+
+    public static function render_license_page() {
+        $licensed = TP_Remote_License::is_licensed();
+        $config   = TP_Remote_License::get_config();
+        ?>
+        <div class="wrap tp-admin-wrap">
+            <div class="tp-admin-header">
+                <div class="tp-header-left">
+                    <span class="tp-logo-icon">🔐</span>
+                    <div>
+                        <h1><?php _e('Estado de Licencia', 'travel-packages'); ?></h1>
+                        <p><?php _e('Conexión con el servidor de licencias externo.', 'travel-packages'); ?></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tp-dashboard-card" style="max-width:600px;">
+                <div class="tp-card-header">
+                    <h2><?php _e('Conexión', 'travel-packages'); ?></h2>
+                </div>
+                <table class="wp-list-table widefat fixed striped">
+                    <tbody>
+                        <tr>
+                            <td><strong><?php _e('Estado', 'travel-packages'); ?></strong></td>
+                            <td>
+                                <?php if ( $licensed ) : ?>
+                                    <span style="color:#46b450;">● <?php _e('Conectado y activo', 'travel-packages'); ?></span>
+                                <?php else : ?>
+                                    <span style="color:#dc3232;">● <?php _e('Sin conexión', 'travel-packages'); ?></span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php _e('Servidor', 'travel-packages'); ?></strong></td>
+                            <td><code>GitHub API (repositorio privado)</code></td>
+                        </tr>
+                        <?php if ( $config && is_object( $config ) ) : ?>
+                        <tr>
+                            <td><strong><?php _e('Versión remota', 'travel-packages'); ?></strong></td>
+                            <td><?php echo esc_html( $config->version ?? '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php _e('Fecha de expiración', 'travel-packages'); ?></strong></td>
+                            <td><?php echo esc_html( $config->expires ?? 'Sin expiración' ); ?></td>
+                        </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+
+                <div style="padding:16px;">
+                    <h3><?php _e('¿Cómo funciona?', 'travel-packages'); ?></h3>
+                    <p><?php _e('Este plugin necesita conectarse a un servidor externo para funcionar. Si no puede establecer la conexión, el plugin se desactivará automáticamente.', 'travel-packages'); ?></p>
+                    <p><?php _e('Podés actualizar la configuración modificando el archivo JSON en tu repositorio de GitHub. El caché se renueva automáticamente cada hora.', 'travel-packages'); ?></p>
+
+                    <h3><?php _e('Forzar actualización', 'travel-packages'); ?></h3>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-license&tp_clear_license_cache=1' ) ); ?>" class="button button-secondary">
+                        <?php _e('Limpiar caché y reconectar', 'travel-packages'); ?>
+                    </a>
+                </div>
             </div>
         </div>
         <?php
