@@ -1,41 +1,29 @@
 <?php
 /**
- * Plugin Name: Paquetes de Viaje
- * Plugin URI:  https://tuagencia.com
- * Description: Gestión completa de paquetes de viaje para agencias. Incluye slider, grilla destacada, shortcodes y ficha técnica personalizable.
- * Version:     2.0.0
- * Author:      Tu Agencia de Viajes
+ * Plugin Name: TourFlow
+ * Description: TourFlow — Gestión de paquetes de viaje para agencias. Incluye slider, grilla destacada, shortcodes, reservas y ficha técnica personalizable.
+ * Version:     2.7.2
+ * Author:      TourFlow
  * Text Domain: travel-packages
  * Domain Path: /languages
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TP_VERSION',     '2.0.4' );
-define( 'TP_BUILD',       '0.1.13' );
-define( 'TP_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
-define( 'TP_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );
-define( 'TP_PLUGIN_FILE', __FILE__ );
-
-require_once TP_PLUGIN_DIR . 'includes/class-remote-license.php';
-
-$is_licensed = TP_Remote_License::is_licensed();
-$is_license_page = isset( $_GET['page'] ) && $_GET['page'] === 'tp-license';
-$is_clearing_cache = isset( $_GET['tp_clear_license_cache'] );
+define( 'TP_BRAND',         'TourFlow' );
+define( 'TP_BRAND_TAGLINE', 'Gestión de paquetes de viaje' );
+define( 'TP_VERSION',       '2.7.2' );
+define( 'TP_BUILD',         '0.4.0' );
+define( 'TP_PLUGIN_DIR',    plugin_dir_path( __FILE__ ) );
+define( 'TP_PLUGIN_URL',    plugin_dir_url( __FILE__ ) );
+define( 'TP_PLUGIN_FILE',   __FILE__ );
 
 require_once TP_PLUGIN_DIR . 'admin/class-admin.php';
 require_once TP_PLUGIN_DIR . 'admin/class-admin-handlers.php';
-
-if ( ! $is_licensed && ! $is_license_page && ! $is_clearing_cache ) {
-    add_action( 'admin_notices', function() {
-        echo '<div class="error"><p><strong>Paquetes de Viaje:</strong> No se pudo conectar con el servidor de licencias. <a href="' . esc_url( admin_url( 'admin.php?page=tp-license' ) ) . '">Ver estado de licencia</a></p></div>';
-    } );
-    return;
-}
-
 require_once TP_PLUGIN_DIR . 'includes/class-post-type.php';
 require_once TP_PLUGIN_DIR . 'includes/class-package-data.php';
-require_once TP_PLUGIN_DIR . 'includes/class-meta-boxes.php';
+require_once TP_PLUGIN_DIR . 'includes/class-reservations.php';
+require_once TP_PLUGIN_DIR . 'includes/class-settings.php';
 require_once TP_PLUGIN_DIR . 'includes/class-shortcodes.php';
 require_once TP_PLUGIN_DIR . 'includes/class-ajax.php';
 require_once TP_PLUGIN_DIR . 'includes/class-templates.php';
@@ -48,18 +36,14 @@ add_action( 'plugins_loaded', 'tp_init' );
 function tp_init() {
     load_plugin_textdomain( 'travel-packages', false, basename( dirname( __FILE__ ) ) . '/languages' );
 
-    TP_Remote_License::init();
     TP_Admin::init();
 
-    if ( ! TP_Remote_License::is_licensed() ) {
-        return;
-    }
-
     TP_PostType::init();
-    TP_MetaBoxes::init();
     TP_Shortcodes::init();
     TP_Ajax::init();
     TP_Templates::init();
     TP_CustomFields::init();
+    TP_Reservations::init();
+    TP_Settings::init();
     TP_Admin_Handlers::init();
 }

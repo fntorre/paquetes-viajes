@@ -1,17 +1,17 @@
-=== Paquetes de Viaje ===
-Contributors: tuagencia
-Tags: turismo, viajes, paquetes, agencia, slider
+=== TourFlow ===
+Contributors: tourflow
+Tags: tourflow, turismo, viajes, paquetes, agencia, slider
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 2.7.2
 License: GPLv2 or later
 
-Plugin completo para gestión de paquetes de viaje en agencias de turismo.
+TourFlow — plugin completo para gestión de paquetes de viaje en agencias de turismo.
 
 == Descripción ==
 
-Paquetes de Viaje es un plugin WordPress completo para agencias de turismo.
+TourFlow es un plugin WordPress completo para agencias de turismo.
 
 **Características:**
 
@@ -25,12 +25,19 @@ Paquetes de Viaje es un plugin WordPress completo para agencias de turismo.
 * Shortcode [tp_paquete id="X"] para paquete individual
 * Taxonomía "Destinos" para categorizar paquetes
 * Slider con autoplay, swipe táctil y navegación por puntos
+* Video por YouTube, Vimeo o archivo MP4/WebM en la ficha
+* Itinerario día por día tipo acordeón
+* Botón y consulta directa por WhatsApp (número general o por paquete)
+* Formulario público de consulta/reserva con aviso por email
+* Módulo opcional de reservas con control de cupos
+* 8 paletas cromáticas con nombres temáticos y presets tipográficos configurables
+* Etiquetas Open Graph, Twitter Card y JSON-LD para SEO
 
 == Instalación ==
 
 1. Subí la carpeta `travel-packages` al directorio `/wp-content/plugins/`
 2. Activá el plugin desde el menú "Plugins" en WordPress
-3. Navegá a "Paquetes de Viaje" en el menú lateral para comenzar
+3. Navegá a "TourFlow" en el menú lateral para comenzar
 
 == Shortcodes ==
 
@@ -64,6 +71,48 @@ El carrusel es de scroll infinito: envuelve al llegar al final sin saltos visibl
 Ver SHORTCODES.md para documentación completa.
 
 == Changelog ==
+
+= 2.7.2 =
+* Nuevo campo "Ubicación del hotel en Google Maps" en la ficha del paquete.
+* El mapa se muestra debajo de la galería de fotos, con diseño responsive.
+* Acepta dirección, coordenadas, enlace de Google Maps o código iframe.
+
+= 2.7.1 =
+* Nuevo shortcode [tp_buscador] con sugerencias en vivo vía AJAX.
+* Búsqueda precisa por título, descripción corta, contenido y destinos/tipologías.
+* El buscador respeta la paleta y la tipografía elegidas en Ajustes.
+* Nueva configuración del buscador en Ajustes (página de resultados, textos y filtros).
+
+= 2.7.0 =
+* Rebranding del plugin a TourFlow.
+* Nuevo nombre, tagline e identidad visual en el panel de administración.
+
+= 2.6.0 =
+* Botón "Enviar consulta" con tipografía blanca en todos sus estados.
+* Número de WhatsApp por paquete, con fallback al número general de Ajustes.
+* El número de contacto se muestra en la ficha del paquete y se usa en todos los botones de WhatsApp.
+
+= 2.5.0 =
+* Cuatro paletas nuevas: Selva Esmeralda, Dunas al Amanecer, Aurora Boreal y Ruta del Vino.
+* Paletas renombradas con nombres temáticos de viajes: Noche Índigo, Brisa Marina, Atardecer en la Playa y Cumbre Nublada.
+* Nuevo selector de tipografías con presets Moderna, Elegante, Aventura y Editorial.
+
+= 2.4.1 =
+* Corregido el color del botón "Enviar consulta" para que respete la paleta elegida y no sea sobrescrito por el tema.
+
+= 2.4.0 =
+* Selector de paleta cromática del frontend desde Ajustes: actual, fríos, cálidos y escala de grises.
+* La paleta elegida se aplica globalmente a sliders, grillas, fichas, formularios y reservas.
+
+= 2.3.0 =
+* Nuevo módulo opcional de reservas con control de cupos y aviso de últimos lugares.
+* Formulario público de consulta/reserva con protección antispam y aviso por email.
+* Ajustes globales de WhatsApp y email de consultas.
+* Video embebido e itinerario día por día en la ficha del paquete.
+* Botones de compartir, copiar enlace y exportar a PDF.
+* Metadatos Open Graph, Twitter Card y JSON-LD para SEO.
+* Nueva paleta visual del frontend (índigo, rosa, aqua y porcelana).
+* Bloque "Destinos similares" con carrusel de paquetes y selección editable desde el admin.
 
 = 2.0.0 =
 * Nueva interfaz de administración para crear y editar paquetes desde un panel visual.

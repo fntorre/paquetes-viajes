@@ -10,6 +10,7 @@ class TP_PostType {
         add_filter( 'manage_paquete_viaje_posts_columns',       [ __CLASS__, 'custom_columns' ] );
         add_action( 'manage_paquete_viaje_posts_custom_column', [ __CLASS__, 'custom_column_content' ], 10, 2 );
         add_filter( 'manage_edit-paquete_viaje_sortable_columns', [ __CLASS__, 'sortable_columns' ] );
+        add_filter( 'post_row_actions', [ __CLASS__, 'row_actions' ], 10, 2 );
     }
 
     public static function register_post_type() {
@@ -113,6 +114,20 @@ class TP_PostType {
     public static function sortable_columns( $columns ) {
         $columns['tp_price'] = 'tp_price';
         return $columns;
+    }
+
+    /** Agrega "Ver paquete" en las acciones de la lista nativa del post type. */
+    public static function row_actions( $actions, $post ) {
+        if ( ! $post || $post->post_type !== 'paquete_viaje' ) {
+            return $actions;
+        }
+
+        $url = TP_Package_Data::get_view_url( $post->ID );
+        if ( $url ) {
+            $actions['tp_view'] = '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html__( 'Ver paquete', 'travel-packages' ) . '</a>';
+        }
+
+        return $actions;
     }
 
     public static function register_taxonomy_tipologia() {

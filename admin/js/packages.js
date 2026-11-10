@@ -3,10 +3,15 @@ jQuery(document).ready(function($) {
     var packageSearch = $('#tp-package-search');
     var mediaFrame;
     var featuredFrame;
+    var reservationsEnabled = !!( window.TP_ADMIN && TP_ADMIN.reservations_enabled === '1' );
 
-    $(document).on('click', '#tp-new-package', function() {
+    $(document).on('click', '#tp-new-package, #tp-new-package-empty', function() {
         resetPackageForm();
         $('html, body').animate({ scrollTop: packageForm.offset().top - 20 }, 400);
+    });
+
+    $(document).on('click', '#tp-similar-clear', function() {
+        $('#tp_similar_destinos input[type="checkbox"]').prop('checked', false);
     });
 
     $(document).on('click', '.tp-package-card', function() {
@@ -24,10 +29,19 @@ jQuery(document).ready(function($) {
 
     $(document).on('input', '#tp-package-search', function() {
         var query = $(this).val().toLowerCase();
+        var visible = 0;
+        var total = $('.tp-package-card').length;
+
         $('.tp-package-card').each(function() {
             var title = $(this).find('strong').text().toLowerCase();
-            $(this).toggle( title.indexOf(query) !== -1 );
+            var match = title.indexOf(query) !== -1;
+            $(this).toggle(match);
+            if ( match ) {
+                visible++;
+            }
         });
+
+        $('#tp-package-no-results').toggle( total > 0 && visible === 0 );
     });
 
     $(document).on('click', '#tp-reset-package', function() {
@@ -36,6 +50,9 @@ jQuery(document).ready(function($) {
 
     // Validate date ranges before submitting custom package form
     $(document).on('submit', '#tp-package-form', function(e) {
+        if ( window.tinymce ) {
+            window.tinymce.triggerSave();
+        }
         var valid = true;
         $('#tp-dates-list .tp-date-item').each(function() {
             var from = $(this).find('.tp-datepicker-from').val();
@@ -62,6 +79,25 @@ jQuery(document).ready(function($) {
         $('#tp_cf_order').val(cfOrder.join(','));
     });
 
+    function setPackageContent(html) {
+        html = html || '';
+        $('#tp_content').val(html);
+        if ( ! window.tinymce ) {
+            return;
+        }
+        var editor = window.tinymce.get('tp_content');
+        if ( editor ) {
+            editor.setContent(html);
+            return;
+        }
+        setTimeout(function() {
+            var delayed = window.tinymce.get('tp_content');
+            if ( delayed ) {
+                delayed.setContent(html);
+            }
+        }, 200);
+    }
+
     function parseDMY(str) {
         if ( ! str ) return null;
         var parts = str.split('/');
@@ -71,7 +107,7 @@ jQuery(document).ready(function($) {
     }
 
     $(document).on('click', '#tp-add-date', function() {
-        addDateField('','');
+        addDateField('', '', {}, true);
     });
 
     $(document).on('click', '#tp-add-price', function(e) {
@@ -96,6 +132,14 @@ jQuery(document).ready(function($) {
 
     $(document).on('click', '.tp-remove-field', function() {
         $(this).closest('.tp-tech-field').remove();
+    });
+
+    $(document).on('click', '#tp-add-itinerary', function() {
+        addItineraryRow('', '', '');
+    });
+
+    $(document).on('click', '.tp-remove-itinerary', function() {
+        $(this).closest('.tp-itinerary-item').remove();
     });
 
     $(document).on('click', '.tp-gallery-remove', function() {
@@ -161,12 +205,37 @@ jQuery(document).ready(function($) {
         $('#tp_featured_image').val('');
     });
 
+    function markSelectedPackage(id) {
+        var target = String(id || 0);
+
+        $('.tp-package-card').each(function() {
+            var cardData = $(this).data('package');
+            if ( typeof cardData === 'string' ) {
+                try {
+                    cardData = JSON.parse(cardData);
+                } catch (e) {
+                    cardData = {};
+                }
+            }
+            var cardId = cardData && cardData.ID ? String(cardData.ID) : '';
+            $(this).toggleClass('is-selected', target !== '0' && cardId === target);
+        });
+    }
+
     function fillPackageForm(data) {
         $('#tp_package_id').val(data.ID || 0);
+        markSelectedPackage(data.ID);
         $('#tp-delete-package').toggle(!!data.ID);
+        $('#tp-form-title').text(data.ID ? 'Editar paquete' : 'Nuevo paquete');
+        $('#tp-view-package')
+            .attr('href', data.view_url || '#')
+            .toggle(!!(data.ID && data.view_url));
         $('#tp_title').val(data.post_title || '');
         $('#tp_short_desc').val(data.tp_short_desc || '').trigger('input');
-        $('#tp_content').val(data.post_content || '');
+        $('#tp_video_url').val(data.tp_video_url || '');
+        $('#tp_map_location').val(data.tp_map_location || '');
+        $('#tp_whatsapp_number').val(data.tp_whatsapp || '');
+        setPackageContent(data.post_content || '');
         $('#tp_slider').prop('checked', data.tp_slider === '1');
         $('#tp_featured').prop('checked', data.tp_featured === '1');
         $('#tp_post_status').val(data.post_status || 'draft');
@@ -174,6 +243,10 @@ jQuery(document).ready(function($) {
         $('#tp_new_destino').val('');
         $('#tp_tipologia').val((data.tipologias && data.tipologias[0]) || '');
         $('#tp_new_tipologia').val('');
+        var similarDestinos = (data.tp_similar_destinos || []).map(String);
+        $('#tp_similar_destinos input[type="checkbox"]').each(function() {
+            $(this).prop('checked', similarDestinos.indexOf(String($(this).val())) !== -1);
+        });
         $('input[name="tp_tipo_viaje"]').prop('checked', false);
         if ( data.tp_tipo_viaje ) {
             $('input[name="tp_tipo_viaje"][value="' + data.tp_tipo_viaje + '"]').prop('checked', true);
@@ -190,7 +263,8 @@ jQuery(document).ready(function($) {
                 type: 'POST',
                 data: {
                     action: 'tp_get_image_thumb',
-                    id: featuredImageId
+                    id: featuredImageId,
+                    nonce: TP_ADMIN.nonce
                 },
                 success: function(response) {
                     if ( response.success ) {
@@ -207,18 +281,32 @@ jQuery(document).ready(function($) {
             addPriceField(p.price || '', p.note || '', p.currency || 'USD', !!p.highlighted);
         });
 
+        var pricing = data.tp_pricing || {};
+        $('#tp_currency_base').val(pricing.currency || 'USD');
+        $('#tp_price_adult').val(pricing.price_adult || '');
+        $('#tp_price_child').val(pricing.price_child || '');
+        $('#tp_single_supplement').val(pricing.single_supplement || '');
+        $('#tp_deposit_type').val(pricing.deposit_type || 'none');
+        $('#tp_deposit_value').val(pricing.deposit_value || '');
+        $('#tp_deposit_note').val(pricing.deposit_note || '');
+
         $('#tp-dates-list').empty();
         (data.tp_dates || []).forEach(function(date) {
-            if ( typeof date === 'object' ) {
-                addDateField(date.from || '', date.to || '');
+            if ( typeof date === 'object' && date !== null ) {
+                addDateField(date.from || '', date.to || '', date);
             } else {
-                addDateField(date || '', '');
+                addDateField(date || '', '', {});
             }
         });
 
         $('#tp-tech-fields').empty();
         (data.tp_tech_fields || []).forEach(function(item) {
             addTechField(item.key, item.val);
+        });
+
+        $('#tp-itinerary-list').empty();
+        (data.tp_itinerary || []).forEach(function(item) {
+            addItineraryRow(item.day || '', item.title || '', item.desc || '');
         });
 
         // Populate custom fields
@@ -256,17 +344,33 @@ jQuery(document).ready(function($) {
     function resetPackageForm() {
         packageForm[0].reset();
         $('#tp_package_id').val('0');
+        markSelectedPackage(0);
+        $('#tp-form-title').text('Nuevo paquete');
+        $('#tp-view-package').hide().attr('href', '#');
+        setPackageContent('');
         $('#tp-short-count').text('0');
+        $('#tp_video_url').val('');
+        $('#tp_map_location').val('');
+        $('#tp_whatsapp_number').val('');
         $('#tp-prices-list').empty();
         $('#tp-dates-list').empty();
         $('#tp-tech-fields').empty();
+        $('#tp-itinerary-list').empty();
         $('#tp-gallery-preview').empty();
         $('#tp_gallery_ids').val('');
         $('#tp_cf_order').val('');
+        $('#tp_currency_base').val('USD');
+        $('#tp_price_adult').val('');
+        $('#tp_price_child').val('');
+        $('#tp_single_supplement').val('');
+        $('#tp_deposit_type').val('none');
+        $('#tp_deposit_value').val('');
+        $('#tp_deposit_note').val('');
         $('#tp_featured_image').val('');
         $('#tp-featured-preview-main').empty();
         $('#tp_tipologia').val('');
         $('#tp_new_tipologia').val('');
+        $('#tp_similar_destinos input[type="checkbox"]').prop('checked', false);
         $('input[name="tp_tipo_viaje"][value=""]').prop('checked', true);
         $('#tp-delete-package').hide();
         // Reset custom fields
@@ -283,12 +387,13 @@ jQuery(document).ready(function($) {
     function addPriceField(price, note, currency, highlighted) {
         var idx = $('#tp-prices-list .tp-price-item').length;
         var checked = highlighted ? ' checked' : '';
+        var symbols = { USD: 'US$', ARS: '$', EUR: '€', BRL: 'R$' };
         var field = '<div class="tp-price-item">' +
             '<select name="tp_currency_item[]" class="tp-price-currency">' +
-                '<option value="USD"' + (currency === 'USD' ? ' selected' : '') + '>USD</option>' +
-                '<option value="ARS"' + (currency === 'ARS' ? ' selected' : '') + '>ARS</option>' +
-                '<option value="EUR"' + (currency === 'EUR' ? ' selected' : '') + '>EUR</option>' +
-                '<option value="BRL"' + (currency === 'BRL' ? ' selected' : '') + '>BRL</option>' +
+                '<option value="USD"' + (currency === 'USD' ? ' selected' : '') + '>' + symbols.USD + '</option>' +
+                '<option value="ARS"' + (currency === 'ARS' ? ' selected' : '') + '>' + symbols.ARS + '</option>' +
+                '<option value="EUR"' + (currency === 'EUR' ? ' selected' : '') + '>' + symbols.EUR + '</option>' +
+                '<option value="BRL"' + (currency === 'BRL' ? ' selected' : '') + '>' + symbols.BRL + '</option>' +
             '</select>' +
             '<input type="number" name="tp_price_item[]" class="tp-price-value" step="0.01" min="0" placeholder="Precio" value="' + (price || '') + '">' +
             '<input type="text" name="tp_price_note_item[]" class="tp-price-note" placeholder="Nota (ej: por persona en doble)" value="' + (note || '') + '">' +
@@ -305,15 +410,163 @@ jQuery(document).ready(function($) {
         });
     }
 
-    function addDateField(from, to) {
-        var field = '<div class="tp-date-item"><span class="dashicons dashicons-calendar-alt"></span>' +
-            '<input type="text" name="tp_dates_from[]" class="tp-datepicker-from" value="' + (from || '') + '" placeholder="Salida dd/mm/aaaa" readonly>' +
-            '<input type="text" name="tp_dates_to[]" class="tp-datepicker-to" value="' + (to || '') + '" placeholder="Regreso dd/mm/aaaa" readonly>' +
-            '<button type="button" class="tp-remove-date tp-btn-icon">✕</button></div>';
-        $('#tp-dates-list').append(field);
-        initDatepicker($('#tp-dates-list .tp-date-item:last-child .tp-datepicker-from'));
-        initDatepicker($('#tp-dates-list .tp-date-item:last-child .tp-datepicker-to'));
+    function escAttr(value) {
+        return String(value === null || value === undefined ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
+
+    function escHtml(value) {
+        return String(value === null || value === undefined ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function addItineraryRow(day, title, desc) {
+        var index = $('#tp-itinerary-list .tp-itinerary-item').length + 1;
+        if ( ! day ) {
+            day = 'Día ' + index;
+        }
+        var row = '<div class="tp-itinerary-item">' +
+            '<div class="tp-itinerary-head">' +
+                '<input type="text" name="tp_itinerary_day[]" class="tp-itinerary-day" value="' + escAttr(day) + '" placeholder="Día 1">' +
+                '<input type="text" name="tp_itinerary_title[]" class="tp-itinerary-title" value="' + escAttr(title) + '" placeholder="Título del día">' +
+                '<button type="button" class="tp-remove-itinerary tp-btn-icon" title="Eliminar día">✕</button>' +
+            '</div>' +
+            '<textarea name="tp_itinerary_desc[]" rows="3" placeholder="Descripción, actividades, comidas, hotel...">' + escHtml(desc) + '</textarea>' +
+            '</div>';
+        $('#tp-itinerary-list').append(row);
+    }
+
+    function departureNumberField(label, name, value, placeholder) {
+        return '<label class="tp-dep-field"><span>' + label + '</span>' +
+            '<input type="number" min="0" step="1" name="' + name + '" value="' + escAttr(value) + '" placeholder="' + placeholder + '"></label>';
+    }
+
+    function departureStatusOptions(current) {
+        var options = {
+            auto: 'Automático',
+            open: 'Abierta',
+            soldout: 'Agotada',
+            closed: 'Cerrada'
+        };
+        var html = '';
+        for (var key in options) {
+            html += '<option value="' + key + '"' + (current === key ? ' selected' : '') + '>' + options[key] + '</option>';
+        }
+        return html;
+    }
+
+    function departureCurrencyOptions(current) {
+        var options = { '': 'Según paquete', USD: 'US$', ARS: '$', EUR: '€', BRL: 'R$' };
+        var html = '';
+        for (var key in options) {
+            html += '<option value="' + key + '"' + (current === key ? ' selected' : '') + '>' + options[key] + '</option>';
+        }
+        return html;
+    }
+
+    function addDateField(from, to, data, open) {
+        data = data || {};
+        var bookedLabel = reservationsEnabled ? 'Reservados externos' : 'Reservados';
+        var moduleBooked = parseInt(data.reservations_booked, 10) || 0;
+        var field = '<div class="tp-date-item tp-departure">' +
+            '<input type="hidden" name="tp_dates_uid[]" value="' + escAttr(data.uid) + '">' +
+            '<div class="tp-departure-head">' +
+                '<span class="dashicons dashicons-calendar-alt"></span>' +
+                '<input type="text" name="tp_dates_from[]" class="tp-datepicker-from" value="' + escAttr(from || data.from || '') + '" placeholder="Salida dd/mm/aaaa" readonly>' +
+                '<span class="tp-departure-arrow">→</span>' +
+                '<input type="text" name="tp_dates_to[]" class="tp-datepicker-to" value="' + escAttr(to || data.to || '') + '" placeholder="Regreso dd/mm/aaaa" readonly>' +
+                '<label class="tp-departure-seats"><span>Cupos</span>' +
+                    '<input type="number" min="0" step="1" name="tp_dates_seats[]" value="' + escAttr(data.seats) + '" placeholder="0"></label>' +
+                '<span class="tp-departure-summary" style="display:none;"></span>' +
+                '<button type="button" class="tp-departure-toggle button" aria-expanded="false">Más detalles</button>' +
+                '<button type="button" class="tp-remove-date tp-btn-icon" title="Eliminar salida">✕</button>' +
+            '</div>' +
+            '<div class="tp-departure-details" style="display:none;">' +
+                '<div class="tp-departure-grid">' +
+                    departureNumberField(bookedLabel, 'tp_dates_seats_booked[]', data.seats_booked, '0') +
+                    departureNumberField('Mín. pax', 'tp_dates_min_pax[]', data.min_pax, 'Ej: 2') +
+                    departureNumberField('Máx. pax', 'tp_dates_max_pax[]', data.max_pax, 'Ej: 20') +
+                    '<label class="tp-dep-field"><span>Cierre de venta</span>' +
+                        '<input type="text" name="tp_dates_cutoff[]" class="tp-datepicker-cutoff" value="' + escAttr(data.cutoff) + '" placeholder="dd/mm/aaaa" readonly></label>' +
+                    '<label class="tp-dep-field"><span>Estado</span>' +
+                        '<select name="tp_dates_status[]">' + departureStatusOptions(data.status || 'auto') + '</select></label>' +
+                    '<label class="tp-dep-field"><span>Precio adulto</span>' +
+                        '<input type="number" step="0.01" min="0" name="tp_dates_price_adult[]" value="' + escAttr(data.price_adult) + '" placeholder="Según paquete"></label>' +
+                    '<label class="tp-dep-field"><span>Precio niño</span>' +
+                        '<input type="number" step="0.01" min="0" name="tp_dates_price_child[]" value="' + escAttr(data.price_child) + '" placeholder="Según paquete"></label>' +
+                    '<label class="tp-dep-field"><span>Moneda</span>' +
+                        '<select name="tp_dates_currency[]">' + departureCurrencyOptions(data.currency || '') + '</select></label>' +
+                    ( moduleBooked > 0 ? '<p class="tp-dep-res-note">Reservas del módulo: <strong>' + moduleBooked + '</strong> (se suman automáticamente).</p>' : '' ) +
+                '</div>' +
+            '</div>' +
+        '</div>';
+        $('#tp-dates-list').append(field);
+
+        var $last = $('#tp-dates-list .tp-departure:last-child');
+        initDatepicker($last.find('.tp-datepicker-from'));
+        initDatepicker($last.find('.tp-datepicker-to'));
+        initDatepicker($last.find('.tp-datepicker-cutoff'));
+
+        if ( open ) {
+            $last.addClass('is-open');
+            $last.find('.tp-departure-details').show();
+            $last.find('.tp-departure-toggle').attr('aria-expanded', 'true').text('Ocultar');
+        }
+
+        refreshDepartureSummary($last);
+    }
+
+    function refreshDepartureSummary($dep) {
+        var $summary = $dep.find('.tp-departure-summary');
+        if ( ! $summary.length ) {
+            return;
+        }
+
+        var reserved = $dep.find('input[name="tp_dates_seats_booked[]"]').val();
+        var status   = $dep.find('select[name="tp_dates_status[]"]').val();
+        var labels   = { auto: 'Automático', open: 'Abierta', soldout: 'Agotada', closed: 'Cerrada' };
+        var parts    = [];
+
+        if ( reserved !== '' && reserved !== undefined && reserved !== null && Number(reserved) > 0 ) {
+            parts.push(reserved + ' reservados');
+        }
+        if ( status && status !== 'auto' ) {
+            parts.push(labels[status] || status);
+        }
+
+        if ( parts.length ) {
+            $summary.text(parts.join(' · ')).show();
+        } else {
+            $summary.text('').hide();
+        }
+    }
+
+    $(document).on('input change', '.tp-departure', function() {
+        refreshDepartureSummary($(this));
+    });
+
+    $(document).on('click', '.tp-departure-toggle', function(e) {
+        e.preventDefault();
+        var $dep = $(this).closest('.tp-departure');
+        var $details = $dep.find('.tp-departure-details');
+        var isOpen = $dep.hasClass('is-open');
+
+        if ( isOpen ) {
+            $dep.removeClass('is-open');
+            $details.slideUp(160);
+        } else {
+            $dep.addClass('is-open');
+            $details.slideDown(160);
+        }
+
+        $(this).attr('aria-expanded', isOpen ? 'false' : 'true');
+        $(this).text(isOpen ? 'Más detalles' : 'Ocultar');
+    });
 
     function addTechField(key, value) {
         var field = '<div class="tp-tech-field"><div class="tp-tech-row">' +
@@ -442,6 +695,46 @@ jQuery(document).ready(function($) {
     });
 
     $(document).trigger('tpPackagesReady');
+
+    /* ---- Form section navigation ---- */
+    (function initFormNav() {
+        var $nav = $('.tp-form-nav');
+        if ( ! $nav.length ) {
+            return;
+        }
+
+        var $links = $nav.find('a');
+
+        $links.on('click', function(e) {
+            var target = $(this).attr('href');
+            var $target = target ? $(target) : $();
+            if ( ! $target.length ) {
+                return;
+            }
+            e.preventDefault();
+            $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            $links.removeClass('is-active');
+            $(this).addClass('is-active');
+        });
+
+        var $sections = $('.tp-panel[id]');
+        if ( 'IntersectionObserver' in window && $sections.length ) {
+            var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if ( ! entry.isIntersecting ) {
+                        return;
+                    }
+                    var href = '#' + entry.target.id;
+                    $links.removeClass('is-active');
+                    $links.filter('[href="' + href + '"]').addClass('is-active');
+                });
+            }, { rootMargin: '-90px 0px -60% 0px', threshold: 0 });
+
+            $sections.each(function() {
+                observer.observe(this);
+            });
+        }
+    })();
 
     // Prefill form from server-side selected package (e.g. ?package_id=X)
     var $selectedData = $('#tp-selected-package-data');

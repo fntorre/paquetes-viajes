@@ -8,6 +8,7 @@ class TP_Shortcodes {
         add_shortcode( 'tp_grid',     [ __CLASS__, 'render_grid' ] );
         add_shortcode( 'tp_paquete',  [ __CLASS__, 'render_single' ] );
         add_shortcode( 'tp_catalogo', [ __CLASS__, 'render_catalogo' ] );
+        add_shortcode( 'tp_buscador', [ __CLASS__, 'render_buscador' ] );
 
         add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
     }
@@ -15,6 +16,13 @@ class TP_Shortcodes {
     public static function enqueue_assets() {
         wp_register_style(  'tp-public', TP_PLUGIN_URL . 'public/css/public.css', [], TP_VERSION );
         wp_register_script( 'tp-public', TP_PLUGIN_URL . 'public/js/public.js',  [ 'jquery' ], TP_VERSION, true );
+        wp_localize_script( 'tp-public', 'TP_PUBLIC', [
+            'ajax_url'   => admin_url( 'admin-ajax.php' ),
+            'nonce'      => wp_create_nonce( 'tp_public_nonce' ),
+            'min_chars'  => 2,
+            'searching'  => __( 'Buscando paquetes…', 'travel-packages' ),
+            'no_results' => __( 'No encontramos paquetes para tu búsqueda.', 'travel-packages' ),
+        ] );
         if ( ! wp_style_is( 'dashicons', 'registered' ) ) {
             wp_register_style( 'dashicons' );
         }
@@ -98,7 +106,7 @@ class TP_Shortcodes {
                             <?php if ( $best_price ) : ?>
                         <div class="tp-slide-price">
                             <span class="tp-from"><?php _e('Desde', 'travel-packages'); ?></span>
-                            <span class="tp-amount"><?php echo esc_html($best_price['currency'] . ' ' . number_format((float)$best_price['price'], 0, ',', '.')); ?></span>
+                            <span class="tp-amount"><?php echo esc_html(TP_Package_Data::currency_symbol($best_price['currency']) . ' ' . number_format((float)$best_price['price'], 0, ',', '.')); ?></span>
                             <?php if ( $best_price['note'] ) : ?><span class="tp-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
@@ -228,28 +236,10 @@ class TP_Shortcodes {
                     $best_price = TP_Package_Data::get_best_price( get_the_ID() );
                     $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
                     $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
-                    $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
                     $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
-                    $terms      = get_the_terms( get_the_ID(), 'destino' );
-                    $tipologia_terms = get_the_terms( get_the_ID(), 'tipologia' );
-                    $next_date  = '';
-                    if ( is_array($dates) && count($dates) ) {
-                        $future = [];
-                        foreach ( $dates as $d ) {
-                            $from = '';
-                            if ( is_array($d) ) {
-                                $from = $d['from'] ?? '';
-                            } else {
-                                $from = $d;
-                            }
-                            if ( ! $from ) continue;
-                            $ts = strtotime( str_replace('/', '-', $from) );
-                            if ( $ts >= strtotime('today') ) {
-                                $future[] = $from;
-                            }
-                        }
-                        if ( $future ) $next_date = reset($future);
-                    }
+                    $next_departure = TP_Package_Data::get_next_departure( get_the_ID() );
+                    $next_date      = $next_departure ? $next_departure['from'] : '';
+                    $next_seats     = ( $next_departure && $next_departure['seats_left'] !== null ) ? (int) $next_departure['seats_left'] : null;
                 ?>
                 <div class="tp-grid-carousel-item">
                 <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>">
@@ -266,20 +256,17 @@ class TP_Shortcodes {
                         <div class="tp-card-next-date">
                             <span class="dashicons dashicons-calendar-alt"></span>
                             <?php echo esc_html($next_date); ?>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ( $terms && ! is_wp_error($terms) ) : ?>
-                        <div class="tp-card-terms">
-                            <?php foreach ( $terms as $term ) : ?>
-                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term"><?php echo esc_html($term->name); ?></a>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) : ?>
-                        <div class="tp-card-terms tp-card-terms-tipologia">
-                            <?php foreach ( $tipologia_terms as $term ) : ?>
-                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term tp-term-tipologia"><?php echo esc_html($term->name); ?></a>
-                            <?php endforeach; ?>
+                            <?php if ( $next_seats !== null && $next_seats > 0 ) : ?>
+                            <span class="tp-card-seats <?php echo $next_seats < 5 ? 'is-low' : ''; ?>">
+                                <?php
+                                if ( $next_seats < 5 ) {
+                                    printf( esc_html__('¡Últimos lugares! · %d disponibles','travel-packages'), $next_seats );
+                                } else {
+                                    printf( esc_html__('%d cupos disponibles','travel-packages'), $next_seats );
+                                }
+                                ?>
+                            </span>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </a>
@@ -291,11 +278,11 @@ class TP_Shortcodes {
                         <?php if ( $best_price ) : ?>
                         <div class="tp-card-price">
                             <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
-                            <span class="tp-price-amount"><?php echo esc_html($best_price['currency']); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
+                            <span class="tp-price-amount"><?php echo esc_html(TP_Package_Data::currency_symbol($best_price['currency'])); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
                             <?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
-                        <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
+                        <?php self::render_card_actions( get_the_ID(), $next_departure ); ?>
                     </div>
                 </article>
                 </div>
@@ -313,28 +300,10 @@ class TP_Shortcodes {
                 $best_price = TP_Package_Data::get_best_price( get_the_ID() );
                 $short_desc = get_post_meta( get_the_ID(), '_tp_short_desc', true );
                 $featured   = get_post_meta( get_the_ID(), '_tp_featured', true );
-                $dates      = get_post_meta( get_the_ID(), '_tp_dates', true );
                 $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
-                $terms      = get_the_terms( get_the_ID(), 'destino' );
-                $tipologia_terms = get_the_terms( get_the_ID(), 'tipologia' );
-                $next_date  = '';
-                if ( is_array($dates) && count($dates) ) {
-                    $future = [];
-                    foreach ( $dates as $d ) {
-                        $from = '';
-                        if ( is_array($d) ) {
-                            $from = $d['from'] ?? '';
-                        } else {
-                            $from = $d;
-                        }
-                        if ( ! $from ) continue;
-                        $ts = strtotime( str_replace('/', '-', $from) );
-                        if ( $ts >= strtotime('today') ) {
-                            $future[] = $from;
-                        }
-                    }
-                    if ( $future ) $next_date = reset($future);
-                }
+                $next_departure = TP_Package_Data::get_next_departure( get_the_ID() );
+                $next_date      = $next_departure ? $next_departure['from'] : '';
+                $next_seats     = ( $next_departure && $next_departure['seats_left'] !== null ) ? (int) $next_departure['seats_left'] : null;
             ?>
             <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>">
                 <?php if ( $featured ) : ?>
@@ -350,20 +319,17 @@ class TP_Shortcodes {
                     <div class="tp-card-next-date">
                         <span class="dashicons dashicons-calendar-alt"></span>
                         <?php echo esc_html($next_date); ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php if ( $terms && ! is_wp_error($terms) ) : ?>
-                    <div class="tp-card-terms">
-                        <?php foreach ( $terms as $term ) : ?>
-                        <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term"><?php echo esc_html($term->name); ?></a>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) : ?>
-                    <div class="tp-card-terms tp-card-terms-tipologia">
-                        <?php foreach ( $tipologia_terms as $term ) : ?>
-                        <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term tp-term-tipologia"><?php echo esc_html($term->name); ?></a>
-                        <?php endforeach; ?>
+                        <?php if ( $next_seats !== null && $next_seats > 0 ) : ?>
+                        <span class="tp-card-seats <?php echo $next_seats < 5 ? 'is-low' : ''; ?>">
+                            <?php
+                            if ( $next_seats < 5 ) {
+                                printf( esc_html__('¡Últimos lugares! · %d disponibles','travel-packages'), $next_seats );
+                            } else {
+                                printf( esc_html__('%d cupos disponibles','travel-packages'), $next_seats );
+                            }
+                            ?>
+                        </span>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 </a>
@@ -375,11 +341,11 @@ class TP_Shortcodes {
                     <?php if ( $best_price ) : ?>
                     <div class="tp-card-price">
                         <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
-                        <span class="tp-price-amount"><?php echo esc_html($best_price['currency']); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
+                        <span class="tp-price-amount"><?php echo esc_html(TP_Package_Data::currency_symbol($best_price['currency'])); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
                         <?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                     </div>
                     <?php endif; ?>
-                    <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
+                    <?php self::render_card_actions( get_the_ID(), $next_departure ); ?>
                 </div>
             </article>
             <?php endwhile; wp_reset_postdata(); ?>
@@ -420,6 +386,140 @@ class TP_Shortcodes {
     }
 
     /**
+     * [tp_buscador url="" placeholder="" button="" show_destino="true" show_tipo_viaje="true"]
+     * Buscador de paquetes para colocar en cualquier parte del template.
+     * Envía la búsqueda a la página de resultados configurada en Ajustes
+     * (o a la página actual si no se configuró ninguna).
+     */
+    public static function render_buscador( $atts ) {
+        $atts = shortcode_atts([
+            'url'             => '',
+            'placeholder'     => '',
+            'button'          => '',
+            'show_destino'    => '',
+            'show_tipo_viaje' => '',
+            'destino'         => '',
+            'tipo_viaje'      => '',
+            'class'           => '',
+        ], $atts, 'tp_buscador' );
+
+        wp_enqueue_style(  'tp-public' );
+        wp_enqueue_style( 'dashicons' );
+        wp_enqueue_script( 'tp-public' );
+
+        $action = trim( (string) $atts['url'] );
+        if ( $action === '' && class_exists( 'TP_Settings' ) ) {
+            $action = TP_Settings::get_search_url();
+        }
+
+        $action_base   = $action;
+        $action_hidden = [];
+        if ( $action !== '' ) {
+            $parsed = wp_parse_url( $action );
+            if ( ! empty( $parsed['query'] ) ) {
+                parse_str( $parsed['query'], $action_hidden );
+            }
+            if ( ! empty( $parsed['scheme'] ) && ! empty( $parsed['host'] ) ) {
+                $action_base = $parsed['scheme'] . '://' . $parsed['host'];
+                if ( ! empty( $parsed['path'] ) ) {
+                    $action_base .= $parsed['path'];
+                }
+            } else {
+                $action_base = strtok( $action, '?' );
+            }
+            foreach ( [ 'tp_search', 'destino', 'tipo_viaje' ] as $reserved ) {
+                unset( $action_hidden[ $reserved ] );
+            }
+        }
+
+        $placeholder = $atts['placeholder'] !== ''
+            ? $atts['placeholder']
+            : ( class_exists( 'TP_Settings' ) ? TP_Settings::get_search_placeholder() : __( '¿A dónde querés viajar?', 'travel-packages' ) );
+
+        $button = $atts['button'] !== ''
+            ? $atts['button']
+            : ( class_exists( 'TP_Settings' ) ? TP_Settings::get_search_button() : __( 'Buscar', 'travel-packages' ) );
+
+        $show_destino = $atts['show_destino'] !== ''
+            ? in_array( strtolower( $atts['show_destino'] ), [ '1', 'true', 'yes', 'si', 'sí' ], true )
+            : ( ! class_exists( 'TP_Settings' ) || TP_Settings::is_search_destino_enabled() );
+
+        $show_tipo_viaje = $atts['show_tipo_viaje'] !== ''
+            ? in_array( strtolower( $atts['show_tipo_viaje'] ), [ '1', 'true', 'yes', 'si', 'sí' ], true )
+            : ( ! class_exists( 'TP_Settings' ) || TP_Settings::is_search_tipo_enabled() );
+
+        $search_val = isset( $_GET['tp_search'] ) ? sanitize_text_field( wp_unslash( $_GET['tp_search'] ) ) : '';
+
+        $destino_val = $atts['destino'] !== ''
+            ? sanitize_title( $atts['destino'] )
+            : ( isset( $_GET['destino'] ) ? sanitize_title( wp_unslash( $_GET['destino'] ) ) : '' );
+
+        $tipo_viaje_val = $atts['tipo_viaje'] !== ''
+            ? sanitize_key( $atts['tipo_viaje'] )
+            : ( isset( $_GET['tipo_viaje'] ) ? sanitize_key( wp_unslash( $_GET['tipo_viaje'] ) ) : '' );
+
+        if ( ! in_array( $tipo_viaje_val, [ 'nacional', 'internacional' ], true ) ) {
+            $tipo_viaje_val = '';
+        }
+
+        $destinos = [];
+        if ( $show_destino ) {
+            $terms = get_terms([ 'taxonomy' => 'destino', 'hide_empty' => true ]);
+            if ( ! is_wp_error( $terms ) ) {
+                $destinos = $terms;
+            }
+        }
+
+        $classes = 'tp-buscador';
+        $extra_class = preg_replace( '/[^A-Za-z0-9_\-\s]/', '', (string) $atts['class'] );
+        if ( trim( $extra_class ) !== '' ) {
+            $classes .= ' ' . trim( $extra_class );
+        }
+
+        $suggestions_id = 'tp-buscador-suggestions-' . uniqid();
+
+        ob_start(); ?>
+        <form class="<?php echo esc_attr( $classes ); ?>" method="get" role="search"<?php echo $action_base !== '' ? ' action="' . esc_url( $action_base ) . '"' : ''; ?>>
+            <?php foreach ( $action_hidden as $hidden_key => $hidden_value ) : ?>
+            <?php if ( is_array( $hidden_value ) ) continue; ?>
+            <input type="hidden" name="<?php echo esc_attr( $hidden_key ); ?>" value="<?php echo esc_attr( $hidden_value ); ?>">
+            <?php endforeach; ?>
+            <div class="tp-buscador-field">
+                <svg class="tp-buscador-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" name="tp_search" class="tp-buscador-input" value="<?php echo esc_attr( $search_val ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" aria-label="<?php echo esc_attr( $placeholder ); ?>" autocomplete="off" aria-autocomplete="list" aria-controls="<?php echo esc_attr( $suggestions_id ); ?>" aria-expanded="false" data-tp-search-input>
+                <div class="tp-buscador-suggestions" id="<?php echo esc_attr( $suggestions_id ); ?>" role="listbox" aria-live="polite" aria-label="<?php esc_attr_e( 'Sugerencias de paquetes', 'travel-packages' ); ?>" hidden></div>
+            </div>
+
+            <?php if ( $show_destino && ! empty( $destinos ) ) : ?>
+            <label class="tp-buscador-label">
+                <span class="screen-reader-text"><?php _e( 'Destino', 'travel-packages' ); ?></span>
+                <select name="destino" class="tp-buscador-select">
+                    <option value=""><?php _e( 'Todos los destinos', 'travel-packages' ); ?></option>
+                    <?php foreach ( $destinos as $destino ) : ?>
+                    <option value="<?php echo esc_attr( $destino->slug ); ?>" <?php selected( $destino_val, $destino->slug ); ?>><?php echo esc_html( $destino->name ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <?php endif; ?>
+
+            <?php if ( $show_tipo_viaje ) : ?>
+            <label class="tp-buscador-label">
+                <span class="screen-reader-text"><?php _e( 'Tipo de viaje', 'travel-packages' ); ?></span>
+                <select name="tipo_viaje" class="tp-buscador-select">
+                    <option value=""><?php _e( 'Nacional e internacional', 'travel-packages' ); ?></option>
+                    <option value="nacional" <?php selected( $tipo_viaje_val, 'nacional' ); ?>><?php _e( 'Nacional', 'travel-packages' ); ?></option>
+                    <option value="internacional" <?php selected( $tipo_viaje_val, 'internacional' ); ?>><?php _e( 'Internacional', 'travel-packages' ); ?></option>
+                </select>
+            </label>
+            <?php endif; ?>
+
+            <button type="submit" class="tp-buscador-submit"><?php echo esc_html( $button ); ?></button>
+        </form>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
      * [tp_catalogo limit="-1" columns="3" orderby="date" order="DESC" show_search="true" show_filters="true"]
      * Landing page con buscador + filtros + grilla de todos los paquetes
      */
@@ -446,6 +546,7 @@ class TP_Shortcodes {
         ];
 
         // Support URL params for pre-filtered catalog landing pages
+        $url_search    = isset( $_GET['tp_search'] ) ? sanitize_text_field( wp_unslash( $_GET['tp_search'] ) ) : '';
         $url_destino   = isset( $_GET['destino'] ) ? sanitize_text_field( $_GET['destino'] ) : '';
         $url_tipologia = isset( $_GET['tipologia'] ) ? sanitize_text_field( $_GET['tipologia'] ) : '';
         $url_tipo_viaje = isset( $_GET['tipo_viaje'] ) ? sanitize_text_field( $_GET['tipo_viaje'] ) : '';
@@ -466,6 +567,14 @@ class TP_Shortcodes {
             ]];
         }
 
+        // Búsqueda precisa: restringe y ordena por relevancia.
+        if ( $url_search !== '' ) {
+            $search_ids        = TP_Package_Data::search_package_ids( $url_search, -1 );
+            $args['post__in']  = ! empty( $search_ids ) ? $search_ids : [ 0 ];
+            $args['orderby']   = 'post__in';
+            $args['order']     = 'ASC';
+        }
+
         $query = new WP_Query($args);
 
         $cols    = in_array( (int)$atts['columns'], [1,2,3,4] ) ? (int)$atts['columns'] : 3;
@@ -473,14 +582,14 @@ class TP_Shortcodes {
         $tipologias = get_terms([ 'taxonomy' => 'tipologia', 'hide_empty' => true ]);
 
         ob_start(); ?>
-        <div class="tp-catalogo" data-columns="<?php echo $cols; ?>">
+        <div class="tp-catalogo" data-columns="<?php echo $cols; ?>" data-search-term="<?php echo esc_attr( strtolower( $url_search ) ); ?>">
 
             <?php if ( $atts['show_search'] === 'true' || $atts['show_filters'] === 'true' ) : ?>
             <div class="tp-catalogo-toolbar">
                 <?php if ( $atts['show_search'] === 'true' ) : ?>
                 <div class="tp-catalogo-search">
-                    <svg class="tp-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input type="search" id="tp-catalogo-search" class="tp-catalogo-search-input" placeholder="<?php esc_attr_e('Buscar paquetes por nombre, destino…', 'travel-packages'); ?>">
+                    <svg class="tp-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="search" id="tp-catalogo-search" class="tp-catalogo-search-input" value="<?php echo esc_attr( $url_search ); ?>" placeholder="<?php esc_attr_e('Buscar paquetes por nombre, destino…', 'travel-packages'); ?>">
                 </div>
                 <?php endif; ?>
 
@@ -535,18 +644,9 @@ class TP_Shortcodes {
                     $thumb_url  = get_the_post_thumbnail_url( get_the_ID(), 'large' );
                     $terms      = get_the_terms( get_the_ID(), 'destino' );
                     $tipologia_terms = get_the_terms( get_the_ID(), 'tipologia' );
-                    $next_date  = '';
-
-                    if ( is_array($dates) && count($dates) ) {
-                        $future = [];
-                        foreach ( $dates as $d ) {
-                            $from = is_array($d) ? ($d['from'] ?? '') : $d;
-                            if ( ! $from ) continue;
-                            $ts = strtotime( str_replace('/', '-', $from) );
-                            if ( $ts >= strtotime('today') ) $future[] = $from;
-                        }
-                        if ( $future ) $next_date = reset($future);
-                    }
+                    $next_departure = TP_Package_Data::get_next_departure( get_the_ID() );
+                    $next_date      = $next_departure ? $next_departure['from'] : '';
+                    $next_seats     = ( $next_departure && $next_departure['seats_left'] !== null ) ? (int) $next_departure['seats_left'] : null;
 
                     $destino_slugs = [];
                     $destino_names = [];
@@ -574,7 +674,7 @@ class TP_Shortcodes {
                     data-destinos="<?php echo esc_attr( implode(' ', $destino_slugs) ); ?>"
                     data-tipologia="<?php echo esc_attr( implode(' ', $tipologia_slugs) ); ?>"
                     data-tipo-viaje="<?php echo esc_attr( $tipo_viaje_val ); ?>"
-                    data-price="<?php echo esc_attr( $price ?: '0' ); ?>"
+                    data-price="<?php echo esc_attr( $best_price ? $best_price['price'] : '0' ); ?>"
                     data-search="<?php echo esc_attr( $search_text ); ?>"
                     data-date="<?php echo esc_attr( get_the_date('U') ); ?>">
 
@@ -592,20 +692,17 @@ class TP_Shortcodes {
                         <div class="tp-card-next-date">
                             <span class="dashicons dashicons-calendar-alt"></span>
                             <?php echo esc_html($next_date); ?>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ( $terms && ! is_wp_error($terms) ) : ?>
-                        <div class="tp-card-terms">
-                            <?php foreach ( $terms as $term ) : ?>
-                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term"><?php echo esc_html($term->name); ?></a>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ( $tipologia_terms && ! is_wp_error($tipologia_terms) ) : ?>
-                        <div class="tp-card-terms tp-card-terms-tipologia">
-                            <?php foreach ( $tipologia_terms as $term ) : ?>
-                            <a href="<?php echo esc_url(get_term_link($term)); ?>" class="tp-term tp-term-tipologia"><?php echo esc_html($term->name); ?></a>
-                            <?php endforeach; ?>
+                            <?php if ( $next_seats !== null && $next_seats > 0 ) : ?>
+                            <span class="tp-card-seats <?php echo $next_seats < 5 ? 'is-low' : ''; ?>">
+                                <?php
+                                if ( $next_seats < 5 ) {
+                                    printf( esc_html__('¡Últimos lugares! · %d disponibles','travel-packages'), $next_seats );
+                                } else {
+                                    printf( esc_html__('%d cupos disponibles','travel-packages'), $next_seats );
+                                }
+                                ?>
+                            </span>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </a>
@@ -620,12 +717,12 @@ class TP_Shortcodes {
                         <?php if ( $best_price ) : ?>
                         <div class="tp-card-price">
                             <span class="tp-from-small"><?php _e('Desde', 'travel-packages'); ?></span>
-                            <span class="tp-price-amount"><?php echo esc_html($best_price['currency']); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
+                            <span class="tp-price-amount"><?php echo esc_html(TP_Package_Data::currency_symbol($best_price['currency'])); ?> <strong><?php echo number_format((float)$best_price['price'], 0, ',', '.'); ?></strong></span>
                             <?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html($best_price['note']); ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
 
-                        <a href="<?php the_permalink(); ?>" class="tp-btn-card"><?php _e('Ver detalles', 'travel-packages'); ?></a>
+                        <?php self::render_card_actions( get_the_ID(), $next_departure ); ?>
                     </div>
                 </article>
                 <?php endwhile; wp_reset_postdata(); ?>
@@ -636,10 +733,33 @@ class TP_Shortcodes {
                 <p><?php _e('No se encontraron paquetes con los filtros seleccionados.', 'travel-packages'); ?></p>
             </div>
             <?php else : ?>
-            <p class="tp-no-results"><?php _e('No hay paquetes disponibles en este momento.', 'travel-packages'); ?></p>
+            <p class="tp-no-results"><?php echo $url_search !== '' ? esc_html__( 'No se encontraron paquetes para tu búsqueda.', 'travel-packages' ) : esc_html__( 'No hay paquetes disponibles en este momento.', 'travel-packages' ); ?></p>
             <?php endif; ?>
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /** Acciones de la tarjeta: ver detalles y consultar por WhatsApp. */
+    private static function render_card_actions( $post_id, $next_departure = null ) {
+        $permalink = get_permalink( $post_id );
+        $title     = get_the_title( $post_id );
+        $whatsapp  = '';
+
+        if ( class_exists( 'TP_Settings' ) ) {
+            $parts = [ sprintf( __( 'Hola, quiero consultar por el paquete "%s".', 'travel-packages' ), $title ) ];
+            if ( $next_departure && ! empty( $next_departure['from'] ) ) {
+                $parts[] = sprintf( __( 'Salida: %s', 'travel-packages' ), $next_departure['from'] );
+            }
+            $parts[]  = $permalink;
+            $whatsapp = TP_Package_Data::whatsapp_url( $post_id, implode( "\n", $parts ) );
+        }
+
+        echo '<div class="tp-card-actions">';
+        echo '<a href="' . esc_url( $permalink ) . '" class="tp-btn-card">' . esc_html__( 'Ver detalles', 'travel-packages' ) . '</a>';
+        if ( $whatsapp !== '' ) {
+            echo '<a href="' . esc_url( $whatsapp ) . '" class="tp-btn-card-wa" target="_blank" rel="noopener"><span class="dashicons dashicons-whatsapp"></span>' . esc_html__( 'Consultar', 'travel-packages' ) . '</a>';
+        }
+        echo '</div>';
     }
 }

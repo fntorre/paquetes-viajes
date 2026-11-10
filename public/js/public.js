@@ -106,6 +106,208 @@ jQuery(document).ready(function($) {
 });
 
 /* ============================================
+   SEARCH SUGGESTIONS (tp_buscador)
+============================================ */
+(function() {
+    var cfg = window.TP_PUBLIC || {};
+    var minChars = parseInt(cfg.min_chars, 10) || 2;
+
+    $('.tp-buscador').each(function() {
+        var $form  = $(this);
+        var $field = $form.find('.tp-buscador-field').first();
+        var $input = $form.find('[data-tp-search-input]').first();
+        var $box   = $field.find('.tp-buscador-suggestions').first();
+        if ( ! $input.length || ! $box.length ) return;
+
+        var timer = null;
+        var xhr = null;
+        var activeIndex = -1;
+
+        function hide() {
+            $box.prop('hidden', true).empty();
+            $input.attr('aria-expanded', 'false');
+            activeIndex = -1;
+        }
+
+        function show() {
+            $box.prop('hidden', false);
+            $input.attr('aria-expanded', 'true');
+        }
+
+        function buildAllUrl(term) {
+            var raw = $form.attr('action') || window.location.href;
+            var url;
+            try {
+                url = new URL(raw, window.location.origin);
+            } catch (err) {
+                url = new URL(window.location.href);
+            }
+
+            $form.find('input[type="hidden"]').each(function() {
+                if ( this.name ) url.searchParams.set(this.name, this.value);
+            });
+
+            if ( term ) url.searchParams.set('tp_search', term);
+
+            var destino = $form.find('[name="destino"]').val();
+            if ( destino ) url.searchParams.set('destino', destino);
+
+            var tipo = $form.find('[name="tipo_viaje"]').val();
+            if ( tipo ) url.searchParams.set('tipo_viaje', tipo);
+
+            return url.toString();
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, function(ch) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+            });
+        }
+
+        function render(data, term) {
+            var items = data.items || [];
+            activeIndex = -1;
+            $box.empty();
+
+            if ( ! items.length ) {
+                $box.append('<div class="tp-suggestion-empty">' + (cfg.no_results || 'No encontramos paquetes para tu búsqueda.') + '</div>');
+                $box.append('<a class="tp-suggestion-all" href="' + escapeHtml(buildAllUrl(term)) + '">Ver todos los resultados</a>');
+                show();
+                return;
+            }
+
+            items.forEach(function(item, index) {
+                var meta = [];
+                if ( item.destination ) meta.push(item.destination);
+                if ( item.price ) meta.push(item.price);
+
+                var thumb = item.thumb
+                    ? '<img src="' + escapeHtml(item.thumb) + '" alt="" loading="lazy">'
+                    : '<span class="dashicons dashicons-palmtree" aria-hidden="true"></span>';
+
+                var html =
+                    '<a class="tp-suggestion-item" role="option" href="' + escapeHtml(item.url) + '" data-index="' + index + '">' +
+                        '<span class="tp-suggestion-thumb">' + thumb + '</span>' +
+                        '<span class="tp-suggestion-info">' +
+                            '<span class="tp-suggestion-title">' + escapeHtml(item.title) + '</span>' +
+                            ( meta.length ? '<span class="tp-suggestion-meta">' + escapeHtml(meta.join(' · ')) + '</span>' : '' ) +
+                        '</span>' +
+                    '</a>';
+
+                $box.append(html);
+            });
+
+            var total = parseInt(data.total, 10) || items.length;
+            $box.append('<a class="tp-suggestion-all" href="' + escapeHtml(buildAllUrl(term)) + '">Ver todos los resultados (' + total + ')</a>');
+            show();
+        }
+
+        function moveActive(delta) {
+            var $items = $box.find('.tp-suggestion-item');
+            if ( ! $items.length ) return;
+
+            activeIndex += delta;
+            if ( activeIndex < 0 ) activeIndex = $items.length - 1;
+            if ( activeIndex >= $items.length ) activeIndex = 0;
+
+            $items.removeClass('is-active').eq(activeIndex).addClass('is-active');
+
+            var el = $items.get(activeIndex);
+            if ( el && el.scrollIntoView ) {
+                el.scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        function fetchSuggestions(term) {
+            if ( xhr && xhr.abort ) xhr.abort();
+            if ( ! cfg.ajax_url ) return;
+
+            $box.html('<div class="tp-suggestion-loading">' + (cfg.searching || 'Buscando paquetes…') + '</div>');
+            show();
+
+            xhr = $.ajax({
+                url: cfg.ajax_url,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'tp_search_suggestions',
+                    nonce: cfg.nonce,
+                    term: term
+                }
+            }).done(function(res) {
+                if ( ! res || ! res.success ) { hide(); return; }
+                render(res.data || {}, term);
+            }).fail(function(jqXHR, status) {
+                if ( status !== 'abort' ) hide();
+            });
+        }
+
+        $input.on('input', function() {
+            var term = $.trim($input.val());
+            clearTimeout(timer);
+
+            if ( term.length < minChars ) {
+                hide();
+                return;
+            }
+
+            timer = setTimeout(function() {
+                fetchSuggestions(term);
+            }, 220);
+        });
+
+        $input.on('keydown', function(e) {
+            if ( $box.prop('hidden') ) return;
+
+            if ( e.key === 'ArrowDown' ) {
+                e.preventDefault();
+                moveActive(1);
+            } else if ( e.key === 'ArrowUp' ) {
+                e.preventDefault();
+                moveActive(-1);
+            } else if ( e.key === 'Enter' ) {
+                var $active = $box.find('.tp-suggestion-item.is-active');
+                if ( $active.length ) {
+                    e.preventDefault();
+                    window.location.href = $active.attr('href');
+                }
+            } else if ( e.key === 'Escape' ) {
+                hide();
+            }
+        });
+
+        $box.on('mousedown', '.tp-suggestion-item, .tp-suggestion-all', function(e) {
+            e.preventDefault();
+        });
+
+        $box.on('click', '.tp-suggestion-item', function(e) {
+            if ( e.metaKey || e.ctrlKey ) return;
+            e.preventDefault();
+            window.location.href = $(this).attr('href');
+        });
+
+        $box.on('mouseenter', '.tp-suggestion-item', function() {
+            var index = parseInt($(this).data('index'), 10);
+            if ( ! isNaN(index) ) {
+                activeIndex = index;
+                $box.find('.tp-suggestion-item').removeClass('is-active');
+                $(this).addClass('is-active');
+            }
+        });
+
+        $input.on('blur', function() {
+            setTimeout(hide, 150);
+        });
+
+        $(document).on('click', function(e) {
+            if ( ! $.contains($field[0], e.target) && e.target !== $field[0] ) {
+                hide();
+            }
+        });
+    });
+})();
+
+/* ============================================
    CATALOG FILTERS — client-side search, filter & sort
 ============================================ */
 (function() {
@@ -124,6 +326,16 @@ jQuery(document).ready(function($) {
     var $tipoViajeToggle = $catalogo.find('#tp-filter-tipo-viaje');
     var tipoViajeVal = '';
 
+    function normalizeText(value) {
+        var text = (value || '').toString().toLowerCase();
+        if ( text.normalize ) {
+            text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+        return text;
+    }
+
+    var serverSearch = normalizeText($catalogo.data('search-term') || '').trim();
+
     if ( $tipoViajeToggle.length ) {
         $tipoViajeToggle.find('.tp-toggle-btn').on('click', function() {
             var $btn = $(this);
@@ -138,7 +350,7 @@ jQuery(document).ready(function($) {
     if ( $cards.length === 0 ) return;
 
     function filterAndSort() {
-        var query   = ($search.val() || '').toLowerCase().trim();
+        var query   = normalizeText($search.val() || '').trim();
         var destSlug = $destino.val() || '';
         var order   = $orderby.val() || 'default';
         var dir     = $orderDir.val() || 'DESC';
@@ -149,10 +361,16 @@ jQuery(document).ready(function($) {
             var $c = $(this);
             var show = true;
 
-            // Text search
-            if ( query ) {
-                var searchText = ($c.data('search') || '').toLowerCase();
-                if ( searchText.indexOf(query) === -1 ) show = false;
+            // Text search: all words must appear (accent-insensitive)
+            if ( query && query !== serverSearch ) {
+                var searchText = normalizeText($c.data('search'));
+                var tokens = query.split(/\s+/);
+                for ( var t = 0; t < tokens.length; t++ ) {
+                    if ( tokens[t] && searchText.indexOf(tokens[t]) === -1 ) {
+                        show = false;
+                        break;
+                    }
+                }
             }
 
             // Destination filter
@@ -222,12 +440,17 @@ jQuery(document).ready(function($) {
     $orderby.on('change', filterAndSort);
     $orderDir.on('change', filterAndSort);
 
-    // Read URL params for pre-filtering (e.g. ?destino=caribe&tipologia=playa&tipo_viaje=nacional)
+    // Read URL params for pre-filtering (e.g. ?tp_search=caribe&destino=caribe&tipologia=playa&tipo_viaje=nacional)
     var urlParams = new URLSearchParams(window.location.search);
+    var urlSearch = urlParams.get('tp_search') || urlParams.get('s');
     var urlDestino = urlParams.get('destino');
     var urlTipologia = urlParams.get('tipologia');
     var urlTipoViaje = urlParams.get('tipo_viaje');
     var shouldFilter = $orderby.val() !== 'default';
+    if ( urlSearch && $search.length ) {
+        $search.val(urlSearch);
+        shouldFilter = true;
+    }
     if ( urlDestino && $destino.length ) {
         $destino.val(urlDestino);
         shouldFilter = true;
@@ -253,9 +476,10 @@ jQuery(document).ready(function($) {
 $('.tp-grid-carousel').each(function() {
     var $wrap   = $(this);
     var $track  = $wrap.find('.tp-grid-carousel-track');
-    var $prev   = $wrap.find('.tp-carousel-prev');
-    var $next   = $wrap.find('.tp-carousel-next');
-    var $dots   = $wrap.find('.tp-carousel-dots');
+    var $prev     = $wrap.find('.tp-carousel-prev');
+    var $next     = $wrap.find('.tp-carousel-next');
+    var $dots     = $wrap.find('.tp-carousel-dots');
+    var $controls = $wrap.find('.tp-carousel-controls');
 
     var $orig     = $track.find('.tp-grid-carousel-item');
     var count     = $orig.length;
@@ -339,6 +563,7 @@ $('.tp-grid-carousel').each(function() {
         $prev.toggle(hasPages);
         $next.toggle(hasPages);
         $dots.toggle(hasPages);
+        $controls.toggle(hasPages);
     }
 
     $track.on('transitionend', function() {
@@ -374,10 +599,36 @@ $('.tp-grid-carousel').each(function() {
 });
 
 /* ============================================
+   COPY SHARE LINK (single paquete)
+============================================ */
+$(document).on('click', '.tp-copy-link', function(e) {
+    e.preventDefault();
+
+    var $btn = $(this);
+    var url = $btn.data('url') || window.location.href;
+    var original = $btn.html();
+
+    function done() {
+        $btn.html('<span class="dashicons dashicons-yes"></span>Copiado');
+        setTimeout(function() { $btn.html(original); }, 1800);
+    }
+
+    if ( navigator.clipboard && navigator.clipboard.writeText ) {
+        navigator.clipboard.writeText(url).then(done).catch(function() {});
+        return;
+    }
+
+    var $temp = $('<textarea>').val(url).css({ position: 'fixed', top: '-1000px', opacity: 0 }).appendTo('body');
+    $temp[0].select();
+    try { document.execCommand('copy'); done(); } catch (err) {}
+    $temp.remove();
+});
+
+/* ============================================
    GALLERY LIGHTBOX (single paquete) — full UI
 ============================================ */
     (function() {
-        var $links = $('.tp-single-gallery.tp-pinterest .tp-gallery-item-link');
+        var $links = $('.tp-single-gallery .tp-gallery-item-link');
         if ( $links.length === 0 ) return;
 
         var items = [];
@@ -456,5 +707,96 @@ $('.tp-grid-carousel').each(function() {
             }
         });
     })();
+
+    /* ============================================
+       DATE CARDS CAROUSEL (single paquete)
+    ============================================ */
+    $('.tp-dates-block[data-dates-carousel="1"]').each(function() {
+        var $block  = $(this);
+        $block.addClass('is-carousel');
+        var $track  = $block.find('.tp-single-dates-cards');
+        var $cards  = $track.find('.tp-date-card');
+        var $prev   = $block.find('.tp-dates-prev');
+        var $next   = $block.find('.tp-dates-next');
+        var $dots   = $block.find('.tp-dates-dots');
+        var $controls = $block.find('.tp-dates-controls');
+        var total   = $cards.length;
+        var current = 0;
+
+        if ( total < 2 ) return;
+
+        function perView() {
+            return window.innerWidth <= 768 ? 1 : 2;
+        }
+
+        function maxIndex() {
+            return Math.max(0, total - perView());
+        }
+
+        function buildDots() {
+            $dots.empty();
+            for ( var i = 0; i <= maxIndex(); i++ ) {
+                $dots.append('<button type="button" class="tp-dates-dot" data-index="' + i + '" aria-label="Salida ' + (i + 1) + '"></button>');
+            }
+        }
+
+        function update() {
+            var cardWidth = $cards.first().outerWidth();
+            var gap = parseFloat($track.css('gap')) || 12;
+            $track.css('transform', 'translateX(-' + (current * (cardWidth + gap)) + 'px)');
+            $dots.find('.tp-dates-dot').removeClass('is-active').eq(current).addClass('is-active');
+            $prev.prop('disabled', current <= 0);
+            $next.prop('disabled', current >= maxIndex());
+            $controls.toggleClass('has-pages', maxIndex() > 0);
+        }
+
+        function refresh() {
+            current = Math.min(current, maxIndex());
+            buildDots();
+            update();
+        }
+
+        $prev.on('click', function() {
+            if ( current > 0 ) {
+                current--;
+                update();
+            }
+        });
+
+        $next.on('click', function() {
+            if ( current < maxIndex() ) {
+                current++;
+                update();
+            }
+        });
+
+        $dots.on('click', '.tp-dates-dot', function() {
+            current = parseInt($(this).data('index'), 10) || 0;
+            update();
+        });
+
+        var $viewport = $block.find('.tp-dates-viewport');
+        if ( $viewport.length ) {
+            var touchStartX = 0;
+            $viewport[0].addEventListener('touchstart', function(e) {
+                touchStartX = e.touches[0].clientX;
+            }, { passive: true });
+            $viewport[0].addEventListener('touchend', function(e) {
+                var dx = touchStartX - e.changedTouches[0].clientX;
+                if ( Math.abs(dx) > 40 ) {
+                    current = Math.max(0, Math.min(maxIndex(), current + (dx > 0 ? 1 : -1)));
+                    update();
+                }
+            }, { passive: true });
+        }
+
+        var resizeTimer = null;
+        $(window).on('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(refresh, 150);
+        });
+
+        refresh();
+    });
 
 });

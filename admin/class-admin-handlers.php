@@ -105,14 +105,20 @@ class TP_Admin_Handlers {
                 'status'             => $p->post_status,
                 'short_desc'         => get_post_meta( $p->ID, '_tp_short_desc', true ),
                 'prices'             => TP_Package_Data::get_prices( $p->ID ),
+                'pricing'            => TP_Package_Data::get_pricing( $p->ID ),
                 'slider'             => get_post_meta( $p->ID, '_tp_slider', true ),
                 'featured'           => get_post_meta( $p->ID, '_tp_featured', true ),
                 'tipo_viaje'         => get_post_meta( $p->ID, TP_Package_Data::META_TIPO_VIAJE, true ),
                 'destinos'           => TP_Package_Data::get_term_names( $p->ID, TP_Package_Data::TAX_DESTINO ),
                 'tipologias'         => TP_Package_Data::get_term_names( $p->ID, TP_Package_Data::TAX_TIPOLOGIA ),
+                'similar_destinos'   => TP_Package_Data::get_similar_destino_names( $p->ID ),
                 'featured_image_url' => get_the_post_thumbnail_url( $p->ID, 'full' ) ?: '',
                 'gallery_urls'       => TP_Package_Data::get_gallery_urls( $p->ID ),
                 'tech_fields'        => get_post_meta( $p->ID, '_tp_tech_fields', true ),
+                'video_url'          => TP_Package_Data::get_video_url( $p->ID ),
+                'map_location'       => TP_Package_Data::get_map_location( $p->ID ),
+                'whatsapp'           => get_post_meta( $p->ID, TP_Package_Data::META_WHATSAPP, true ),
+                'itinerary'          => TP_Package_Data::get_itinerary( $p->ID ),
                 'dates'              => get_post_meta( $p->ID, '_tp_dates', true ),
                 'custom_fields'      => TP_CustomFields::get_package_data( $p->ID ),
             ];
@@ -164,13 +170,67 @@ class TP_Admin_Handlers {
                 '_tp_featured'    => 'featured',
                 '_tp_tipo_viaje'  => 'tipo_viaje',
                 '_tp_tech_fields' => 'tech_fields',
-                '_tp_dates'       => 'dates',
+                '_tp_video_url'   => 'video_url',
+                '_tp_map_location'=> 'map_location',
             ];
             foreach ( $meta_map as $meta_key => $item_key ) {
                 if ( isset( $item[ $item_key ] ) ) {
                     $val = is_string( $item[ $item_key ] ) ? sanitize_text_field( $item[ $item_key ] ) : $item[ $item_key ];
                     update_post_meta( $post_id, $meta_key, $val );
                 }
+            }
+
+            if ( isset( $item['whatsapp'] ) ) {
+                $whatsapp = preg_replace( '/\D+/', '', (string) $item['whatsapp'] );
+                if ( $whatsapp !== '' ) {
+                    update_post_meta( $post_id, TP_Package_Data::META_WHATSAPP, $whatsapp );
+                }
+            }
+
+            if ( isset( $item['itinerary'] ) && is_array( $item['itinerary'] ) ) {
+                $itinerary = [];
+                foreach ( $item['itinerary'] as $row ) {
+                    if ( ! is_array( $row ) ) {
+                        continue;
+                    }
+                    $day   = sanitize_text_field( $row['day'] ?? '' );
+                    $title = sanitize_text_field( $row['title'] ?? '' );
+                    $desc  = sanitize_textarea_field( $row['desc'] ?? '' );
+                    if ( $day === '' && $title === '' && $desc === '' ) {
+                        continue;
+                    }
+                    $itinerary[] = [ 'day' => $day, 'title' => $title, 'desc' => $desc ];
+                }
+                if ( ! empty( $itinerary ) ) {
+                    update_post_meta( $post_id, TP_Package_Data::META_ITINERARY, $itinerary );
+                }
+            }
+
+            if ( isset( $item['dates'] ) ) {
+                $departures = TP_Package_Data::sanitize_departures_array( $item['dates'] );
+                update_post_meta( $post_id, '_tp_dates', $departures );
+            }
+
+            if ( isset( $item['pricing'] ) && is_array( $item['pricing'] ) ) {
+                $pricing_in = $item['pricing'];
+                $deposit_type = sanitize_key( $pricing_in['deposit_type'] ?? 'none' );
+                if ( ! in_array( $deposit_type, [ 'none', 'percent', 'amount' ], true ) ) {
+                    $deposit_type = 'none';
+                }
+                $currency = sanitize_text_field( $pricing_in['currency'] ?? 'USD' ) ?: 'USD';
+                if ( ! in_array( $currency, [ 'USD', 'ARS', 'EUR', 'BRL' ], true ) ) {
+                    $currency = 'USD';
+                }
+                $pricing = [
+                    'currency'          => $currency,
+                    'price_adult'       => sanitize_text_field( $pricing_in['price_adult'] ?? '' ),
+                    'price_child'       => sanitize_text_field( $pricing_in['price_child'] ?? '' ),
+                    'single_supplement' => sanitize_text_field( $pricing_in['single_supplement'] ?? '' ),
+                    'deposit_type'      => $deposit_type,
+                    'deposit_value'     => sanitize_text_field( $pricing_in['deposit_value'] ?? '' ),
+                    'deposit_note'      => sanitize_text_field( $pricing_in['deposit_note'] ?? '' ),
+                ];
+                update_post_meta( $post_id, TP_Package_Data::META_PRICING, $pricing );
             }
 
             if ( isset( $item['prices'] ) && is_array( $item['prices'] ) ) {
@@ -226,11 +286,75 @@ class TP_Admin_Handlers {
                 }
             }
 
+            if ( isset( $item['similar_destinos'] ) && is_array( $item['similar_destinos'] ) ) {
+                $similar_ids = [];
+                foreach ( $item['similar_destinos'] as $name ) {
+                    $term_id = TP_Package_Data::resolve_term_id( $name, TP_Package_Data::TAX_DESTINO );
+                    if ( $term_id ) {
+                        $similar_ids[] = $term_id;
+                    }
+                }
+                if ( $similar_ids ) {
+                    update_post_meta( $post_id, TP_Package_Data::META_SIMILAR_DESTINOS, array_values( array_unique( $similar_ids ) ) );
+                }
+            }
+
+            if ( ! empty( $item['featured_image_url'] ) ) {
+                $thumb_id = self::sideload_image( $item['featured_image_url'], $post_id, $title );
+                if ( $thumb_id ) {
+                    set_post_thumbnail( $post_id, $thumb_id );
+                }
+            }
+
+            if ( ! empty( $item['gallery_urls'] ) && is_array( $item['gallery_urls'] ) ) {
+                $gallery_ids = [];
+                foreach ( $item['gallery_urls'] as $gallery_url ) {
+                    $image_id = self::sideload_image( $gallery_url, $post_id, $title );
+                    if ( $image_id ) {
+                        $gallery_ids[] = $image_id;
+                    }
+                }
+                if ( $gallery_ids ) {
+                    update_post_meta( $post_id, '_tp_gallery', implode( ',', $gallery_ids ) );
+                }
+            }
+
+            $best_price = TP_Package_Data::get_best_price( $post_id );
+            if ( $best_price ) {
+                update_post_meta( $post_id, '_tp_price', $best_price['price'] );
+                update_post_meta( $post_id, '_tp_price_note', $best_price['note'] );
+                update_post_meta( $post_id, '_tp_currency', $best_price['currency'] );
+            }
+
             $count++;
         }
 
         wp_redirect( admin_url( 'admin.php?page=tp-packages&status=imported&tp_imported=' . $count ) );
         exit;
+    }
+
+    /**
+     * Descarga una imagen remota y la registra en la biblioteca de medios.
+     * Devuelve el ID del adjunto o 0 si falla.
+     */
+    private static function sideload_image( $url, $post_id, $title = '' ) {
+        $url = esc_url_raw( $url );
+        if ( ! $url ) {
+            return 0;
+        }
+
+        $scheme = wp_parse_url( $url, PHP_URL_SCHEME );
+        if ( ! in_array( $scheme, [ 'http', 'https' ], true ) ) {
+            return 0;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $attachment_id = media_sideload_image( $url, $post_id, $title ?: null, 'id' );
+
+        return is_wp_error( $attachment_id ) ? 0 : (int) $attachment_id;
     }
 
     public static function handle_delete_package() {

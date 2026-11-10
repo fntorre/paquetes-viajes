@@ -1,4 +1,4 @@
-# Travel Packages - Shortcodes Reference v2.0.0
+# TourFlow - Shortcodes Reference v2.7.2
 
 ## [tp_slider]
 
@@ -152,6 +152,7 @@ Podés enlazar directamente a un catálogo pre-filtrado usando parámetros en la
 
 | Parámetro | Ejemplo | Descripción |
 |-----------|---------|-------------|
+| `?tp_search=` | `?tp_search=caribe` | Filtra por texto (nombre, destino, tipología o descripción) |
 | `?destino=` | `?destino=caribe` | Filtra por destino |
 | `?tipologia=` | `?tipologia=playa` | Filtra por tipología |
 
@@ -170,11 +171,56 @@ Enlace a catálogo filtrado por tipología:
 <a href="/paquetes/?tipologia=playa">Ver paquetes de playa</a>
 ```
 
+## [tp_buscador]
+
+Buscador de paquetes para colocar en cualquier parte del template (home, header, sidebar, landing pages, etc.). Muestra **sugerencias en vivo vía AJAX** mientras se escribe (mínimo 2 caracteres) y envía la búsqueda a la página de resultados configurada en **TourFlow → Ajustes → Buscador de paquetes**, o a la página actual si no se configuró ninguna.
+
+La búsqueda considera título, descripción corta, contenido y nombres de destinos/tipologías, y ordena los resultados por relevancia.
+
+La página de resultados debe contener el shortcode `[tp_catalogo]`, que interpreta el parámetro `tp_search` y muestra los paquetes filtrados.
+
+### Props (Atributos)
+
+| Prop | Tipo | Default | Descripción |
+|------|------|---------|-------------|
+| `url` | URL | Ajustes | URL de la página de resultados. Si se omite, usa la configurada en Ajustes o la página actual |
+| `placeholder` | texto | Ajustes | Texto de ayuda dentro del campo de búsqueda |
+| `button` | texto | Buscar | Texto del botón de búsqueda |
+| `show_destino` | true/false | true | Mostrar selector de destinos |
+| `show_tipo_viaje` | true/false | true | Mostrar filtro nacional / internacional |
+| `class` | texto | "" | Clase CSS adicional para el formulario |
+| `destino` | texto (slug) | "" | Destino preseleccionado |
+| `tipo_viaje` | nacional/internacional | "" | Tipo de viaje preseleccionado |
+
+### Ejemplos
+
+#### Buscador con la configuración de Ajustes
+```
+[tp_buscador]
+```
+
+#### Buscador personalizado
+```
+[tp_buscador placeholder="Tu próximo viaje" button="Buscar" show_destino="true"]
+```
+
+#### Buscador que envía a una página específica
+```
+[tp_buscador url="/paquetes/" show_tipo_viaje="false"]
+```
+
+#### Buscador solo por texto
+```
+[tp_buscador show_destino="false" show_tipo_viaje="false"]
+```
+
+---
+
 ## Tipologías (taxonomía)
 
 La taxonomía `tipologia` permite agrupar paquetes por tipo (playa, montaña, aventura, nacionales, internacionales, etc.).
 
-- Los términos se administran desde el menú **Paquetes de Viaje → Tipologías**
+- Los términos se administran desde el menú **TourFlow → Tipologías**
 - Cada tipología tiene su propia página de archivo en `/tipologia/[slug]/`
 - Se muestran como badges dorados en las tarjetas de paquetes
 - Se pueden usar en shortcodes (`[tp_grid tipologia="playa"]`) o en URL (`?tipologia=playa`)

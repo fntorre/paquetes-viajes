@@ -90,7 +90,7 @@ class TP_CustomFields {
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
                 <div class="tp-header-left">
-                    <span class="tp-logo-icon">⚙</span>
+                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
                     <div>
                         <h1><?php _e( 'Campos Personalizados', 'travel-packages' ); ?></h1>
                         <p><?php _e( 'Definí campos adicionales que se mostrarán en todos los paquetes de viaje.', 'travel-packages' ); ?></p>

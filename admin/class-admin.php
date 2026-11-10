@@ -12,27 +12,69 @@ class TP_Admin {
     public static function init() {
         add_action( 'admin_menu',            [ __CLASS__, 'register_menu' ] );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
+        add_filter( 'admin_body_class',      [ __CLASS__, 'admin_body_class' ] );
+        add_action( 'in_admin_header',       [ __CLASS__, 'suppress_foreign_notices' ], 0 );
+    }
+
+    private static function is_plugin_page() {
+        $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+        return in_array( $page, [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields' ], true );
+    }
+
+    private static function is_plugin_screen() {
+        if ( self::is_plugin_page() ) {
+            return true;
+        }
+
+        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+        return ( $screen && isset( $screen->post_type ) && $screen->post_type === 'paquete_viaje' );
+    }
+
+    public static function suppress_foreign_notices() {
+        if ( ! self::is_plugin_screen() ) {
+            return;
+        }
+
+        remove_all_actions( 'admin_notices' );
+        remove_all_actions( 'all_admin_notices' );
+        remove_all_actions( 'network_admin_notices' );
+        remove_all_actions( 'user_admin_notices' );
+    }
+
+    /** Agrega una clase de body para aplicar el tema neomórfico solo en pantallas del plugin. */
+    public static function admin_body_class( $classes ) {
+        $page   = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+        $pages  = [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields' ];
+        $is_tp  = in_array( $page, $pages, true );
+
+        if ( ! $is_tp && $screen && isset( $screen->post_type, $screen->base ) && $screen->post_type === 'paquete_viaje' && $screen->base === 'post' ) {
+            $is_tp = true;
+        }
+
+        if ( $is_tp ) {
+            $classes .= ' tp-admin-neu';
+        }
+
+        if ( self::is_plugin_page() ) {
+            $classes .= ' tp-admin-clean-notices';
+        }
+
+        return $classes;
     }
 
     public static function register_menu() {
-        $licensed = TP_Remote_License::is_licensed();
-
-        // Main menu - always show but with different slug based on license
-        $menu_slug = $licensed ? 'tp-dashboard' : 'tp-license';
-        $menu_callback = $licensed ? [ __CLASS__, 'render_dashboard' ] : [ __CLASS__, 'render_license_page' ];
-
         add_menu_page(
-            __( 'Paquetes de Viaje', 'travel-packages' ),
-            __( 'Paquetes de Viaje', 'travel-packages' ),
+            TP_BRAND,
+            TP_BRAND,
             'manage_options',
-            $menu_slug,
-            $menu_callback,
+            'tp-dashboard',
+            [ __CLASS__, 'render_dashboard' ],
             'dashicons-airplane',
             20
         );
 
-        if ( $licensed ) {
-            // Submenu: list
+        // Submenu: list
             add_submenu_page(
                 'tp-dashboard',
                 __( 'Gestión de Paquetes', 'travel-packages' ),
@@ -50,6 +92,16 @@ class TP_Admin {
                 'edit_posts',
                 'tp-package-new',
                 [ __CLASS__, 'render_packages_page' ]
+            );
+
+            // Submenu: departures calendar
+            add_submenu_page(
+                'tp-dashboard',
+                __( 'Calendario de Salidas', 'travel-packages' ),
+                __( 'Calendario de Salidas', 'travel-packages' ),
+                'edit_posts',
+                'tp-calendar',
+                [ __CLASS__, 'render_calendar_page' ]
             );
 
             // Submenu: destinations
@@ -79,17 +131,6 @@ class TP_Admin {
                 'tp-shortcodes',
                 [ __CLASS__, 'render_shortcodes_page' ]
             );
-
-            // Submenu: license status
-            add_submenu_page(
-                'tp-dashboard',
-                __( 'Estado de Licencia', 'travel-packages' ),
-                __( 'Licencia', 'travel-packages' ) . ' ' . TP_Remote_License::get_status_html(),
-                'manage_options',
-                'tp-license',
-                [ __CLASS__, 'render_license_page' ]
-            );
-        }
     }
 
     public static function enqueue( $hook ) {
@@ -104,29 +145,31 @@ class TP_Admin {
         if ( $load_admin_assets ) {
             wp_enqueue_style(  'tp-admin', TP_PLUGIN_URL . 'admin/css/admin.css', [], TP_VERSION );
             wp_enqueue_script( 'tp-admin', TP_PLUGIN_URL . 'admin/js/admin.js',   [ 'jquery' ], TP_VERSION, true );
+            wp_localize_script( 'tp-admin', 'TP_ADMIN', [
+                'nonce'                => wp_create_nonce('tp_admin_nonce'),
+                'delete_nonce'         => wp_create_nonce('tp_delete_package'),
+                'ajax_url'             => admin_url('admin-ajax.php'),
+                'reservations_enabled' => ( class_exists( 'TP_Reservations' ) && TP_Reservations::is_enabled() ) ? '1' : '0',
+            ]);
         }
 
         $is_packages_page = in_array( $page, [ 'tp-packages', 'tp-package-new' ], true );
 
         if ( $is_packages_page ) {
+            wp_enqueue_editor();
             wp_enqueue_script( 'jquery-ui-datepicker' );
             wp_enqueue_style( 'jquery-ui', 'https://code.jquery.com/ui/1.13.2/themes/smoothness/jquery-ui.css' );
             wp_enqueue_media();
-            wp_enqueue_script( 'tp-admin-packages', TP_PLUGIN_URL . 'admin/js/packages.js', [ 'jquery', 'jquery-ui-datepicker' ], TP_VERSION . '.' . gmdate('YmdHis'), true );
-            wp_localize_script( 'tp-admin-packages', 'TP_ADMIN', [
-                'nonce'        => wp_create_nonce('tp_admin_nonce'),
-                'delete_nonce' => wp_create_nonce('tp_delete_package'),
-                'ajax_url'     => admin_url('admin-ajax.php'),
-            ]);
+            wp_enqueue_script( 'tp-admin-packages', TP_PLUGIN_URL . 'admin/js/packages.js', [ 'jquery', 'jquery-ui-datepicker', 'tp-admin' ], TP_VERSION . '.' . gmdate('YmdHis'), true );
         }
     }
 
     /** Badge de versión/build para identificar la versión en prueba en el admin. */
     private static function render_version_badge() {
         ?>
-        <span class="tp-version-badge" title="<?php esc_attr_e( 'Versión del plugin travel-packages', 'travel-packages' ); ?>">
+        <span class="tp-version-badge" title="<?php echo esc_attr( sprintf( __( 'Versión de %s', 'travel-packages' ), TP_BRAND ) ); ?>">
             <span class="dashicons dashicons-superhero"></span>
-            travel-packs-version-<?php echo esc_html( TP_BUILD ); ?>
+            <?php echo esc_html( TP_BRAND . ' v' . TP_VERSION ); ?>
         </span>
         <?php
     }
@@ -148,14 +191,14 @@ class TP_Admin {
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
                 <div class="tp-header-left">
-                    <span class="tp-logo-icon">✈</span>
+                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
                     <div>
-                        <h1><?php _e('Panel de Paquetes de Viaje', 'travel-packages'); ?></h1>
-                        <p><?php _e('Gestioná todos tus paquetes turísticos desde acá.', 'travel-packages'); ?></p>
+                        <h1><?php echo esc_html( TP_BRAND ); ?></h1>
+                        <p><?php echo esc_html( TP_BRAND_TAGLINE ); ?></p>
                     </div>
                     <?php self::render_version_badge(); ?>
                 </div>
-                <a href="<?php echo esc_url(admin_url('post-new.php?post_type=paquete_viaje')); ?>" class="tp-btn-primary">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=tp-package-new')); ?>" class="tp-btn-primary">
                     <span class="dashicons dashicons-plus-alt"></span> <?php _e('Nuevo Paquete', 'travel-packages'); ?>
                 </a>
             </div>
@@ -190,7 +233,7 @@ class TP_Admin {
                 <div class="tp-dashboard-card">
                     <div class="tp-card-header">
                         <h2><?php _e('Últimos Paquetes', 'travel-packages'); ?></h2>
-                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=paquete_viaje')); ?>"><?php _e('Ver todos →', 'travel-packages'); ?></a>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=tp-packages')); ?>"><?php _e('Ver todos →', 'travel-packages'); ?></a>
                     </div>
                     <table class="tp-recent-table">
                         <thead>
@@ -217,7 +260,7 @@ class TP_Admin {
                                         <strong><?php the_title(); ?></strong>
                                     </div>
                                 </td>
-                                <td><?php echo $best_p ? esc_html($best_p['currency'].' '.number_format((float)$best_p['price'],0,',','.')) : '—'; ?></td>
+                                <td><?php echo $best_p ? esc_html(TP_Package_Data::currency_symbol($best_p['currency']).' '.number_format((float)$best_p['price'],0,',','.')) : '—'; ?></td>
                                 <td>
                                     <button class="tp-quick-toggle <?php echo $slider=='1' ? 'active' : ''; ?>" data-post="<?php the_ID(); ?>" data-action="tp_toggle_slider" title="<?php esc_attr_e('Toggle slider','travel-packages'); ?>">
                                         <?php echo $slider=='1' ? '✓' : '○'; ?>
@@ -229,7 +272,8 @@ class TP_Admin {
                                     </button>
                                 </td>
                                 <td class="tp-table-actions">
-                                    <a href="<?php echo esc_url(get_edit_post_link()); ?>" class="tp-table-link"><?php _e('Editar', 'travel-packages'); ?></a>
+                                    <a href="<?php echo esc_url( TP_Package_Data::get_view_url( get_the_ID() ) ); ?>" class="tp-table-link" target="_blank" rel="noopener" title="<?php esc_attr_e( 'Ver paquete en una pestaña nueva', 'travel-packages' ); ?>"><?php _e('Ver', 'travel-packages'); ?></a>
+                                    <a href="<?php echo esc_url(admin_url('admin.php?page=tp-packages&package_id=' . get_the_ID())); ?>" class="tp-table-link"><?php _e('Editar', 'travel-packages'); ?></a>
                                     <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=tp-packages&tp_action=delete_package&tp_package_id=' . get_the_ID()), 'tp_delete_package', 'tp_delete_nonce')); ?>" class="tp-table-link tp-table-delete" data-confirm="<?php esc_attr_e('¿Estás seguro de eliminar este paquete?', 'travel-packages'); ?>"><?php _e('Eliminar', 'travel-packages'); ?></a>
                                 </td>
                             </tr>
@@ -263,6 +307,10 @@ class TP_Admin {
                         <div class="tp-shortcode-item">
                             <code>[tp_paquete id="123"]</code>
                             <p><?php _e('Paquete individual embebido.', 'travel-packages'); ?></p>
+                        </div>
+                        <div class="tp-shortcode-item">
+                            <code>[tp_buscador]</code>
+                            <p><?php _e('Buscador de paquetes para cualquier parte del template.', 'travel-packages'); ?></p>
                         </div>
                     </div>
                 </div>
@@ -344,7 +392,9 @@ class TP_Admin {
 
     /** Renderiza una card del listado con su JSON embebido. */
     private static function render_package_card( $package ) {
-        $package_data = wp_json_encode( TP_Package_Data::get_admin_data( $package->ID ) );
+        $admin_data   = TP_Package_Data::get_admin_data( $package->ID );
+        $package_data = wp_json_encode( $admin_data );
+        $view_url     = ! empty( $admin_data['view_url'] ) ? $admin_data['view_url'] : get_permalink( $package->ID );
         $best_price   = TP_Package_Data::get_best_price( $package->ID );
         $status_label = $package->post_status === 'publish' ? __( 'Publicado', 'travel-packages' ) : __( 'Borrador', 'travel-packages' );
         $thumb        = get_the_post_thumbnail_url( $package->ID, 'thumbnail' );
@@ -362,13 +412,14 @@ class TP_Admin {
             </div>
             <div class="tp-package-card-body">
                 <strong><?php echo esc_html( $package->post_title ); ?></strong>
-                <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo $best_price ? esc_html( $best_price['currency'] . ' ' . number_format( (float) $best_price['price'], 0, ',', '.' ) ) : '—'; ?></span>
+                <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo $best_price ? esc_html( TP_Package_Data::currency_symbol( $best_price['currency'] ) . ' ' . number_format( (float) $best_price['price'], 0, ',', '.' ) ) : '—'; ?></span>
                 <span class="tp-package-card-tags"><?php echo esc_html( implode( ', ', $destinos ) ); ?></span>
                 <span class="tp-package-card-tags tp-tags-tipologia"><?php echo esc_html( implode( ', ', $tipologias ) ); ?></span>
                 <?php if ( $tipo_viaje ) : ?>
                 <span class="tp-package-card-tags tp-tags-tipo-viaje"><?php echo esc_html( $tipo_viaje === 'nacional' ? 'Nacional' : 'Internacional' ); ?></span>
                 <?php endif; ?>
                 <span class="tp-package-card-actions">
+                    <a href="<?php echo esc_url( $view_url ); ?>" class="tp-card-view-link" target="_blank" rel="noopener" title="<?php esc_attr_e( 'Ver paquete en una pestaña nueva', 'travel-packages' ); ?>" onclick="event.stopPropagation();"><?php _e( 'Ver paquete', 'travel-packages' ); ?></a>
                     <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tp_duplicate_package&tp_package_id=' . $package->ID ), 'tp_duplicate_package', 'tp_duplicate_nonce' ) ); ?>" class="tp-card-dup-link" title="<?php esc_attr_e( 'Duplicar paquete', 'travel-packages' ); ?>" onclick="event.stopPropagation();">📋 <?php _e( 'Duplicar', 'travel-packages' ); ?></a>
                 </span>
             </div>
@@ -411,7 +462,7 @@ class TP_Admin {
         <div class="wrap tp-admin-wrap tp-packages-wrap">
             <div class="tp-admin-header">
                 <div class="tp-header-left">
-                    <span class="tp-logo-icon">🧳</span>
+                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
                     <div>
                         <h1><?php _e('Gestión de Paquetes', 'travel-packages'); ?></h1>
                         <p><?php _e('Un gestor visual y rápido para crear y editar tus paquetes como en un portal de viajes.', 'travel-packages'); ?></p>
@@ -550,9 +601,25 @@ class TP_Admin {
                     </div>
 
                     <div class="tp-package-cards">
-                        <?php foreach ( $packages as $package ) :
-                            self::render_package_card( $package );
-                        endforeach; ?>
+                        <?php if ( empty( $packages ) ) : ?>
+                        <div class="tp-empty-state">
+                            <span class="dashicons dashicons-palmtree"></span>
+                            <strong><?php _e( 'Todavía no hay paquetes', 'travel-packages' ); ?></strong>
+                            <p><?php _e( 'Creá tu primer paquete para empezar a armar viajes inolvidables.', 'travel-packages' ); ?></p>
+                            <button type="button" id="tp-new-package-empty" class="tp-btn-primary">
+                                <span class="dashicons dashicons-plus-alt"></span> <?php _e( 'Crear paquete', 'travel-packages' ); ?>
+                            </button>
+                        </div>
+                        <?php else : ?>
+                            <?php foreach ( $packages as $package ) :
+                                self::render_package_card( $package );
+                            endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                    <div id="tp-package-no-results" class="tp-empty-state tp-search-empty" style="display:none;" role="status">
+                        <span class="dashicons dashicons-search"></span>
+                        <strong><?php _e( 'Sin resultados', 'travel-packages' ); ?></strong>
+                        <p><?php _e( 'No encontramos paquetes con ese nombre. Probá con otra búsqueda.', 'travel-packages' ); ?></p>
                     </div>
                     <?php if ( $total_pages > 1 ) : ?>
                     <div class="tp-pagination">
@@ -577,12 +644,57 @@ class TP_Admin {
                         <input type="hidden" id="tp-selected-package-data" value="<?php echo esc_attr( wp_json_encode( $selected_package_data ) ); ?>">
                         <?php wp_nonce_field( 'tp_package_save', 'tp_package_nonce' ); ?>
 
-                        <div class="tp-panel">
-                            <h2><?php _e('Detalles del paquete', 'travel-packages'); ?></h2>
+                        <div class="tp-form-heading">
+                            <h2 id="tp-form-title"><?php _e('Nuevo paquete', 'travel-packages'); ?></h2>
+                            <p><?php _e('Completá las secciones de abajo. Las opciones avanzadas están plegadas para mantener el formulario ordenado.', 'travel-packages'); ?></p>
+                            <a href="#" id="tp-view-package" class="tp-form-view-link" target="_blank" rel="noopener" style="display:none;">
+                                <span class="dashicons dashicons-external"></span> <?php _e('Ver paquete', 'travel-packages'); ?>
+                            </a>
+                        </div>
+
+                        <nav class="tp-form-nav" aria-label="<?php esc_attr_e('Secciones del paquete', 'travel-packages'); ?>">
+                            <a href="#tp-section-content"><?php _e('Contenido', 'travel-packages'); ?></a>
+                            <a href="#tp-section-images"><?php _e('Imágenes', 'travel-packages'); ?></a>
+                            <a href="#tp-section-pricing"><?php _e('Precios', 'travel-packages'); ?></a>
+                            <a href="#tp-section-departures"><?php _e('Salidas', 'travel-packages'); ?></a>
+                            <a href="#tp-section-itinerary"><?php _e('Itinerario', 'travel-packages'); ?></a>
+                            <a href="#tp-section-publish"><?php _e('Publicación', 'travel-packages'); ?></a>
+                            <a href="#tp-section-extra"><?php _e('Adicional', 'travel-packages'); ?></a>
+                        </nav>
+
+                        <div class="tp-panel" id="tp-section-content">
+                            <h2><?php _e('Contenido', 'travel-packages'); ?></h2>
                             <div class="tp-field-group">
                                 <label class="tp-label" for="tp_title"><?php _e('Título del paquete', 'travel-packages'); ?></label>
                                 <input type="text" name="tp_title" id="tp_title" placeholder="<?php esc_attr_e('Ej: Tour por Europa 12 días', 'travel-packages'); ?>">
                             </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_short_desc"><?php _e('Descripción corta', 'travel-packages'); ?></label>
+                                <textarea name="tp_short_desc" id="tp_short_desc" rows="3" maxlength="200" placeholder="<?php esc_attr_e('Resumen atractivo del paquete...', 'travel-packages'); ?>"></textarea>
+                                <div class="tp-char-count"><span id="tp-short-count">0</span>/200</div>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_video_url"><?php _e('Video del paquete (YouTube/Vimeo)', 'travel-packages'); ?></label>
+                                <input type="url" name="tp_video_url" id="tp_video_url" placeholder="https://www.youtube.com/watch?v=...">
+                                <small><?php _e('Opcional. También acepta un archivo MP4/WebM. Se muestra en la ficha del paquete.', 'travel-packages'); ?></small>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label"><?php _e('Descripción completa', 'travel-packages'); ?></label>
+                                <?php
+                                wp_editor( '', 'tp_content', [
+                                    'textarea_name' => 'tp_content',
+                                    'textarea_rows' => 10,
+                                    'media_buttons' => true,
+                                    'editor_class'  => 'tp-editor-main',
+                                    'tinymce'       => [ 'wpautop' => false ],
+                                ] );
+                                ?>
+                                <small><?php _e('Usá el editor visual o la pestaña de texto para pegar HTML, videos o código.', 'travel-packages'); ?></small>
+                            </div>
+                        </div>
+
+                        <div class="tp-panel" id="tp-section-images">
+                            <h2><?php _e('Imágenes', 'travel-packages'); ?></h2>
                             <div class="tp-field-group">
                                 <label class="tp-label"><?php _e('Imagen principal', 'travel-packages'); ?></label>
                                 <div class="tp-featured-wrap">
@@ -595,27 +707,75 @@ class TP_Admin {
                                 </div>
                             </div>
                             <div class="tp-field-group">
-                                <label class="tp-label" for="tp_short_desc"><?php _e('Descripción corta', 'travel-packages'); ?></label>
-                                <textarea name="tp_short_desc" id="tp_short_desc" rows="3" maxlength="200" placeholder="<?php esc_attr_e('Resumen atractivo del paquete...', 'travel-packages'); ?>"></textarea>
-                                <div class="tp-char-count"><span id="tp-short-count">0</span>/200</div>
+                                <label class="tp-label"><?php _e('Galería', 'travel-packages'); ?></label>
+                                <div id="tp-gallery-preview" class="tp-gallery-grid"></div>
+                                <input type="hidden" name="tp_gallery" id="tp_gallery_ids" value="">
+                                <button type="button" id="tp-add-gallery" class="tp-btn tp-btn-secondary">
+                                    <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar imágenes', 'travel-packages'); ?>
+                                </button>
+                                <small><?php _e('Las imágenes de la galería se muestran en la ficha del paquete.', 'travel-packages'); ?></small>
                             </div>
                             <div class="tp-field-group">
-                                <label class="tp-label"><?php _e('Descripción completa (HTML permitido)', 'travel-packages'); ?></label>
-                                <textarea name="tp_content" id="tp_content" rows="8" placeholder="<?php esc_attr_e('Texto largo, HTML, videos embed, código...', 'travel-packages'); ?>" class="tp-html-textarea"></textarea>
-                                <small><?php _e('Podés pegar HTML, iframe de videos, código, etc.', 'travel-packages'); ?></small>
+                                <label class="tp-label" for="tp_map_location"><?php _e('Ubicación del hotel en Google Maps', 'travel-packages'); ?></label>
+                                <input type="text" name="tp_map_location" id="tp_map_location" placeholder="<?php esc_attr_e('Dirección, coordenadas o enlace de Google Maps', 'travel-packages'); ?>">
+                                <small><?php _e('Opcional. Acepta la dirección, coordenadas (lat,lng), un enlace de Google Maps o el código iframe de "Compartir > Insertar mapa". Se muestra debajo de la galería en la ficha del paquete.', 'travel-packages'); ?></small>
                             </div>
                         </div>
 
-                        <div class="tp-panel">
-                            <h2><?php _e('Precios & Condiciones', 'travel-packages'); ?></h2>
-                            <div id="tp-prices-list" class="tp-prices-wrap"></div>
-                            <button type="button" id="tp-add-price" class="tp-btn tp-btn-secondary" onclick="if(window.tpAddPriceField){tpAddPriceField('','','USD',false);}">
-                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar precio', 'travel-packages'); ?>
-                            </button>
+                        <div class="tp-panel" id="tp-section-pricing">
+                            <h2><?php _e('Precios y seña', 'travel-packages'); ?></h2>
+                            <div class="tp-field-grid tp-two-columns">
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_currency_base"><?php _e('Moneda', 'travel-packages'); ?></label>
+                                    <select name="tp_currency_base" id="tp_currency_base">
+                                        <option value="USD">US$ – Dólar</option>
+                                        <option value="ARS">$ – Peso Arg.</option>
+                                        <option value="EUR">€ – Euro</option>
+                                        <option value="BRL">R$ – Real</option>
+                                    </select>
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_price_adult"><?php _e('Precio adulto (por persona)', 'travel-packages'); ?></label>
+                                    <input type="number" step="0.01" min="0" name="tp_price_adult" id="tp_price_adult" placeholder="0.00">
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_price_child"><?php _e('Precio niño', 'travel-packages'); ?></label>
+                                    <input type="number" step="0.01" min="0" name="tp_price_child" id="tp_price_child" placeholder="0.00">
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_single_supplement"><?php _e('Suplemento single', 'travel-packages'); ?></label>
+                                    <input type="number" step="0.01" min="0" name="tp_single_supplement" id="tp_single_supplement" placeholder="0.00">
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_deposit_type"><?php _e('Seña / depósito', 'travel-packages'); ?></label>
+                                    <select name="tp_deposit_type" id="tp_deposit_type">
+                                        <option value="none"><?php _e('Sin seña', 'travel-packages'); ?></option>
+                                        <option value="percent"><?php _e('Porcentaje del total (%)', 'travel-packages'); ?></option>
+                                        <option value="amount"><?php _e('Monto fijo', 'travel-packages'); ?></option>
+                                    </select>
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_deposit_value"><?php _e('Valor de la seña', 'travel-packages'); ?></label>
+                                    <input type="number" step="0.01" min="0" name="tp_deposit_value" id="tp_deposit_value" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_deposit_note"><?php _e('Nota de seña / saldo', 'travel-packages'); ?></label>
+                                <input type="text" name="tp_deposit_note" id="tp_deposit_note" placeholder="<?php esc_attr_e('Ej: seña 30%, saldo 7 días antes de la salida', 'travel-packages'); ?>">
+                            </div>
+                            <small><?php _e('El precio adulto se usa como precio "desde" del paquete. Las salidas pueden sobrescribirlo.', 'travel-packages'); ?></small>
+                            <details class="tp-advanced">
+                                <summary><?php _e('Variantes de precio adicionales (opcional)', 'travel-packages'); ?></summary>
+                                <p class="tp-help"><?php _e('Mostralas solo si necesitás categorías extra además del precio por pasajero.', 'travel-packages'); ?></p>
+                                <div id="tp-prices-list" class="tp-prices-wrap"></div>
+                                <button type="button" id="tp-add-price" class="tp-btn tp-btn-secondary" onclick="if(window.tpAddPriceField){tpAddPriceField('','','USD',false);}">
+                                    <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar variante', 'travel-packages'); ?>
+                                </button>
+                            </details>
                         </div>
 
-                        <div class="tp-panel">
-                            <h2><?php _e('Visibilidad', 'travel-packages'); ?></h2>
+                        <div class="tp-panel" id="tp-section-publish">
+                            <h2><?php _e('Publicación y clasificación', 'travel-packages'); ?></h2>
                             <div class="tp-toggle-grid">
                                 <label class="tp-toggle-row">
                                     <span><?php _e('Slider Home', 'travel-packages'); ?></span>
@@ -633,10 +793,6 @@ class TP_Admin {
                                     <option value="draft"><?php _e('Borrador', 'travel-packages'); ?></option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="tp-panel">
-                            <h2><?php _e('Destino y tipología', 'travel-packages'); ?></h2>
                             <div class="tp-field-group" style="margin-bottom:16px;">
                                 <label class="tp-label"><?php _e('Tipo de viaje', 'travel-packages'); ?></label>
                                 <div class="tp-radio-group">
@@ -684,47 +840,78 @@ class TP_Admin {
                                     <input type="text" name="tp_new_tipologia" id="tp_new_tipologia" placeholder="<?php esc_attr_e('Ej: Playa, Montaña, Ciudad', 'travel-packages'); ?>">
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="tp-panel">
-                            <h2><?php _e('Fechas disponibles', 'travel-packages'); ?></h2>
-                            <div id="tp-dates-list" class="tp-dates-wrap"></div>
-                            <button type="button" id="tp-add-date" class="tp-btn tp-btn-secondary">
-                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar fecha', 'travel-packages'); ?>
-                            </button>
-                        </div>
-
-                        <div class="tp-panel">
-                            <h2><?php _e('Campos adicionales', 'travel-packages'); ?></h2>
-                            <div id="tp-tech-fields" class="tp-tech-wrap"></div>
-                            <button type="button" id="tp-add-tech-field" class="tp-btn tp-btn-secondary">
-                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar campo', 'travel-packages'); ?>
-                            </button>
-                        </div>
-
-                        <div class="tp-panel">
-                            <h2><?php _e('Galería', 'travel-packages'); ?></h2>
-                            <div id="tp-gallery-preview" class="tp-gallery-grid"></div>
-                            <input type="hidden" name="tp_gallery" id="tp_gallery_ids" value="">
-                            <input type="hidden" name="tp_cf_order" id="tp_cf_order" value="">
-                            <button type="button" id="tp-add-gallery" class="tp-btn tp-btn-secondary">
-                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar imágenes', 'travel-packages'); ?>
-                            </button>
-                        </div>
-
-                        <div class="tp-panel">
-                            <h2><?php _e('Campos Personalizados', 'travel-packages'); ?></h2>
-                            <div id="tp-custom-fields-wrap">
-                                <?php
-                                $cf_defs = TP_CustomFields::get_definitions();
-                                if ( empty( $cf_defs ) ) : ?>
-                                <p style="color:#999;"><?php _e('No hay campos personalizados definidos.', 'travel-packages'); ?> <a href="<?php echo esc_url( admin_url('admin.php?page=tp-custom-fields') ); ?>"><?php _e('Configurar campos', 'travel-packages'); ?></a></p>
-                                <?php else : ?>
-                                    <?php foreach ( $cf_defs as $cf_field ) :
-                                        echo TP_CustomFields::render_field_input( $cf_field, '', 'tp_cf' );
-                                    endforeach; ?>
-                                <?php endif; ?>
+                            <div class="tp-field-group" style="margin-top:12px;">
+                                <div class="tp-similar-destinos-head">
+                                    <label class="tp-label"><?php _e('Destinos similares', 'travel-packages'); ?></label>
+                                    <button type="button" class="tp-similar-clear" id="tp-similar-clear"><?php _e('Limpiar selección', 'travel-packages'); ?></button>
+                                </div>
+                                <div class="tp-similar-destinos-list" id="tp_similar_destinos">
+                                    <?php foreach ( $destinos as $destino ) : ?>
+                                    <label class="tp-check-pill">
+                                        <input type="checkbox" name="tp_similar_destinos[]" value="<?php echo esc_attr( $destino->term_id ); ?>">
+                                        <span><?php echo esc_html( $destino->name ); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <small class="tp-help"><?php _e('Opcional. Marcá destinos para armar el carrusel "Destinos similares" de la ficha. Si no marcás ninguno, se usan paquetes del mismo destino.', 'travel-packages'); ?></small>
                             </div>
+                        </div>
+
+                        <div class="tp-panel" id="tp-section-departures">
+                            <h2><?php _e('Salidas y disponibilidad', 'travel-packages'); ?></h2>
+                            <small><?php _e('Cada salida puede tener cupos, precio propio, mínimo/máximo de pasajeros, cierre de venta y estado.', 'travel-packages'); ?></small>
+                            <?php if ( class_exists( 'TP_Reservations' ) && TP_Reservations::is_enabled() ) : ?>
+                            <small class="tp-res-departures-hint"><?php _e('Las reservas registradas en el módulo de Reservas se suman automáticamente a los cupos ocupados.', 'travel-packages'); ?></small>
+                            <?php endif; ?>
+                            <div id="tp-dates-list" class="tp-dates-wrap" style="margin-top:12px;"></div>
+                            <button type="button" id="tp-add-date" class="tp-btn tp-btn-secondary">
+                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar salida', 'travel-packages'); ?>
+                            </button>
+                        </div>
+
+                        <div class="tp-panel" id="tp-section-itinerary">
+                            <h2><?php _e('Itinerario día por día', 'travel-packages'); ?></h2>
+                            <p class="tp-help"><?php _e('Agregá cada día con un título y una descripción. Se muestra como acordeón en la ficha del paquete.', 'travel-packages'); ?></p>
+                            <div id="tp-itinerary-list" class="tp-itinerary-wrap"></div>
+                            <button type="button" id="tp-add-itinerary" class="tp-btn tp-btn-secondary">
+                                <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar día', 'travel-packages'); ?>
+                            </button>
+                        </div>
+
+                        <div class="tp-panel" id="tp-section-extra">
+                            <h2><?php _e('Información adicional', 'travel-packages'); ?></h2>
+                            <div class="tp-subsection">
+                                <h3><?php _e('WhatsApp del paquete', 'travel-packages'); ?></h3>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_whatsapp_number"><?php _e('Número de WhatsApp (opcional)', 'travel-packages'); ?></label>
+                                    <input type="text" name="tp_whatsapp_number" id="tp_whatsapp_number" placeholder="5491123456789">
+                                    <small><?php _e('Código de país + número, sin +, espacios ni guiones. Si lo dejás vacío, se usa el número general de Ajustes.', 'travel-packages'); ?></small>
+                                </div>
+                            </div>
+                            <div class="tp-subsection">
+                                <h3><?php _e('Ficha técnica', 'travel-packages'); ?></h3>
+                                <p class="tp-help"><?php _e('Pares de etiqueta y valor que se muestran en la ficha del paquete (ej: Duración / 12 días).', 'travel-packages'); ?></p>
+                                <div id="tp-tech-fields" class="tp-tech-wrap"></div>
+                                <button type="button" id="tp-add-tech-field" class="tp-btn tp-btn-secondary">
+                                    <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar campo técnico', 'travel-packages'); ?>
+                                </button>
+                            </div>
+                            <div class="tp-subsection">
+                                <h3><?php _e('Campos personalizados', 'travel-packages'); ?></h3>
+                                <p class="tp-help"><?php _e('Campos globales definidos para todos los paquetes. Podés reordenarlos arrastrando.', 'travel-packages'); ?></p>
+                                <div id="tp-custom-fields-wrap">
+                                    <?php
+                                    $cf_defs = TP_CustomFields::get_definitions();
+                                    if ( empty( $cf_defs ) ) : ?>
+                                    <p style="color:#999;"><?php _e('No hay campos personalizados definidos.', 'travel-packages'); ?> <a href="<?php echo esc_url( admin_url('admin.php?page=tp-custom-fields') ); ?>"><?php _e('Configurar campos', 'travel-packages'); ?></a></p>
+                                    <?php else : ?>
+                                        <?php foreach ( $cf_defs as $cf_field ) :
+                                            echo TP_CustomFields::render_field_input( $cf_field, '', 'tp_cf' );
+                                        endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <input type="hidden" name="tp_cf_order" id="tp_cf_order" value="">
                         </div>
 
                         <div class="tp-panel tp-panel-actions">
@@ -739,12 +926,203 @@ class TP_Admin {
         <?php
     }
 
+    public static function render_calendar_page() {
+        $month = isset( $_GET['tp_month'] ) ? max( 1, min( 12, intval( $_GET['tp_month'] ) ) ) : (int) current_time( 'n' );
+        $year  = isset( $_GET['tp_year'] ) ? max( 2000, min( 2100, intval( $_GET['tp_year'] ) ) ) : (int) current_time( 'Y' );
+
+        $first       = mktime( 0, 0, 0, $month, 1, $year );
+        $days_in_month = (int) date( 't', $first );
+        $week_start  = (int) get_option( 'start_of_week', 1 );
+        $first_dow   = (int) date( 'w', $first );
+        $offset      = ( $first_dow - $week_start + 7 ) % 7;
+
+        $packages = get_posts( [
+            'post_type'      => TP_Package_Data::POST_TYPE,
+            'post_status'    => [ 'publish', 'draft' ],
+            'posts_per_page' => -1,
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ] );
+
+        $events        = [];
+        $month_total   = 0;
+        $seats_open    = 0;
+        $seats_booked  = 0;
+        $package_ids   = [];
+
+        foreach ( $packages as $package ) {
+            foreach ( TP_Package_Data::get_departures( $package->ID ) as $departure ) {
+                if ( ! $departure['from_ts'] ) {
+                    continue;
+                }
+                if ( (int) date( 'n', $departure['from_ts'] ) !== $month || (int) date( 'Y', $departure['from_ts'] ) !== $year ) {
+                    continue;
+                }
+                $day = (int) date( 'j', $departure['from_ts'] );
+                $events[ $day ][] = [ 'package' => $package, 'departure' => $departure ];
+                $month_total++;
+                $package_ids[ $package->ID ] = true;
+                if ( $departure['status'] === 'open' && $departure['seats_left'] !== null ) {
+                    $seats_open += (int) $departure['seats_left'];
+                }
+                $seats_booked += (int) $departure['seats_booked'];
+            }
+        }
+
+        $prev_month = mktime( 0, 0, 0, $month - 1, 1, $year );
+        $next_month = mktime( 0, 0, 0, $month + 1, 1, $year );
+        $base_url   = admin_url( 'admin.php?page=tp-calendar' );
+
+        $prev_url = add_query_arg( [ 'tp_month' => (int) date( 'n', $prev_month ), 'tp_year' => (int) date( 'Y', $prev_month ) ], $base_url );
+        $next_url = add_query_arg( [ 'tp_month' => (int) date( 'n', $next_month ), 'tp_year' => (int) date( 'Y', $next_month ) ], $base_url );
+        $today_url = $base_url;
+
+        $weekday_labels = [];
+        for ( $i = 0; $i < 7; $i++ ) {
+            $dow = ( $week_start + $i ) % 7;
+            $weekday_labels[] = date_i18n( 'D', mktime( 0, 0, 0, 1, 7 + $dow, 2024 ) );
+        }
+
+        $status_labels = [
+            'open'    => __( 'Abierta', 'travel-packages' ),
+            'soldout' => __( 'Agotada', 'travel-packages' ),
+            'closed'  => __( 'Cerrada', 'travel-packages' ),
+        ];
+        ?>
+        <div class="wrap tp-admin-wrap tp-calendar-wrap">
+            <div class="tp-admin-header">
+                <div class="tp-header-left">
+                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
+                    <div>
+                        <h1><?php printf( esc_html__( 'Calendario de Salidas — %s %s', 'travel-packages' ), esc_html( date_i18n( 'F', $first ) ), esc_html( $year ) ); ?></h1>
+                        <p><?php _e( 'Cupos, estados y precios de todas las salidas del mes.', 'travel-packages' ); ?></p>
+                    </div>
+                </div>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-package-new' ) ); ?>" class="tp-btn-primary">
+                    <span class="dashicons dashicons-plus-alt"></span> <?php _e( 'Nuevo Paquete', 'travel-packages' ); ?>
+                </a>
+            </div>
+
+            <div class="tp-stats-grid tp-stats-grid-4">
+                <div class="tp-stat-card">
+                    <div class="tp-stat-icon" style="background:#e8f4fd;color:#0073aa;">🗓</div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo (int) $month_total; ?></span>
+                        <span class="tp-stat-label"><?php _e( 'Salidas del mes', 'travel-packages' ); ?></span>
+                    </div>
+                </div>
+                <div class="tp-stat-card">
+                    <div class="tp-stat-icon" style="background:#ecfdf5;color:#059669;">🎟</div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo (int) $seats_open; ?></span>
+                        <span class="tp-stat-label"><?php _e( 'Cupos disponibles', 'travel-packages' ); ?></span>
+                    </div>
+                </div>
+                <div class="tp-stat-card">
+                    <div class="tp-stat-icon" style="background:#fff7ed;color:#ea580c;">👥</div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo (int) $seats_booked; ?></span>
+                        <span class="tp-stat-label"><?php _e( 'Pasajeros reservados', 'travel-packages' ); ?></span>
+                    </div>
+                </div>
+                <div class="tp-stat-card">
+                    <div class="tp-stat-icon" style="background:#f3e5f5;color:#7b1fa2;">📦</div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo (int) count( $package_ids ); ?></span>
+                        <span class="tp-stat-label"><?php _e( 'Paquetes con salidas', 'travel-packages' ); ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tp-calendar-toolbar">
+                <div class="tp-calendar-nav">
+                    <a href="<?php echo esc_url( $prev_url ); ?>" class="button">&laquo; <?php _e( 'Mes anterior', 'travel-packages' ); ?></a>
+                    <a href="<?php echo esc_url( $today_url ); ?>" class="button"><?php _e( 'Hoy', 'travel-packages' ); ?></a>
+                    <a href="<?php echo esc_url( $next_url ); ?>" class="button"><?php _e( 'Mes siguiente', 'travel-packages' ); ?> &raquo;</a>
+                </div>
+                <div class="tp-calendar-legend">
+                    <span class="tp-cal-dot tp-cal-dot-open"></span> <?php _e( 'Abierta', 'travel-packages' ); ?>
+                    <span class="tp-cal-dot tp-cal-dot-low"></span> <?php _e( 'Últimos lugares', 'travel-packages' ); ?>
+                    <span class="tp-cal-dot tp-cal-dot-soldout"></span> <?php _e( 'Agotada', 'travel-packages' ); ?>
+                    <span class="tp-cal-dot tp-cal-dot-closed"></span> <?php _e( 'Cerrada', 'travel-packages' ); ?>
+                </div>
+            </div>
+
+            <?php if ( $month_total === 0 ) : ?>
+            <div class="tp-calendar-empty">
+                <span class="dashicons dashicons-calendar-alt"></span>
+                <?php _e( 'No hay salidas cargadas para este mes. Podés navegar a otro mes o crear un paquete nuevo.', 'travel-packages' ); ?>
+            </div>
+            <?php endif; ?>
+
+            <div class="tp-calendar-scroll">
+                <table class="tp-calendar-table" aria-label="<?php esc_attr_e( 'Calendario de salidas del mes', 'travel-packages' ); ?>">
+                    <thead>
+                        <tr>
+                            <?php foreach ( $weekday_labels as $label ) : ?>
+                            <th scope="col"><?php echo esc_html( $label ); ?></th>
+                            <?php endforeach; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $cell = 0;
+                        $rows = (int) ceil( ( $offset + $days_in_month ) / 7 );
+                        for ( $row = 0; $row < $rows; $row++ ) :
+                            echo '<tr>';
+                            for ( $col = 0; $col < 7; $col++, $cell++ ) :
+                                $day = $cell - $offset + 1;
+                                $is_current_month = ( $day >= 1 && $day <= $days_in_month );
+                                $is_today = $is_current_month && (int) current_time( 'j' ) === $day && (int) current_time( 'n' ) === $month && (int) current_time( 'Y' ) === $year;
+                                ?>
+                                <td class="tp-cal-cell <?php echo $is_current_month ? '' : 'tp-cal-cell-empty'; ?> <?php echo $is_today ? 'tp-cal-cell-today' : ''; ?>" <?php echo $is_today ? 'aria-current="date"' : ''; ?>>
+                                    <?php if ( $is_current_month ) : ?>
+                                    <span class="tp-cal-day"><?php echo (int) $day; ?></span>
+                                    <?php if ( ! empty( $events[ $day ] ) ) : ?>
+                                    <div class="tp-cal-events">
+                                        <?php foreach ( $events[ $day ] as $event ) :
+                                            $departure = $event['departure'];
+                                            $package   = $event['package'];
+                                            $status    = $departure['status'];
+                                            $seats     = $departure['seats_left'];
+                                            $class     = 'tp-cal-event tp-cal-event-' . $status;
+                                            if ( $status === 'open' && $seats !== null && $seats > 0 && $seats <= 5 ) {
+                                                $class .= ' tp-cal-event-low';
+                                            }
+                                            $edit_url = admin_url( 'admin.php?page=tp-packages&package_id=' . $package->ID );
+                                        ?>
+                                        <a href="<?php echo esc_url( $edit_url ); ?>" class="<?php echo esc_attr( $class ); ?>" title="<?php echo esc_attr( $package->post_title ); ?>">
+                                            <span class="tp-cal-event-title"><?php echo esc_html( $package->post_title ); ?></span>
+                                            <span class="tp-cal-event-meta">
+                                                <?php echo esc_html( $status_labels[ $status ] ?? $status ); ?>
+                                                <?php if ( $seats !== null ) : ?>
+                                                    · <?php printf( esc_html__( '%d cupos', 'travel-packages' ), (int) $seats ); ?>
+                                                <?php endif; ?>
+                                            </span>
+                                        </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php endif; ?>
+                                </td>
+                                <?php
+                            endfor;
+                            echo '</tr>';
+                        endfor;
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
+    }
+
     public static function render_shortcodes_page() {
         ?>
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
                 <div class="tp-header-left">
-                    <span class="tp-logo-icon">📋</span>
+                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
                     <div>
                         <h1><?php _e('Guía de Shortcodes', 'travel-packages'); ?></h1>
                         <p><?php _e('Copiá y pegá estos shortcodes en cualquier página o widget.', 'travel-packages'); ?></p>
@@ -865,71 +1243,38 @@ class TP_Admin {
                     </div>
                 </div>
 
-            </div>
-        </div>
-        <?php
-    }
-
-    public static function render_license_page() {
-        $licensed = TP_Remote_License::is_licensed();
-        $config   = TP_Remote_License::get_config();
-        ?>
-        <div class="wrap tp-admin-wrap">
-            <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon">🔐</span>
-                    <div>
-                        <h1><?php _e('Estado de Licencia', 'travel-packages'); ?></h1>
-                        <p><?php _e('Conexión con el servidor de licencias externo.', 'travel-packages'); ?></p>
+                <div class="tp-sc-section">
+                    <div class="tp-sc-header">
+                        <span class="tp-sc-icon">🔎</span>
+                        <div>
+                            <h2>[tp_buscador]</h2>
+                            <p><?php _e('Buscador de paquetes con sugerencias en vivo vía AJAX para colocar en cualquier parte del template. Envía la búsqueda a la página de resultados configurada en Ajustes.', 'travel-packages'); ?></p>
+                        </div>
+                    </div>
+                    <div class="tp-sc-body">
+                        <h3><?php _e('Parámetros disponibles:', 'travel-packages'); ?></h3>
+                        <table class="tp-params-table">
+                            <thead><tr><th>Parámetro</th><th>Defecto</th><th>Descripción</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>url</code></td><td><em><?php _e('Ajustes', 'travel-packages'); ?></em></td><td><?php _e('URL de la página de resultados. Si se omite, usa la configurada en Ajustes o la página actual.', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>placeholder</code></td><td><em><?php _e('Ajustes', 'travel-packages'); ?></em></td><td><?php _e('Texto de ayuda dentro del campo de búsqueda', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>button</code></td><td><code>Buscar</code></td><td><?php _e('Texto del botón de búsqueda', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>show_destino</code></td><td><code>true</code></td><td><?php _e('Mostrar selector de destinos (true/false)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>show_tipo_viaje</code></td><td><code>true</code></td><td><?php _e('Mostrar filtro nacional/internacional (true/false)', 'travel-packages'); ?></td></tr>
+                                <tr><td><code>class</code></td><td><em><?php _e('vacío', 'travel-packages'); ?></em></td><td><?php _e('Clase CSS adicional para el formulario', 'travel-packages'); ?></td></tr>
+                            </tbody>
+                        </table>
+                        <h3><?php _e('Ejemplos:', 'travel-packages'); ?></h3>
+                        <div class="tp-code-block"><code>[tp_buscador]</code><span class="tp-code-comment"><?php _e('// usa la configuración de Ajustes', 'travel-packages'); ?></span></div>
+                        <div class="tp-code-block"><code>[tp_buscador placeholder="Tu próximo viaje" button="Buscar" show_destino="true"]</code></div>
+                        <div class="tp-code-block"><code>[tp_buscador url="/paquetes/" show_tipo_viaje="false"]</code></div>
+                        <div class="tp-code-block"><code>[tp_buscador class="mi-buscador-hero"]</code></div>
                     </div>
                 </div>
-            </div>
 
-            <div class="tp-dashboard-card" style="max-width:600px;">
-                <div class="tp-card-header">
-                    <h2><?php _e('Conexión', 'travel-packages'); ?></h2>
-                </div>
-                <table class="wp-list-table widefat fixed striped">
-                    <tbody>
-                        <tr>
-                            <td><strong><?php _e('Estado', 'travel-packages'); ?></strong></td>
-                            <td>
-                                <?php if ( $licensed ) : ?>
-                                    <span style="color:#46b450;">● <?php _e('Conectado y activo', 'travel-packages'); ?></span>
-                                <?php else : ?>
-                                    <span style="color:#dc3232;">● <?php _e('Sin conexión', 'travel-packages'); ?></span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php _e('Servidor', 'travel-packages'); ?></strong></td>
-                            <td><code>GitHub API (repositorio privado)</code></td>
-                        </tr>
-                        <?php if ( $config && is_object( $config ) ) : ?>
-                        <tr>
-                            <td><strong><?php _e('Versión remota', 'travel-packages'); ?></strong></td>
-                            <td><?php echo esc_html( $config->version ?? '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php _e('Fecha de expiración', 'travel-packages'); ?></strong></td>
-                            <td><?php echo esc_html( $config->expires ?? 'Sin expiración' ); ?></td>
-                        </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-
-                <div style="padding:16px;">
-                    <h3><?php _e('¿Cómo funciona?', 'travel-packages'); ?></h3>
-                    <p><?php _e('Este plugin necesita conectarse a un servidor externo para funcionar. Si no puede establecer la conexión, el plugin se desactivará automáticamente.', 'travel-packages'); ?></p>
-                    <p><?php _e('Podés actualizar la configuración modificando el archivo JSON en tu repositorio de GitHub. El caché se renueva automáticamente cada hora.', 'travel-packages'); ?></p>
-
-                    <h3><?php _e('Forzar actualización', 'travel-packages'); ?></h3>
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-license&tp_clear_license_cache=1' ) ); ?>" class="button button-secondary">
-                        <?php _e('Limpiar caché y reconectar', 'travel-packages'); ?>
-                    </a>
-                </div>
             </div>
         </div>
         <?php
     }
+
 }

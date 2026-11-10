@@ -35,4 +35,69 @@ jQuery(document).ready(function($) {
         }
     });
 
+    /* ---- Copy shortcodes to clipboard ---- */
+    function tpCopyText(text) {
+        if ( navigator.clipboard && navigator.clipboard.writeText ) {
+            try {
+                return navigator.clipboard.writeText(text);
+            } catch (err) {
+                // Fall through to the legacy copy path.
+            }
+        }
+
+        return new Promise(function(resolve, reject) {
+            var $temp = $('<textarea>').val(text).css({
+                position: 'fixed',
+                top: '-1000px',
+                opacity: 0
+            }).appendTo('body');
+
+            $temp[0].select();
+
+            try {
+                document.execCommand('copy');
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+
+            $temp.remove();
+        });
+    }
+
+    function tpAttachCopyButton($container, text, small) {
+        if ( ! text || $container.find('.tp-copy-code').length ) {
+            return;
+        }
+
+        var $btn = $('<button type="button" class="tp-copy-code' + (small ? ' tp-copy-code-sm' : '') + '" aria-label="Copiar shortcode">Copiar</button>');
+
+        $btn.on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            tpCopyText(text).then(function() {
+                $btn.addClass('is-copied').text('¡Copiado!');
+                setTimeout(function() {
+                    $btn.removeClass('is-copied').text('Copiar');
+                }, 1600);
+            }).catch(function() {
+                $btn.text('Error');
+                setTimeout(function() {
+                    $btn.text('Copiar');
+                }, 1600);
+            });
+        });
+
+        $container.append($btn);
+    }
+
+    $('.tp-code-block').each(function() {
+        tpAttachCopyButton($(this), $(this).find('code').first().text(), false);
+    });
+
+    $('.tp-shortcode-item').each(function() {
+        tpAttachCopyButton($(this), $(this).find('code').first().text(), true);
+    });
+
 });
