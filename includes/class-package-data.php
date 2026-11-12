@@ -805,6 +805,7 @@ class TP_Package_Data {
             'tp_slider'        => get_post_meta( $post->ID, '_tp_slider', true ),
             'tp_featured'      => get_post_meta( $post->ID, '_tp_featured', true ),
             'tp_featured_image'=> get_post_thumbnail_id( $post->ID ) ?: '',
+            'tp_featured_image_url' => get_the_post_thumbnail_url( $post->ID, 'full' ) ?: '',
             'tp_gallery'       => self::get_gallery_items( $post->ID ),
             'tp_video_url'     => self::get_video_url( $post->ID ),
             'tp_map_location'  => self::get_map_location( $post->ID ),

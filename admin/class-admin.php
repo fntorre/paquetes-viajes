@@ -152,6 +152,7 @@ class TP_Admin {
                 'delete_nonce'         => wp_create_nonce('tp_delete_package'),
                 'ajax_url'             => admin_url('admin-ajax.php'),
                 'reservations_enabled' => ( class_exists( 'TP_Reservations' ) && TP_Reservations::is_enabled() ) ? '1' : '0',
+                'site_name'            => get_bloginfo( 'name' ),
             ]);
         }
 
@@ -731,6 +732,7 @@ class TP_Admin {
                                 <div class="tp-featured-wrap">
                                     <div id="tp-featured-preview-main"></div>
                                     <input type="hidden" name="tp_featured_image" id="tp_featured_image" value="">
+                                    <input type="hidden" id="tp_featured_image_url" value="">
                                     <p>
                                         <button type="button" class="button" id="tp-set-featured-main"><?php _e('Seleccionar imagen principal', 'travel-packages'); ?></button>
                                         <button type="button" class="button" id="tp-remove-featured-main"><?php _e('Eliminar imagen', 'travel-packages'); ?></button>
@@ -977,6 +979,31 @@ class TP_Admin {
                                 </div>
                             </div>
                             <input type="hidden" name="tp_cf_order" id="tp_cf_order" value="">
+                        </div>
+
+                        <div class="tp-panel" id="tp-section-promo">
+                            <h2><?php _e('Imagen promocional', 'travel-packages'); ?></h2>
+                            <p class="tp-help"><?php _e('Genera una imagen usando la imagen principal como fondo, con las fechas, el título, la descripción corta y los precios principales. Se puede descargar como PNG.', 'travel-packages'); ?></p>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_promo_format"><?php _e('Formato', 'travel-packages'); ?></label>
+                                <select id="tp_promo_format">
+                                    <option value="square"><?php _e('Cuadrado — 1080 x 1080 px', 'travel-packages'); ?></option>
+                                    <option value="story"><?php _e('Vertical — 1080 x 1920 px', 'travel-packages'); ?></option>
+                                </select>
+                                <small><?php _e('Elegí cuadrado para el feed o vertical para historias y reels.', 'travel-packages'); ?></small>
+                            </div>
+                            <div class="tp-promo-actions">
+                                <button type="button" class="tp-btn tp-btn-primary" id="tp-generate-promo">
+                                    <span class="dashicons dashicons-format-image"></span> <?php _e('Crear imagen', 'travel-packages'); ?>
+                                </button>
+                                <button type="button" class="tp-btn tp-btn-secondary" id="tp-download-promo" disabled>
+                                    <span class="dashicons dashicons-download"></span> <?php _e('Descargar PNG', 'travel-packages'); ?>
+                                </button>
+                            </div>
+                            <p id="tp-promo-status" class="tp-help" role="status" aria-live="polite"></p>
+                            <div class="tp-promo-preview-wrap">
+                                <canvas id="tp-promo-canvas" width="1080" height="1080" aria-label="<?php esc_attr_e('Vista previa de la imagen promocional', 'travel-packages'); ?>"></canvas>
+                            </div>
                         </div>
 
                         <div class="tp-panel tp-panel-actions">

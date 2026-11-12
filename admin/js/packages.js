@@ -202,8 +202,11 @@ jQuery(document).ready(function($) {
             var selection = featuredFrame.state().get('selection').first().toJSON();
             var id = selection.id;
             var thumb = selection.sizes && selection.sizes.medium ? selection.sizes.medium.url : selection.url;
+            var full = selection.sizes && selection.sizes.full ? selection.sizes.full.url : ( selection.sizes && selection.sizes.large ? selection.sizes.large.url : selection.url );
             $('#tp-featured-preview-main').html('<img src="' + escAttr(thumb) + '" style="max-width:220px;border-radius:8px;display:block;">');
             $('#tp_featured_image').val(id);
+            $('#tp_featured_image_url').val(full);
+            resetPromoPreview();
         });
         featuredFrame.open();
     });
@@ -212,6 +215,8 @@ jQuery(document).ready(function($) {
         e.preventDefault();
         $('#tp-featured-preview-main').empty();
         $('#tp_featured_image').val('');
+        $('#tp_featured_image_url').val('');
+        resetPromoPreview();
     });
 
     // Imagen para redes sociales (Open Graph)
@@ -237,6 +242,358 @@ jQuery(document).ready(function($) {
         e.preventDefault();
         $('#tp-seo-image-preview').empty();
         $('#tp_seo_image').val('');
+    });
+
+    // Imagen promocional generada con Canvas
+    function promoSlug(text) {
+        return String(text || '')
+            .toLowerCase()
+            .replace(/[áàäâã]/g, 'a')
+            .replace(/[éèëê]/g, 'e')
+            .replace(/[íìïî]/g, 'i')
+            .replace(/[óòöôõ]/g, 'o')
+            .replace(/[úùüû]/g, 'u')
+            .replace(/ñ/g, 'n')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60) || 'paquete';
+    }
+
+    function promoCurrencySymbol(code) {
+        var symbols = { USD: 'US$', ARS: '$', EUR: '€', BRL: 'R$' };
+        return symbols[code] || code || '';
+    }
+
+    function promoFormatNumber(value) {
+        var num = parseFloat(value);
+        if ( isNaN(num) ) { return ''; }
+        try {
+            return num.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        } catch (e) {
+            return String(num);
+        }
+    }
+
+    function promoSelectedDate() {
+        var chosen = null;
+        var next = null;
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        $('#tp-dates-list .tp-departure').each(function() {
+            var from = String($(this).find('.tp-datepicker-from').val() || '').trim();
+            var to = String($(this).find('.tp-datepicker-to').val() || '').trim();
+            if ( ! from ) { return; }
+            var parts = from.split('/');
+            if ( parts.length !== 3 ) { return; }
+            var ts = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
+            if ( isNaN(ts) ) { return; }
+            var item = { ts: ts, from: from, to: to };
+            if ( ! chosen || ts < chosen.ts ) { chosen = item; }
+            if ( ts >= today.getTime() && ( ! next || ts < next.ts ) ) { next = item; }
+        });
+
+        return next || chosen;
+    }
+
+    function promoData() {
+        var price = $('#tp_price_adult').val();
+        var currencyCode = $('#tp_currency_base').val() || 'USD';
+
+        if ( ! price ) {
+            var $first = $('#tp-prices-list .tp-price-item').filter(function() {
+                return String($(this).find('.tp-price-value').val() || '') !== '';
+            }).first();
+            if ( $first.length ) {
+                price = $first.find('.tp-price-value').val();
+                currencyCode = $first.find('.tp-price-currency').val() || currencyCode;
+            }
+        }
+
+        var date = promoSelectedDate();
+
+        return {
+            title: String($('#tp_title').val() || '').trim() || 'Paquete de viaje',
+            subtitle: String($('#tp_short_desc').val() || '').trim(),
+            dateFrom: date ? date.from : '',
+            dateTo: date ? date.to : '',
+            currency: promoCurrencySymbol(currencyCode),
+            price: price,
+            childPrice: $('#tp_price_child').val(),
+            background: String($('#tp_featured_image_url').val() || $('#tp-featured-preview-main img').attr('src') || ''),
+            site: ( window.TP_ADMIN && TP_ADMIN.site_name ) ? TP_ADMIN.site_name : ''
+        };
+    }
+
+    function promoLoadImage(url, done) {
+        if ( ! url ) { done(null); return; }
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() { done(img); };
+        img.onerror = function() { done(null); };
+        img.src = url;
+    }
+
+    function promoWrapText(ctx, text, maxWidth, maxLines, font) {
+        ctx.font = font;
+        var words = String(text || '').replace(/\s+/g, ' ').trim().split(' ');
+        var lines = [];
+        var line = '';
+        var i = 0;
+
+        for ( i = 0; i < words.length; i++ ) {
+            var test = line ? line + ' ' + words[i] : words[i];
+            if ( ctx.measureText(test).width <= maxWidth || ! line ) {
+                line = test;
+            } else {
+                lines.push(line);
+                line = words[i];
+                if ( lines.length === maxLines ) { break; }
+            }
+        }
+
+        if ( line && lines.length < maxLines ) { lines.push(line); }
+
+        if ( lines.length === maxLines && i < words.length - 1 ) {
+            var last = lines[maxLines - 1];
+            while ( last.length > 0 && ctx.measureText(last + '…').width > maxWidth ) {
+                last = last.slice(0, -1);
+            }
+            lines[maxLines - 1] = last + '…';
+        }
+
+        return lines;
+    }
+
+    function promoRoundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    function promoDimensions() {
+        return $('#tp_promo_format').val() === 'story'
+            ? { W: 1080, H: 1920 }
+            : { W: 1080, H: 1080 };
+    }
+
+    function promoDraw(data, img) {
+        var canvas = document.getElementById('tp-promo-canvas');
+        if ( ! canvas ) { return; }
+
+        var dims = promoDimensions();
+        var W = dims.W;
+        var H = dims.H;
+        var isStory = H > W;
+        var pad = isStory ? 84 : 72;
+        var siteSize = isStory ? 28 : 26;
+        var titleSize = isStory ? 72 : 62;
+        var subtitleSize = isStory ? 34 : 30;
+        var dateSize = isStory ? 28 : 25;
+        var childSize = isStory ? 30 : 27;
+        var priceSize = isStory ? 84 : 70;
+        var titleLineHeight = Math.round(titleSize * 1.12);
+        var subtitleLineHeight = Math.round(subtitleSize * 1.32);
+        var datePillHeight = dateSize + 20;
+        var gap = isStory ? 24 : 18;
+
+        if ( canvas.width !== W ) { canvas.width = W; }
+        if ( canvas.height !== H ) { canvas.height = H; }
+
+        var ctx = canvas.getContext('2d');
+        if ( 'imageSmoothingQuality' in ctx ) { ctx.imageSmoothingQuality = 'high'; }
+
+        ctx.clearRect(0, 0, W, H);
+
+        var bg = ctx.createLinearGradient(0, 0, W, H);
+        bg.addColorStop(0, '#0f766e');
+        bg.addColorStop(1, '#0f172a');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        if ( img && img.width && img.height ) {
+            var scale = Math.max(W / img.width, H / img.height);
+            var dw = img.width * scale;
+            var dh = img.height * scale;
+            ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        }
+
+        var shade = ctx.createLinearGradient(0, H * 0.2, 0, H);
+        shade.addColorStop(0, 'rgba(8,15,30,0)');
+        shade.addColorStop(0.55, 'rgba(8,15,30,0.45)');
+        shade.addColorStop(1, 'rgba(8,15,30,0.94)');
+        ctx.fillStyle = shade;
+        ctx.fillRect(0, 0, W, H);
+
+        var topShade = ctx.createLinearGradient(0, 0, 0, H * 0.3);
+        topShade.addColorStop(0, 'rgba(8,15,30,0.7)');
+        topShade.addColorStop(1, 'rgba(8,15,30,0)');
+        ctx.fillStyle = topShade;
+        ctx.fillRect(0, 0, W, H * 0.3);
+
+        if ( data.site ) {
+            ctx.font = '700 ' + siteSize + 'px Arial, Helvetica, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.textBaseline = 'top';
+            ctx.fillText(String(data.site).toUpperCase(), pad, isStory ? 80 : 56);
+        }
+
+        var titleFont = '700 ' + titleSize + 'px Arial, Helvetica, sans-serif';
+        var subtitleFont = '400 ' + subtitleSize + 'px Arial, Helvetica, sans-serif';
+        var dateFont = '600 ' + dateSize + 'px Arial, Helvetica, sans-serif';
+        var childFont = '600 ' + childSize + 'px Arial, Helvetica, sans-serif';
+        var maxTextWidth = W - pad * 2;
+
+        var titleLines = promoWrapText(ctx, data.title, maxTextWidth, 3, titleFont);
+        var subtitleLines = data.subtitle ? promoWrapText(ctx, data.subtitle, maxTextWidth, 3, subtitleFont) : [];
+
+        var dateText = '';
+        if ( data.dateFrom && data.dateTo ) {
+            dateText = data.dateFrom + '  →  ' + data.dateTo;
+        } else if ( data.dateFrom ) {
+            dateText = 'Salida ' + data.dateFrom;
+        }
+
+        var priceText = data.price ? 'Desde ' + data.currency + ' ' + promoFormatNumber(data.price) : 'Consultar precio';
+        var childText = data.childPrice ? 'Niños ' + data.currency + ' ' + promoFormatNumber(data.childPrice) : '';
+
+        ctx.font = '800 ' + priceSize + 'px Arial, Helvetica, sans-serif';
+        while ( ctx.measureText(priceText).width > maxTextWidth && priceSize > 36 ) {
+            priceSize -= 2;
+            ctx.font = '800 ' + priceSize + 'px Arial, Helvetica, sans-serif';
+        }
+
+        var dateHeight = dateText ? datePillHeight : 0;
+        var titleHeight = titleLines.length * titleLineHeight;
+        var subtitleHeight = subtitleLines.length * subtitleLineHeight;
+        var priceHeight = priceSize + 12;
+        var childHeight = childText ? Math.round(childSize * 1.35) : 0;
+        var total = dateHeight + ( dateText ? gap : 0 ) + titleHeight +
+            ( subtitleLines.length ? gap + subtitleHeight : 0 ) +
+            gap + priceHeight + ( childText ? 8 + childHeight : 0 );
+        var minY = ( isStory ? 80 : 56 ) + siteSize + 48;
+        var y = H - pad - total;
+        if ( y < minY ) { y = minY; }
+
+        if ( dateText ) {
+            ctx.font = dateFont;
+            var dateWidth = ctx.measureText(dateText).width;
+            var pillW = Math.min(dateWidth + 40, maxTextWidth);
+            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            promoRoundRect(ctx, pad, y, pillW, datePillHeight, datePillHeight / 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dateText, pad + 20, y + datePillHeight / 2 + 1);
+            y += dateHeight + gap;
+        }
+
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#fff';
+        ctx.font = titleFont;
+        for ( var i = 0; i < titleLines.length; i++ ) {
+            ctx.fillText(titleLines[i], pad, y);
+            y += titleLineHeight;
+        }
+
+        if ( subtitleLines.length ) {
+            y += gap;
+            ctx.fillStyle = 'rgba(255,255,255,0.82)';
+            ctx.font = subtitleFont;
+            for ( var j = 0; j < subtitleLines.length; j++ ) {
+                ctx.fillText(subtitleLines[j], pad, y);
+                y += subtitleLineHeight;
+            }
+        }
+
+        y += gap;
+        ctx.fillStyle = '#fff';
+        ctx.font = '800 ' + priceSize + 'px Arial, Helvetica, sans-serif';
+        ctx.fillText(priceText, pad, y);
+
+        if ( childText ) {
+            ctx.font = childFont;
+            ctx.fillStyle = 'rgba(255,255,255,0.82)';
+            ctx.fillText(childText, pad, y + priceHeight + 4);
+        }
+    }
+
+    function resetPromoPreview() {
+        var canvas = document.getElementById('tp-promo-canvas');
+        if ( canvas ) {
+            canvas.style.display = 'none';
+            var ctx = canvas.getContext('2d');
+            if ( ctx ) { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        }
+        $('#tp-download-promo').prop('disabled', true);
+        $('#tp-promo-status').text('');
+    }
+
+    function generatePromoImage() {
+        var data = promoData();
+        var canvas = document.getElementById('tp-promo-canvas');
+        if ( ! canvas ) { return; }
+
+        $('#tp-promo-status').text('Generando imagen…');
+        $('#tp-download-promo').prop('disabled', true);
+
+        promoLoadImage(data.background, function(img) {
+            promoDraw(data, img);
+            canvas.style.display = 'block';
+            $('#tp-download-promo').prop('disabled', false);
+
+            if ( ! data.background ) {
+                $('#tp-promo-status').text('Imagen creada sin foto de fondo. Seleccioná una imagen principal para mejorar el resultado.');
+            } else if ( ! img ) {
+                $('#tp-promo-status').text('No se pudo cargar la imagen principal. Se generó la imagen con fondo de color.');
+            } else {
+                $('#tp-promo-status').text('Imagen lista. Podés descargarla como PNG.');
+            }
+        });
+    }
+
+    function downloadPromoImage() {
+        var canvas = document.getElementById('tp-promo-canvas');
+        if ( ! canvas || canvas.style.display === 'none' || ! canvas.toBlob ) { return; }
+        var format = $('#tp_promo_format').val() === 'story' ? '1080x1920' : '1080x1080';
+        var filename = 'paquete-' + promoSlug($('#tp_title').val()) + '-' + format + '.png';
+
+        try {
+            canvas.toBlob(function(blob) {
+                if ( ! blob ) {
+                    $('#tp-promo-status').text('No se pudo exportar la imagen.');
+                    return;
+                }
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+            }, 'image/png');
+        } catch (err) {
+            $('#tp-promo-status').text('No se pudo exportar la imagen. Verificá que la imagen principal sea del mismo dominio.');
+        }
+    }
+
+    $(document).on('change', '#tp_promo_format', function() {
+        resetPromoPreview();
+    });
+
+    $(document).on('click', '#tp-generate-promo', function(e) {
+        e.preventDefault();
+        generatePromoImage();
+    });
+
+    $(document).on('click', '#tp-download-promo', function(e) {
+        e.preventDefault();
+        downloadPromoImage();
     });
 
     function markSelectedPackage(id) {
@@ -300,6 +657,7 @@ jQuery(document).ready(function($) {
         // Load featured image
         var featuredImageId = data.tp_featured_image || '';
         $('#tp_featured_image').val(featuredImageId);
+        $('#tp_featured_image_url').val(data.tp_featured_image_url || '');
         if ( featuredImageId ) {
             $.ajax({
                 url: ajaxurl,
@@ -312,6 +670,9 @@ jQuery(document).ready(function($) {
                 success: function(response) {
                     if ( response.success && response.data && response.data.url ) {
                         $('#tp-featured-preview-main').html('<img src="' + escAttr(response.data.url) + '" alt="" style="max-width:220px;height:auto;border-radius:8px;display:block;">');
+                        if ( ! $('#tp_featured_image_url').val() ) {
+                            $('#tp_featured_image_url').val(response.data.url);
+                        }
                     }
                 }
             });
@@ -384,6 +745,7 @@ jQuery(document).ready(function($) {
             addGalleryItem(item.id, item.url);
         });
         updateGalleryIds();
+        resetPromoPreview();
     }
 
     function resetPackageForm() {
@@ -417,7 +779,9 @@ jQuery(document).ready(function($) {
         $('#tp_deposit_value').val('');
         $('#tp_deposit_note').val('');
         $('#tp_featured_image').val('');
+        $('#tp_featured_image_url').val('');
         $('#tp-featured-preview-main').empty();
+        resetPromoPreview();
         $('#tp_tipologia').val('');
         $('#tp_new_tipologia').val('');
         $('#tp_similar_destinos input[type="checkbox"]').prop('checked', false);

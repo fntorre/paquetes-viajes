@@ -3611,3 +3611,27 @@ body.tp-admin-tureo .tp-res-active-toggle,
 body.tp-admin-tureo .tp-admin-wrap .button {
     border-radius: 10px;
 }
+
+/* ---- Imagen promocional ---- */
+body.tp-admin-tureo .tp-promo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 12px 0;
+}
+body.tp-admin-tureo .tp-promo-preview-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+}
+body.tp-admin-tureo #tp-promo-canvas {
+    display: none;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 560px;
+    border-radius: 14px;
+    background: #0f172a;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, .18);
+}
