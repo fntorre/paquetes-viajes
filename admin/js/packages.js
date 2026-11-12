@@ -582,26 +582,8 @@ jQuery(document).ready(function($) {
         downloadPromoImage();
     });
 
-    function markSelectedPackage(id) {
-        var target = String(id || 0);
-
-        $('.tp-package-card').each(function() {
-            var cardData = $(this).data('package');
-            if ( typeof cardData === 'string' ) {
-                try {
-                    cardData = JSON.parse(cardData);
-                } catch (e) {
-                    cardData = {};
-                }
-            }
-            var cardId = cardData && cardData.ID ? String(cardData.ID) : '';
-            $(this).toggleClass('is-selected', target !== '0' && cardId === target);
-        });
-    }
-
     function fillPackageForm(data) {
         $('#tp_package_id').val(data.ID || 0);
-        markSelectedPackage(data.ID);
         $('#tp-delete-package').toggle(!!data.ID);
         $('#tp-form-title').text(data.ID ? 'Editar paquete' : 'Nuevo paquete');
         $('#tp-view-package')
@@ -744,7 +726,6 @@ jQuery(document).ready(function($) {
         $('#tp-dates-list .tp-date-error').remove();
         $('#tp-dates-list [aria-invalid="true"]').removeAttr('aria-invalid');
         $('#tp_package_id').val('0');
-        markSelectedPackage(0);
         $('#tp-form-title').text('Nuevo paquete');
         $('#tp-view-package').hide().attr('href', '#');
         $('.tp-sticky-view-package').hide().attr('href', '#');
@@ -1252,7 +1233,28 @@ jQuery(document).ready(function($) {
     // Toggle filters form
     $(document).on('click', '#tp-toggle-filters', function(e) {
         e.preventDefault();
-        $('.tp-filters-form').slideToggle(180);
+        var $button = $(this);
+        var expanded = $button.attr('aria-expanded') === 'true';
+        $('.tp-filters-form').stop(true, true).slideToggle(180);
+        $button.attr('aria-expanded', expanded ? 'false' : 'true');
+    });
+
+    $(document).on('submit', '#tp-packages-filter-form', function(e) {
+        var min = parseFloat($('#tp-filter-price-min').val());
+        var max = parseFloat($('#tp-filter-price-max').val());
+        var invalidRange = !isNaN(min) && !isNaN(max) && max > 0 && max < min;
+
+        $('#tp-price-range-error').toggle(invalidRange);
+        $('#tp-filter-price-min, #tp-filter-price-max').attr('aria-invalid', invalidRange ? 'true' : 'false');
+        if ( invalidRange ) {
+            e.preventDefault();
+            $('#tp-filter-price-max').trigger('focus');
+        }
+    });
+
+    $(document).on('input', '#tp-filter-price-min, #tp-filter-price-max', function() {
+        $('#tp-price-range-error').hide();
+        $('#tp-filter-price-min, #tp-filter-price-max').removeAttr('aria-invalid');
     });
 
     // Toggle import form

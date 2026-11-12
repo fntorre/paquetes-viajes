@@ -814,13 +814,15 @@ class TP_Reservations {
                                     <td><?php echo (int) $reservation['pax']; ?></td>
                                     <td><span class="tp-res-status is-<?php echo esc_attr( $res_status ); ?>"><?php echo esc_html( $res_status_label ); ?></span></td>
                                     <td class="tp-res-actions">
-                                        <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'tp-reservations', 'edit' => $reservation['id'] ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php _e( 'Editar', 'travel-packages' ); ?></a>
-                                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( '¿Eliminar esta reserva?', 'travel-packages' ) ); ?>');">
-                                            <input type="hidden" name="action" value="tp_delete_reservation">
-                                            <input type="hidden" name="reservation_id" value="<?php echo (int) $reservation['id']; ?>">
-                                            <?php wp_nonce_field( 'tp_reservation_delete', 'tp_reservation_delete_nonce' ); ?>
-                                            <button type="submit" class="button button-small tp-res-delete"><?php _e( 'Eliminar', 'travel-packages' ); ?></button>
-                                        </form>
+                                        <div class="tp-res-action-buttons">
+                                            <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'tp-reservations', 'edit' => $reservation['id'] ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php _e( 'Editar', 'travel-packages' ); ?></a>
+                                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( '¿Eliminar esta reserva?', 'travel-packages' ) ); ?>');">
+                                                <input type="hidden" name="action" value="tp_delete_reservation">
+                                                <input type="hidden" name="reservation_id" value="<?php echo (int) $reservation['id']; ?>">
+                                                <?php wp_nonce_field( 'tp_reservation_delete', 'tp_reservation_delete_nonce' ); ?>
+                                                <button type="submit" class="button button-small tp-res-delete"><?php _e( 'Eliminar', 'travel-packages' ); ?></button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>

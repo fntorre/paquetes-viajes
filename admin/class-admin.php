@@ -356,11 +356,22 @@ class TP_Admin {
         <?php
     }
 
+    /** Obtiene un parámetro escalar de la URL, evitando valores inesperados en los filtros. */
+    private static function query_string( $key ) {
+        if ( ! isset( $_GET[ $key ] ) || ! is_scalar( $_GET[ $key ] ) ) {
+            return '';
+        }
+
+        return (string) wp_unslash( $_GET[ $key ] );
+    }
+
     /** Construye los argumentos del listado de paquetes según los filtros de la URL. */
     private static function packages_query_args() {
-        $paged     = isset( $_GET['tp_paged'] ) ? max( 1, intval( $_GET['tp_paged'] ) ) : 1;
-        $orderby   = isset( $_GET['tp_orderby'] ) ? sanitize_key( $_GET['tp_orderby'] ) : '';
-        $order     = isset( $_GET['tp_order'] ) && $_GET['tp_order'] === 'ASC' ? 'ASC' : 'DESC';
+        $paged     = max( 1, absint( self::query_string( 'tp_paged' ) ) );
+        $orderby   = sanitize_key( self::query_string( 'tp_orderby' ) );
+        $orderby   = in_array( $orderby, [ 'date', 'title', 'meta_value_num' ], true ) ? $orderby : 'date';
+        $order_raw = strtoupper( sanitize_key( self::query_string( 'tp_order' ) ) );
+        $order     = $order_raw === 'ASC' ? 'ASC' : 'DESC';
 
         $args = [
             'post_type'      => 'paquete_viaje',
@@ -382,7 +393,7 @@ class TP_Admin {
 
         $tax_query = [];
         foreach ( [ 'tp_filtro_destino' => 'destino', 'tp_filtro_tipologia' => 'tipologia' ] as $get_key => $taxonomy ) {
-            $value = isset( $_GET[ $get_key ] ) ? sanitize_text_field( $_GET[ $get_key ] ) : '';
+            $value = sanitize_title( self::query_string( $get_key ) );
             if ( $value ) {
                 $tax_query[] = [ 'taxonomy' => $taxonomy, 'field' => 'slug', 'terms' => $value ];
             }
@@ -391,16 +402,16 @@ class TP_Admin {
             $args['tax_query'] = $tax_query;
         }
 
-        $filtro_search = isset( $_GET['tp_filtro_search'] ) ? sanitize_text_field( wp_unslash( $_GET['tp_filtro_search'] ) ) : '';
+        $filtro_search = sanitize_text_field( self::query_string( 'tp_filtro_search' ) );
         if ( $filtro_search ) {
             $args['s'] = $filtro_search;
         }
 
         $meta_query = [];
-        $precio_min = isset( $_GET['tp_filtro_precio_min'] ) ? floatval( $_GET['tp_filtro_precio_min'] ) : 0;
-        $precio_max = isset( $_GET['tp_filtro_precio_max'] ) ? floatval( $_GET['tp_filtro_precio_max'] ) : 0;
-        $filtro_slider    = isset( $_GET['tp_filtro_slider'] ) ? sanitize_text_field( $_GET['tp_filtro_slider'] ) : '';
-        $filtro_featured  = isset( $_GET['tp_filtro_featured'] ) ? sanitize_text_field( $_GET['tp_filtro_featured'] ) : '';
+        $precio_min = max( 0, floatval( self::query_string( 'tp_filtro_precio_min' ) ) );
+        $precio_max = max( 0, floatval( self::query_string( 'tp_filtro_precio_max' ) ) );
+        $filtro_slider    = sanitize_key( self::query_string( 'tp_filtro_slider' ) );
+        $filtro_featured  = sanitize_key( self::query_string( 'tp_filtro_featured' ) );
 
         if ( $precio_min > 0 ) {
             $meta_query[] = [ 'key' => '_tp_price', 'value' => $precio_min, 'type' => 'NUMERIC', 'compare' => '>=' ];
@@ -416,7 +427,7 @@ class TP_Admin {
             }
         }
 
-        $filtro_tipo_viaje_q = isset( $_GET['tp_filtro_tipo_viaje'] ) ? sanitize_text_field( $_GET['tp_filtro_tipo_viaje'] ) : '';
+        $filtro_tipo_viaje_q = sanitize_key( self::query_string( 'tp_filtro_tipo_viaje' ) );
         if ( in_array( $filtro_tipo_viaje_q, [ 'nacional', 'internacional' ], true ) ) {
             $meta_query[] = [ 'key' => TP_Package_Data::META_TIPO_VIAJE, 'value' => $filtro_tipo_viaje_q ];
         }
@@ -429,8 +440,8 @@ class TP_Admin {
 
     /** Renderiza una tarjeta de paquete con acciones directas. */
     private static function render_package_card( $package ) {
-        $admin_data   = TP_Package_Data::get_admin_data( $package->ID );
-        $view_url     = ! empty( $admin_data['view_url'] ) ? $admin_data['view_url'] : get_permalink( $package->ID );
+        $view_url     = TP_Package_Data::get_view_url( $package->ID );
+        $view_url     = $view_url ?: get_permalink( $package->ID );
         $edit_url     = admin_url( 'admin.php?page=tp-package-new&package_id=' . $package->ID );
         $best_price   = TP_Package_Data::get_best_price( $package->ID );
         $status_label = $package->post_status === 'publish' ? __( 'Publicado', 'travel-packages' ) : __( 'Borrador', 'travel-packages' );
@@ -440,6 +451,9 @@ class TP_Admin {
         $tipo_viaje   = get_post_meta( $package->ID, TP_Package_Data::META_TIPO_VIAJE, true );
         ?>
         <div class="tp-package-card">
+            <a href="<?php echo esc_url( $view_url ); ?>" class="tp-card-view-link" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Ver en el sitio', 'travel-packages' ); ?>" title="<?php esc_attr_e( 'Ver en el sitio', 'travel-packages' ); ?>" onclick="event.stopPropagation();">
+                <span class="dashicons dashicons-visibility" aria-hidden="true"></span>
+            </a>
             <div class="tp-package-card-thumb">
                 <?php if ( $thumb ) : ?>
                 <img src="<?php echo esc_url( $thumb ); ?>" alt="<?php echo esc_attr( $package->post_title ); ?>">
@@ -456,9 +470,8 @@ class TP_Admin {
                 <span class="tp-package-card-tags tp-tags-tipo-viaje"><?php echo esc_html( $tipo_viaje === 'nacional' ? 'Nacional' : 'Internacional' ); ?></span>
                 <?php endif; ?>
                 <span class="tp-package-card-actions">
-                    <a href="<?php echo esc_url( $edit_url ); ?>" class="tp-card-edit-action"><?php _e( 'Editar', 'travel-packages' ); ?></a>
-                    <a href="<?php echo esc_url( $view_url ); ?>" class="tp-card-view-link" target="_blank" rel="noopener" title="<?php esc_attr_e( 'Ver paquete en una pestaña nueva', 'travel-packages' ); ?>" onclick="event.stopPropagation();"><?php _e( 'Ver paquete', 'travel-packages' ); ?></a>
-                    <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tp_duplicate_package&tp_package_id=' . $package->ID ), 'tp_duplicate_package', 'tp_duplicate_nonce' ) ); ?>" class="tp-card-dup-link" title="<?php esc_attr_e( 'Duplicar paquete', 'travel-packages' ); ?>" onclick="event.stopPropagation();">📋 <?php _e( 'Duplicar', 'travel-packages' ); ?></a>
+                    <a href="<?php echo esc_url( $edit_url ); ?>" class="tp-card-edit-action"><span class="dashicons dashicons-edit" aria-hidden="true"></span><?php _e( 'Editar', 'travel-packages' ); ?></a>
+                    <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tp_duplicate_package&tp_package_id=' . $package->ID ), 'tp_duplicate_package', 'tp_duplicate_nonce' ) ); ?>" class="tp-card-dup-link" title="<?php esc_attr_e( 'Duplicar paquete', 'travel-packages' ); ?>" onclick="event.stopPropagation();"><span class="dashicons dashicons-admin-page" aria-hidden="true"></span><?php _e( 'Duplicar', 'travel-packages' ); ?></a>
                 </span>
             </div>
         </div>
@@ -466,32 +479,35 @@ class TP_Admin {
     }
 
     public static function render_packages_page() {
-        $page          = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : 'tp-packages';
+        $page          = self::query_string( 'page' ) ?: 'tp-packages';
+        $page          = sanitize_key( $page );
         $is_editor_page = $page === 'tp-package-new';
-        if ( ! $is_editor_page && isset( $_GET['package_id'] ) ) {
-            $legacy_package_id = absint( $_GET['package_id'] );
+        if ( ! $is_editor_page && self::query_string( 'package_id' ) !== '' ) {
+            $legacy_package_id = absint( self::query_string( 'package_id' ) );
             wp_safe_redirect( admin_url( 'admin.php?page=tp-package-new&package_id=' . $legacy_package_id ) );
             exit;
         }
         $package_query = $is_editor_page ? null : new WP_Query( self::packages_query_args() );
         $packages      = $package_query ? $package_query->posts : [];
         $total_pages   = $package_query ? $package_query->max_num_pages : 0;
-        $paged         = isset( $_GET['tp_paged'] ) ? max( 1, intval( $_GET['tp_paged'] ) ) : 1;
+        $paged         = max( 1, absint( self::query_string( 'tp_paged' ) ) );
 
         $destinos   = get_terms( [ 'taxonomy' => 'destino', 'hide_empty' => false ] );
         $tipologias = get_terms( [ 'taxonomy' => 'tipologia', 'hide_empty' => false ] );
-        $status     = isset( $_GET['status'] ) ? sanitize_text_field( $_GET['status'] ) : '';
+        $destinos   = is_array( $destinos ) ? $destinos : [];
+        $tipologias = is_array( $tipologias ) ? $tipologias : [];
+        $status     = sanitize_key( self::query_string( 'status' ) );
         $base_url   = admin_url( 'admin.php?page=tp-packages' );
 
         // Paquete a precargar en el formulario (viene de la URL tras guardar o editar).
         $selected_package_data = [];
-        if ( isset( $_GET['package_id'] ) ) {
-            $selected_package_data = TP_Package_Data::get_admin_data( intval( $_GET['package_id'] ) );
+        if ( self::query_string( 'package_id' ) !== '' ) {
+            $selected_package_data = TP_Package_Data::get_admin_data( absint( self::query_string( 'package_id' ) ) );
         }
 
         $restore_form_data = [];
-        if ( $is_editor_page && isset( $_GET['tp_form_restore'] ) ) {
-            $restore_token = sanitize_key( wp_unslash( $_GET['tp_form_restore'] ) );
+        if ( $is_editor_page && self::query_string( 'tp_form_restore' ) !== '' ) {
+            $restore_token = sanitize_key( self::query_string( 'tp_form_restore' ) );
             $restore_key   = 'tp_pkg_form_' . get_current_user_id() . '_' . $restore_token;
             $stored_data   = get_transient( $restore_key );
             if ( is_array( $stored_data ) ) {
@@ -501,16 +517,18 @@ class TP_Admin {
         }
 
         // Filtros activos (para mostrar/ocultar el panel).
-        $filtro_destino    = isset( $_GET['tp_filtro_destino'] ) ? sanitize_text_field( $_GET['tp_filtro_destino'] ) : '';
-        $filtro_tipologia  = isset( $_GET['tp_filtro_tipologia'] ) ? sanitize_text_field( $_GET['tp_filtro_tipologia'] ) : '';
-        $filtro_precio_min = isset( $_GET['tp_filtro_precio_min'] ) ? floatval( $_GET['tp_filtro_precio_min'] ) : 0;
-        $filtro_precio_max = isset( $_GET['tp_filtro_precio_max'] ) ? floatval( $_GET['tp_filtro_precio_max'] ) : 0;
-        $filtro_slider     = isset( $_GET['tp_filtro_slider'] ) ? sanitize_text_field( $_GET['tp_filtro_slider'] ) : '';
-        $filtro_featured   = isset( $_GET['tp_filtro_featured'] ) ? sanitize_text_field( $_GET['tp_filtro_featured'] ) : '';
-        $filtro_tipo_viaje = isset( $_GET['tp_filtro_tipo_viaje'] ) ? sanitize_text_field( $_GET['tp_filtro_tipo_viaje'] ) : '';
-        $filtro_search     = isset( $_GET['tp_filtro_search'] ) ? sanitize_text_field( wp_unslash( $_GET['tp_filtro_search'] ) ) : '';
-        $orderby_url       = isset( $_GET['tp_orderby'] ) ? sanitize_key( $_GET['tp_orderby'] ) : '';
-        $order_url         = isset( $_GET['tp_order'] ) && $_GET['tp_order'] === 'ASC' ? 'ASC' : 'DESC';
+        $filtro_destino    = sanitize_title( self::query_string( 'tp_filtro_destino' ) );
+        $filtro_tipologia  = sanitize_title( self::query_string( 'tp_filtro_tipologia' ) );
+        $filtro_precio_min = max( 0, floatval( self::query_string( 'tp_filtro_precio_min' ) ) );
+        $filtro_precio_max = max( 0, floatval( self::query_string( 'tp_filtro_precio_max' ) ) );
+        $filtro_slider     = sanitize_key( self::query_string( 'tp_filtro_slider' ) );
+        $filtro_featured   = sanitize_key( self::query_string( 'tp_filtro_featured' ) );
+        $filtro_tipo_viaje = sanitize_key( self::query_string( 'tp_filtro_tipo_viaje' ) );
+        $filtro_search     = sanitize_text_field( self::query_string( 'tp_filtro_search' ) );
+        $orderby_url       = sanitize_key( self::query_string( 'tp_orderby' ) );
+        $orderby_url       = in_array( $orderby_url, [ 'date', 'title', 'meta_value_num' ], true ) ? $orderby_url : '';
+        $order_raw         = strtoupper( sanitize_key( self::query_string( 'tp_order' ) ) );
+        $order_url         = $order_raw === 'ASC' ? 'ASC' : 'DESC';
 
         $has_active_filters = $filtro_destino || $filtro_tipologia || $filtro_tipo_viaje || $filtro_precio_min > 0 || $filtro_precio_max > 0 || $filtro_slider || $filtro_featured || $filtro_search || $orderby_url;
         ?>
@@ -555,44 +573,40 @@ class TP_Admin {
                 <?php if ( ! $is_editor_page ) : ?>
                 <div class="tp-packages-list">
                     <div class="tp-card-header tp-filters-header">
-                        <h2><?php _e('Listado de paquetes', 'travel-packages'); ?></h2>
+                        <div class="tp-packages-list-heading">
+                            <h2><?php _e('Listado de paquetes', 'travel-packages'); ?></h2>
+                            <span class="tp-packages-total"><?php echo esc_html( number_format_i18n( $package_query->found_posts ) ); ?> <?php _e( 'paquetes', 'travel-packages' ); ?></span>
+                        </div>
                         <div class="tp-filters-bar">
-                            <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="tp-package-search-form">
-                                <input type="hidden" name="page" value="tp-packages">
-                                <input type="hidden" name="tp_filtro_destino" value="<?php echo esc_attr( $filtro_destino ); ?>">
-                                <input type="hidden" name="tp_filtro_tipologia" value="<?php echo esc_attr( $filtro_tipologia ); ?>">
-                                <input type="hidden" name="tp_filtro_tipo_viaje" value="<?php echo esc_attr( $filtro_tipo_viaje ); ?>">
-                                <input type="hidden" name="tp_filtro_precio_min" value="<?php echo esc_attr( $filtro_precio_min ?: '' ); ?>">
-                                <input type="hidden" name="tp_filtro_precio_max" value="<?php echo esc_attr( $filtro_precio_max ?: '' ); ?>">
-                                <input type="hidden" name="tp_filtro_slider" value="<?php echo esc_attr( $filtro_slider ); ?>">
-                                <input type="hidden" name="tp_filtro_featured" value="<?php echo esc_attr( $filtro_featured ); ?>">
-                                <input type="hidden" name="tp_orderby" value="<?php echo esc_attr( $orderby_url ); ?>">
-                                <input type="hidden" name="tp_order" value="<?php echo esc_attr( $order_url ); ?>">
-                                <input type="search" id="tp-package-search" name="tp_filtro_search" class="tp-package-search" value="<?php echo esc_attr( $filtro_search ); ?>" placeholder="<?php esc_attr_e('Buscar paquetes por nombre...', 'travel-packages'); ?>">
-                                <button type="submit" class="button button-primary"><?php _e( 'Buscar', 'travel-packages' ); ?></button>
-                            </form>
-                            <button type="button" id="tp-toggle-filters" class="button tp-bar-btn <?php if ( $has_active_filters ) echo 'button-primary'; ?>">
-                                <span class="dashicons dashicons-filter"></span> <?php _e( 'Filtros', 'travel-packages' ); ?>
-                            </button>
-                            <a href="<?php echo esc_url( admin_url( 'admin-post.php?action=tp_export_packages' ) . '&tp_export_nonce=' . wp_create_nonce( 'tp_export_packages' ) ); ?>" class="button tp-bar-btn">
-                                <span class="dashicons dashicons-download"></span> <?php _e( 'Exportar', 'travel-packages' ); ?>
-                            </a>
-                            <button type="button" id="tp-import-btn" class="button tp-bar-btn">
-                                <span class="dashicons dashicons-upload"></span> <?php _e( 'Importar', 'travel-packages' ); ?>
-                            </button>
-                            <form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tp-import-form" style="display:none;">
-                                <input type="hidden" name="action" value="tp_import_packages">
-                                <?php wp_nonce_field( 'tp_import_packages', 'tp_import_nonce' ); ?>
-                                <input type="file" name="tp_import_file" accept=".json" required>
-                                <button type="submit" class="button button-primary"><?php _e( 'Subir e importar', 'travel-packages' ); ?></button>
-                            </form>
+                            <div class="tp-filters-main">
+                                <div class="tp-package-search-form">
+                                    <input type="search" id="tp-package-search" name="tp_filtro_search" form="tp-packages-filter-form" class="tp-package-search" value="<?php echo esc_attr( $filtro_search ); ?>" placeholder="<?php esc_attr_e('Buscar paquetes por nombre...', 'travel-packages'); ?>">
+                                    <button type="submit" form="tp-packages-filter-form" class="button button-primary"><?php _e( 'Buscar', 'travel-packages' ); ?></button>
+                                </div>
+                                <button type="button" id="tp-toggle-filters" class="button tp-bar-btn <?php if ( $has_active_filters ) echo 'button-primary'; ?>" aria-controls="tp-filters-panel" aria-expanded="<?php echo $has_active_filters ? 'true' : 'false'; ?>">
+                                    <span class="dashicons dashicons-filter"></span> <?php _e( 'Filtros', 'travel-packages' ); ?>
+                                </button>
+                            </div>
+                            <div class="tp-filters-utilities">
+                                <a href="<?php echo esc_url( admin_url( 'admin-post.php?action=tp_export_packages' ) . '&tp_export_nonce=' . wp_create_nonce( 'tp_export_packages' ) ); ?>" class="button tp-bar-btn">
+                                    <span class="dashicons dashicons-download"></span> <?php _e( 'Exportar', 'travel-packages' ); ?>
+                                </a>
+                                <button type="button" id="tp-import-btn" class="button tp-bar-btn">
+                                    <span class="dashicons dashicons-upload"></span> <?php _e( 'Importar', 'travel-packages' ); ?>
+                                </button>
+                                <form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tp-import-form" style="display:none;">
+                                    <input type="hidden" name="action" value="tp_import_packages">
+                                    <?php wp_nonce_field( 'tp_import_packages', 'tp_import_nonce' ); ?>
+                                    <input type="file" name="tp_import_file" accept=".json" required>
+                                    <button type="submit" class="button button-primary"><?php _e( 'Subir e importar', 'travel-packages' ); ?></button>
+                                </form>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="tp-filters-form" style="display:<?php echo $has_active_filters ? 'block' : 'none'; ?>;">
-                        <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="tp-filters-inline">
+                    <div class="tp-filters-form" id="tp-filters-panel" style="display:<?php echo $has_active_filters ? 'block' : 'none'; ?>;">
+                        <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="tp-filters-inline" id="tp-packages-filter-form">
                             <input type="hidden" name="page" value="tp-packages">
-                            <input type="hidden" name="tp_filtro_search" value="<?php echo esc_attr( $filtro_search ); ?>">
 
                             <div class="tp-filter-field">
                                 <label><?php _e( 'Destino', 'travel-packages' ); ?></label>
@@ -624,13 +638,14 @@ class TP_Admin {
                             </div>
 
                             <div class="tp-filter-field">
-                                <label><?php _e( 'Precio min', 'travel-packages' ); ?></label>
-                                <input type="number" name="tp_filtro_precio_min" placeholder="0" value="<?php echo $filtro_precio_min ?: ''; ?>" min="0" step="1">
+                                <label for="tp-filter-price-min"><?php _e( 'Precio mínimo', 'travel-packages' ); ?></label>
+                                <input type="number" id="tp-filter-price-min" name="tp_filtro_precio_min" placeholder="0" value="<?php echo $filtro_precio_min ?: ''; ?>" min="0" step="1">
                             </div>
 
                             <div class="tp-filter-field">
-                                <label><?php _e( 'Precio max', 'travel-packages' ); ?></label>
-                                <input type="number" name="tp_filtro_precio_max" placeholder="0" value="<?php echo $filtro_precio_max ?: ''; ?>" min="0" step="1">
+                                <label for="tp-filter-price-max"><?php _e( 'Precio máximo', 'travel-packages' ); ?></label>
+                                <input type="number" id="tp-filter-price-max" name="tp_filtro_precio_max" placeholder="0" value="<?php echo $filtro_precio_max ?: ''; ?>" min="0" step="1">
+                                <span id="tp-price-range-error" class="tp-inline-error" role="alert" style="<?php echo $filtro_precio_min > 0 && $filtro_precio_max > 0 && $filtro_precio_max < $filtro_precio_min ? '' : 'display:none;'; ?>"><?php _e( 'El precio máximo debe ser mayor que el mínimo.', 'travel-packages' ); ?></span>
                             </div>
 
                             <div class="tp-filter-field">
@@ -661,10 +676,10 @@ class TP_Admin {
                             </div>
 
                             <div class="tp-filter-field">
-                                <label><?php _e( 'Dirección', 'travel-packages' ); ?></label>
+                                <label><?php _e( 'Orden', 'travel-packages' ); ?></label>
                                 <select name="tp_order">
-                                    <option value="DESC" <?php selected( $order_url, 'DESC' ); ?>>DESC</option>
-                                    <option value="ASC" <?php selected( $order_url, 'ASC' ); ?>>ASC</option>
+                                    <option value="DESC" <?php selected( $order_url, 'DESC' ); ?>><?php _e( 'Descendente', 'travel-packages' ); ?></option>
+                                    <option value="ASC" <?php selected( $order_url, 'ASC' ); ?>><?php _e( 'Ascendente', 'travel-packages' ); ?></option>
                                 </select>
                             </div>
 
@@ -786,7 +801,6 @@ class TP_Admin {
                                 ?>
                                 <small><?php _e('Usá el editor visual o la pestaña de texto para pegar HTML, videos o código.', 'travel-packages'); ?></small>
                             </div>
-                            <?php endif; ?>
                         </div>
 
                         <div class="tp-panel" id="tp-section-images">
@@ -1080,6 +1094,7 @@ class TP_Admin {
                         </div>
                     </form>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
         <?php

@@ -348,7 +348,7 @@ class TP_Settings {
         $search_tipo     = self::is_search_tipo_enabled();
         $notice          = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
         ?>
-        <div class="wrap tp-admin-wrap">
+        <div class="wrap tp-admin-wrap tp-settings-wrap">
             <div class="tp-admin-header">
                 <div class="tp-header-left tp-tureo-header-left">
                     <?php TP_Admin::render_brand(); ?>
