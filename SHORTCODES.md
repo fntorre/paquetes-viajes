@@ -1,4 +1,4 @@
-# TourFlow - Shortcodes Reference v2.7.2
+# Tureo - Shortcodes Reference v2.7.2
 
 ## [tp_slider]
 
@@ -133,7 +133,7 @@ Muestra un paquete individual incrustado en una página.
 
 ## [tp_catalogo]
 
-Catálogo completo con buscador y filtros. Soporta pre-filtrado vía URL.
+Catálogo completo con el buscador AJAX de `[tp_buscador]` y grilla de paquetes. Soporta pre-filtrado vía URL.
 
 ### Props (Atributos)
 
@@ -141,10 +141,12 @@ Catálogo completo con buscador y filtros. Soporta pre-filtrado vía URL.
 |------|------|---------|-------------|
 | `limit` | número | -1 | Cantidad máxima de paquetes (-1 = todos) |
 | `columns` | 1/2/3/4 | 3 | Número de columnas en la grilla |
-| `show_search` | true/false | true | Mostrar/ocultar buscador por texto |
-| `show_filters` | true/false | true | Mostrar/ocultar filtros (destino, tipología, orden) |
+| `show_search` | true/false | true | Mostrar/ocultar el buscador AJAX |
+| `show_filters` | true/false | true | Mostrar/ocultar los selectores de destino y tipo de viaje configurados para `[tp_buscador]` |
 | `orderby` | date/title | date | Ordenar por fecha o título |
 | `order` | ASC/DESC | DESC | Orden ascendente o descendente |
+
+El catálogo ya no muestra los controles de tipología ni de orden interactivo. El atributo `orderby`/`order` sigue definiendo el orden inicial de los paquetes.
 
 ### Pre-filtrado por URL
 
@@ -155,6 +157,7 @@ Podés enlazar directamente a un catálogo pre-filtrado usando parámetros en la
 | `?tp_search=` | `?tp_search=caribe` | Filtra por texto (nombre, destino, tipología o descripción) |
 | `?destino=` | `?destino=caribe` | Filtra por destino |
 | `?tipologia=` | `?tipologia=playa` | Filtra por tipología |
+| `?tipo_viaje=` | `?tipo_viaje=nacional` | Filtra por tipo de viaje |
 
 ### Ejemplos
 
@@ -173,7 +176,7 @@ Enlace a catálogo filtrado por tipología:
 
 ## [tp_buscador]
 
-Buscador de paquetes para colocar en cualquier parte del template (home, header, sidebar, landing pages, etc.). Muestra **sugerencias en vivo vía AJAX** mientras se escribe (mínimo 2 caracteres) y envía la búsqueda a la página de resultados configurada en **TourFlow → Ajustes → Buscador de paquetes**, o a la página actual si no se configuró ninguna.
+Buscador de paquetes para colocar en cualquier parte del template (home, header, sidebar, landing pages, etc.). Muestra **sugerencias en vivo vía AJAX** mientras se escribe (mínimo 2 caracteres) y envía la búsqueda a la página de resultados configurada en **Tureo → Ajustes → Buscador de paquetes**, o a la página actual si no se configuró ninguna.
 
 La búsqueda considera título, descripción corta, contenido y nombres de destinos/tipologías, y ordena los resultados por relevancia.
 
@@ -220,7 +223,7 @@ La página de resultados debe contener el shortcode `[tp_catalogo]`, que interpr
 
 La taxonomía `tipologia` permite agrupar paquetes por tipo (playa, montaña, aventura, nacionales, internacionales, etc.).
 
-- Los términos se administran desde el menú **TourFlow → Tipologías**
+- Los términos se administran desde el menú **Tureo → Tipologías**
 - Cada tipología tiene su propia página de archivo en `/tipologia/[slug]/`
 - Se muestran como badges dorados en las tarjetas de paquetes
 - Se pueden usar en shortcodes (`[tp_grid tipologia="playa"]`) o en URL (`?tipologia=playa`)

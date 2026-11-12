@@ -1,13 +1,13 @@
-# TourFlow
+# Tureo
 ## Presentación del Plugin — Guía para el Usuario
 
 **Versión 2.7.0** · Plugin WordPress para gestión de paquetes turísticos
 
 ---
 
-## 1. ¿Qué es "TourFlow"?
+## 1. ¿Qué es "Tureo"?
 
-TourFlow es un plugin de WordPress diseñado específicamente para **agencias de turismo**. Permite crear, organizar y publicar paquetes turísticos en el sitio web sin necesidad de conocimientos técnicos, todo desde un panel visual pensado para trabajar como en un portal de viajes.
+Tureo es un plugin de WordPress diseñado específicamente para **agencias de turismo**. Permite crear, organizar y publicar paquetes turísticos en el sitio web sin necesidad de conocimientos técnicos, todo desde un panel visual pensado para trabajar como en un portal de viajes.
 
 Con este plugin podés:
 
@@ -21,7 +21,7 @@ Con este plugin podés:
 
 ## 2. Acceso al Panel
 
-Una vez activado el plugin, en el menú lateral de WordPress aparece la opción **✈ TourFlow**, con estas secciones:
+Una vez activado el plugin, en el menú lateral de WordPress aparece la opción **✈ Tureo**, con estas secciones:
 
 | Sección | Para qué sirve |
 |---|---|
@@ -95,7 +95,7 @@ Se pueden agregar **múltiples salidas** con selector de calendario. Cada salida
 ### 4.6 Información adicional
 
 - **Ficha técnica:** campos libres por paquete, fila por fila (ej: *"Duración → 12 días"*, *"Régimen → All Inclusive"*).
-- **Campos personalizados:** en **TourFlow → Campos Personalizados** se definen campos globales que aparecen en **todos** los paquetes. Tipos disponibles: Texto, Número, Área de texto, Fecha, Selección (con opciones) y Checkbox. Se pueden marcar como requeridos, ordenar arrastrando y eliminar los que no se usen.
+- **Campos personalizados:** en **Tureo → Campos Personalizados** se definen campos globales que aparecen en **todos** los paquetes. Tipos disponibles: Texto, Número, Área de texto, Fecha, Selección (con opciones) y Checkbox. Se pueden marcar como requeridos, ordenar arrastrando y eliminar los que no se usen.
 - Vienen precargados con ejemplos útiles: *Traslado*, *Hotel* e *Itinerario*.
 
 > 💡 Esta es la herramienta clave para estandarizar la carga: si tu agencia siempre informa "Aéreo", "Hotel" y "Traslados", los definís una vez y aparecen listos en cada paquete nuevo.
@@ -234,7 +234,7 @@ Además admite **enlaces pre-filtrados** para campañas o menús:
 
 ## 10. En Resumen
 
-**TourFlow** convierte al WordPress en un mini-portal de turismo autogestionado:
+**Tureo** convierte al WordPress en un mini-portal de turismo autogestionado:
 
 - 🧳 Carga de paquetes **completa y guiada** (precios, fechas, galerías, fichas).
 - ⚡ Operación diaria **rápida**: toggles de visibilidad, duplicado, filtros y exportación.

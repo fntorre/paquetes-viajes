@@ -1,17 +1,17 @@
 <?php
 /**
- * Plugin Name: TourFlow
- * Description: TourFlow — Gestión de paquetes de viaje para agencias. Incluye slider, grilla destacada, shortcodes, reservas y ficha técnica personalizable.
+ * Plugin Name: Tureo
+ * Description: Tureo — Gestión de paquetes de viaje para agencias. Incluye slider, grilla destacada, shortcodes, reservas y ficha técnica personalizable.
  * Version:     2.7.2
- * Author:      TourFlow
+ * Author:      Tureo
  * Text Domain: travel-packages
  * Domain Path: /languages
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TP_BRAND',         'TourFlow' );
-define( 'TP_BRAND_TAGLINE', 'Gestión de paquetes de viaje' );
+define( 'TP_BRAND',         'Tureo' );
+define( 'TP_BRAND_TAGLINE', 'Tus viajes, mejor presentados' );
 define( 'TP_VERSION',       '2.7.2' );
 define( 'TP_BUILD',         '0.4.0' );
 define( 'TP_PLUGIN_DIR',    plugin_dir_path( __FILE__ ) );

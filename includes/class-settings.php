@@ -212,11 +212,21 @@ class TP_Settings {
     }
 
     public static function enqueue_admin_fonts() {
-        if ( ! isset( $_GET['page'] ) || sanitize_key( wp_unslash( $_GET['page'] ) ) !== 'tp-settings' ) {
+        $page   = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+        $pages  = [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields' ];
+        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+        $is_tp  = in_array( $page, $pages, true ) || ( $screen && isset( $screen->post_type ) && $screen->post_type === 'paquete_viaje' );
+
+        if ( ! $is_tp ) {
             return;
         }
 
-        $url = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display&family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Nunito+Sans:wght@400;600;700&family=Playfair+Display:wght@600;700&family=Poppins:wght@600;700;800&display=swap';
+        if ( $page === 'tp-settings' ) {
+            $url = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display&family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Nunito+Sans:wght@400;600;700&family=Playfair+Display:wght@600;700&family=Poppins:wght@600;700;800&family=Ubuntu:wght@400;500;700&display=swap';
+        } else {
+            $url = 'https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap';
+        }
+
         wp_enqueue_style( 'tp-admin-fonts', $url, [], null );
     }
 
@@ -340,12 +350,13 @@ class TP_Settings {
         ?>
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php TP_Admin::render_brand(); ?>
+                    <div class="tp-tureo-heading">
                         <h1><?php _e( 'Ajustes generales', 'travel-packages' ); ?></h1>
                         <p><?php _e( 'Configurá el contacto, las consultas, la paleta visual y la tipografía del frontend.', 'travel-packages' ); ?></p>
                     </div>
+                    <?php TP_Admin::render_version_badge(); ?>
                 </div>
             </div>
 

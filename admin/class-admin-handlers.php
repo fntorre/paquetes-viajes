@@ -33,6 +33,24 @@ class TP_Admin_Handlers {
             exit;
         }
 
+        // Un autor solo puede publicar si tiene la capacidad correspondiente.
+        if ( isset( $_POST['tp_post_status'] ) && $_POST['tp_post_status'] === 'publish' && ! current_user_can( 'publish_posts' ) ) {
+            $_POST['tp_post_status'] = 'draft';
+        }
+
+        // Verifica que el paquete a editar exista, sea del tipo correcto y que
+        // el usuario tenga permiso explícito sobre ese post (evita IDOR).
+        $target_id = isset( $_POST['tp_package_id'] ) ? (int) $_POST['tp_package_id'] : 0;
+        if ( $target_id ) {
+            $existing = get_post( $target_id );
+            if ( ! $existing || $existing->post_type !== TP_Package_Data::POST_TYPE ) {
+                wp_die( __( 'Paquete no encontrado.', 'travel-packages' ) );
+            }
+            if ( ! current_user_can( 'edit_post', $target_id ) ) {
+                wp_die( __( 'No tienes permisos para editar este paquete.', 'travel-packages' ) );
+            }
+        }
+
         $package_id = TP_Package_Data::upsert_post( $_POST );
 
         if ( is_wp_error( $package_id ) ) {
@@ -62,12 +80,21 @@ class TP_Admin_Handlers {
             exit;
         }
 
+        if ( ! current_user_can( 'edit_post', $original_id ) ) {
+            wp_die( __( 'No tienes permisos para duplicar este paquete.', 'travel-packages' ) );
+        }
+
+        $new_status = $original->post_status;
+        if ( $new_status === 'publish' && ! current_user_can( 'publish_posts' ) ) {
+            $new_status = 'draft';
+        }
+
         $new_slug = $original->post_name ? $original->post_name . '-copia' : '';
         $new_id   = wp_insert_post( [
             'post_type'    => TP_Package_Data::POST_TYPE,
             'post_title'   => $original->post_title . ' (' . __( 'copia', 'travel-packages' ) . ')',
             'post_content' => $original->post_content,
-            'post_status'  => $original->post_status,
+            'post_status'  => $new_status,
             'post_name'    => $new_slug,
         ] );
 
@@ -99,11 +126,18 @@ class TP_Admin_Handlers {
 
         $data = [];
         foreach ( $packages as $p ) {
+            $seo_image_raw = get_post_meta( $p->ID, TP_Package_Data::META_SEO_IMAGE, true );
+            $seo_image_id  = is_scalar( $seo_image_raw ) ? (int) $seo_image_raw : 0;
+
             $data[] = [
                 'title'              => $p->post_title,
                 'content'            => $p->post_content,
                 'status'             => $p->post_status,
                 'short_desc'         => get_post_meta( $p->ID, '_tp_short_desc', true ),
+                'seo_title'          => get_post_meta( $p->ID, TP_Package_Data::META_SEO_TITLE, true ),
+                'seo_description'    => get_post_meta( $p->ID, TP_Package_Data::META_SEO_DESCRIPTION, true ),
+                'seo_noindex'        => get_post_meta( $p->ID, TP_Package_Data::META_SEO_NOINDEX, true ),
+                'seo_image_url'      => $seo_image_id ? ( wp_get_attachment_image_url( $seo_image_id, 'full' ) ?: '' ) : '',
                 'prices'             => TP_Package_Data::get_prices( $p->ID ),
                 'pricing'            => TP_Package_Data::get_pricing( $p->ID ),
                 'slider'             => get_post_meta( $p->ID, '_tp_slider', true ),
@@ -141,7 +175,17 @@ class TP_Admin_Handlers {
             wp_die( __( 'Error al subir el archivo.', 'travel-packages' ) );
         }
 
-        $json = file_get_contents( $_FILES['tp_import_file']['tmp_name'] );
+        $tmp_name = isset( $_FILES['tp_import_file']['tmp_name'] ) ? (string) $_FILES['tp_import_file']['tmp_name'] : '';
+        $size     = isset( $_FILES['tp_import_file']['size'] ) ? (int) $_FILES['tp_import_file']['size'] : 0;
+
+        if ( $tmp_name === '' || ! is_uploaded_file( $tmp_name ) ) {
+            wp_die( __( 'Error al subir el archivo.', 'travel-packages' ) );
+        }
+        if ( $size <= 0 || $size > 5 * MB_IN_BYTES ) {
+            wp_die( __( 'El archivo de importación supera el tamaño permitido (5 MB).', 'travel-packages' ) );
+        }
+
+        $json = file_get_contents( $tmp_name );
         $data = json_decode( $json, true );
         if ( ! is_array( $data ) ) {
             wp_die( __( 'Formato JSON inválido.', 'travel-packages' ) );
@@ -149,7 +193,7 @@ class TP_Admin_Handlers {
 
         $count = 0;
         foreach ( $data as $item ) {
-            $title = isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : '';
+            $title = isset( $item['title'] ) && is_scalar( $item['title'] ) ? sanitize_text_field( (string) $item['title'] ) : '';
             if ( empty( $title ) ) {
                 continue;
             }
@@ -157,7 +201,7 @@ class TP_Admin_Handlers {
             $post_id = wp_insert_post( [
                 'post_type'    => TP_Package_Data::POST_TYPE,
                 'post_title'   => $title,
-                'post_content' => isset( $item['content'] ) ? wp_kses_post( $item['content'] ) : '',
+                'post_content' => isset( $item['content'] ) && is_scalar( $item['content'] ) ? wp_kses_post( (string) $item['content'] ) : '',
                 'post_status'  => isset( $item['status'] ) && in_array( $item['status'], [ 'publish', 'draft' ], true ) ? $item['status'] : 'draft',
             ] );
             if ( is_wp_error( $post_id ) ) {
@@ -166,18 +210,51 @@ class TP_Admin_Handlers {
 
             $meta_map = [
                 '_tp_short_desc'  => 'short_desc',
+                '_tp_seo_title'   => 'seo_title',
+                '_tp_seo_description' => 'seo_description',
+                '_tp_seo_noindex' => 'seo_noindex',
                 '_tp_slider'      => 'slider',
                 '_tp_featured'    => 'featured',
                 '_tp_tipo_viaje'  => 'tipo_viaje',
-                '_tp_tech_fields' => 'tech_fields',
                 '_tp_video_url'   => 'video_url',
                 '_tp_map_location'=> 'map_location',
             ];
             foreach ( $meta_map as $meta_key => $item_key ) {
-                if ( isset( $item[ $item_key ] ) ) {
-                    $val = is_string( $item[ $item_key ] ) ? sanitize_text_field( $item[ $item_key ] ) : $item[ $item_key ];
-                    update_post_meta( $post_id, $meta_key, $val );
+                if ( ! isset( $item[ $item_key ] ) ) {
+                    continue;
                 }
+
+                if ( in_array( $meta_key, [ '_tp_slider', '_tp_featured' ], true ) ) {
+                    $val = ! empty( $item[ $item_key ] ) ? '1' : '0';
+                } elseif ( $meta_key === '_tp_tipo_viaje' ) {
+                    $val = is_scalar( $item[ $item_key ] ) ? sanitize_text_field( (string) $item[ $item_key ] ) : '';
+                    if ( ! in_array( $val, [ 'nacional', 'internacional' ], true ) ) {
+                        continue;
+                    }
+                } elseif ( $meta_key === '_tp_map_location' ) {
+                    $val = TP_Package_Data::sanitize_map_location( $item[ $item_key ] );
+                } elseif ( $meta_key === '_tp_video_url' ) {
+                    $val = is_scalar( $item[ $item_key ] ) ? esc_url_raw( (string) $item[ $item_key ] ) : '';
+                } else {
+                    $val = is_scalar( $item[ $item_key ] ) ? sanitize_text_field( (string) $item[ $item_key ] ) : '';
+                }
+
+                update_post_meta( $post_id, $meta_key, $val );
+            }
+
+            if ( isset( $item['tech_fields'] ) && is_array( $item['tech_fields'] ) ) {
+                $tech_fields = [];
+                foreach ( $item['tech_fields'] as $tf ) {
+                    if ( ! is_array( $tf ) ) {
+                        continue;
+                    }
+                    $tk = isset( $tf['key'] ) && is_scalar( $tf['key'] ) ? sanitize_text_field( (string) $tf['key'] ) : '';
+                    $tv = isset( $tf['val'] ) && is_scalar( $tf['val'] ) ? sanitize_text_field( (string) $tf['val'] ) : '';
+                    if ( $tk !== '' ) {
+                        $tech_fields[] = [ 'key' => $tk, 'val' => $tv ];
+                    }
+                }
+                update_post_meta( $post_id, '_tp_tech_fields', $tech_fields );
             }
 
             if ( isset( $item['whatsapp'] ) ) {
@@ -193,13 +270,13 @@ class TP_Admin_Handlers {
                     if ( ! is_array( $row ) ) {
                         continue;
                     }
-                    $day   = sanitize_text_field( $row['day'] ?? '' );
-                    $title = sanitize_text_field( $row['title'] ?? '' );
-                    $desc  = sanitize_textarea_field( $row['desc'] ?? '' );
-                    if ( $day === '' && $title === '' && $desc === '' ) {
+                    $day      = isset( $row['day'] ) && is_scalar( $row['day'] ) ? sanitize_text_field( (string) $row['day'] ) : '';
+                    $it_title = isset( $row['title'] ) && is_scalar( $row['title'] ) ? sanitize_text_field( (string) $row['title'] ) : '';
+                    $desc     = isset( $row['desc'] ) && is_scalar( $row['desc'] ) ? sanitize_textarea_field( (string) $row['desc'] ) : '';
+                    if ( $day === '' && $it_title === '' && $desc === '' ) {
                         continue;
                     }
-                    $itinerary[] = [ 'day' => $day, 'title' => $title, 'desc' => $desc ];
+                    $itinerary[] = [ 'day' => $day, 'title' => $it_title, 'desc' => $desc ];
                 }
                 if ( ! empty( $itinerary ) ) {
                     update_post_meta( $post_id, TP_Package_Data::META_ITINERARY, $itinerary );
@@ -213,22 +290,23 @@ class TP_Admin_Handlers {
 
             if ( isset( $item['pricing'] ) && is_array( $item['pricing'] ) ) {
                 $pricing_in = $item['pricing'];
-                $deposit_type = sanitize_key( $pricing_in['deposit_type'] ?? 'none' );
+                $deposit_type = isset( $pricing_in['deposit_type'] ) && is_scalar( $pricing_in['deposit_type'] ) ? sanitize_key( (string) $pricing_in['deposit_type'] ) : 'none';
                 if ( ! in_array( $deposit_type, [ 'none', 'percent', 'amount' ], true ) ) {
                     $deposit_type = 'none';
                 }
-                $currency = sanitize_text_field( $pricing_in['currency'] ?? 'USD' ) ?: 'USD';
+                $currency = isset( $pricing_in['currency'] ) && is_scalar( $pricing_in['currency'] ) ? sanitize_text_field( (string) $pricing_in['currency'] ) : 'USD';
+                $currency = $currency ?: 'USD';
                 if ( ! in_array( $currency, [ 'USD', 'ARS', 'EUR', 'BRL' ], true ) ) {
                     $currency = 'USD';
                 }
                 $pricing = [
                     'currency'          => $currency,
-                    'price_adult'       => sanitize_text_field( $pricing_in['price_adult'] ?? '' ),
-                    'price_child'       => sanitize_text_field( $pricing_in['price_child'] ?? '' ),
-                    'single_supplement' => sanitize_text_field( $pricing_in['single_supplement'] ?? '' ),
+                    'price_adult'       => isset( $pricing_in['price_adult'] ) && is_scalar( $pricing_in['price_adult'] ) ? sanitize_text_field( (string) $pricing_in['price_adult'] ) : '',
+                    'price_child'       => isset( $pricing_in['price_child'] ) && is_scalar( $pricing_in['price_child'] ) ? sanitize_text_field( (string) $pricing_in['price_child'] ) : '',
+                    'single_supplement' => isset( $pricing_in['single_supplement'] ) && is_scalar( $pricing_in['single_supplement'] ) ? sanitize_text_field( (string) $pricing_in['single_supplement'] ) : '',
                     'deposit_type'      => $deposit_type,
-                    'deposit_value'     => sanitize_text_field( $pricing_in['deposit_value'] ?? '' ),
-                    'deposit_note'      => sanitize_text_field( $pricing_in['deposit_note'] ?? '' ),
+                    'deposit_value'     => isset( $pricing_in['deposit_value'] ) && is_scalar( $pricing_in['deposit_value'] ) ? sanitize_text_field( (string) $pricing_in['deposit_value'] ) : '',
+                    'deposit_note'      => isset( $pricing_in['deposit_note'] ) && is_scalar( $pricing_in['deposit_note'] ) ? sanitize_text_field( (string) $pricing_in['deposit_note'] ) : '',
                 ];
                 update_post_meta( $post_id, TP_Package_Data::META_PRICING, $pricing );
             }
@@ -236,10 +314,14 @@ class TP_Admin_Handlers {
             if ( isset( $item['prices'] ) && is_array( $item['prices'] ) ) {
                 $prices = [];
                 foreach ( $item['prices'] as $p ) {
+                    if ( ! is_array( $p ) ) {
+                        continue;
+                    }
+                    $p_currency = isset( $p['currency'] ) && is_scalar( $p['currency'] ) ? sanitize_text_field( (string) $p['currency'] ) : 'USD';
                     $prices[] = [
-                        'price'       => sanitize_text_field( $p['price'] ?? '' ),
-                        'note'        => sanitize_text_field( $p['note'] ?? '' ),
-                        'currency'    => sanitize_text_field( $p['currency'] ?? '' ) ?: 'USD',
+                        'price'       => isset( $p['price'] ) && is_scalar( $p['price'] ) ? sanitize_text_field( (string) $p['price'] ) : '',
+                        'note'        => isset( $p['note'] ) && is_scalar( $p['note'] ) ? sanitize_text_field( (string) $p['note'] ) : '',
+                        'currency'    => in_array( $p_currency, [ 'USD', 'ARS', 'EUR', 'BRL' ], true ) ? $p_currency : 'USD',
                         'highlighted' => ! empty( $p['highlighted'] ),
                     ];
                 }
@@ -252,10 +334,11 @@ class TP_Admin_Handlers {
                     update_post_meta( $post_id, '_tp_currency', $best['currency'] );
                 }
             } elseif ( isset( $item['price'] ) || isset( $item['price_note'] ) || isset( $item['currency'] ) ) {
+                $legacy_currency = isset( $item['currency'] ) && is_scalar( $item['currency'] ) ? sanitize_text_field( (string) $item['currency'] ) : 'USD';
                 $prices = [[
-                    'price'       => sanitize_text_field( $item['price'] ?? '' ),
-                    'note'        => sanitize_text_field( $item['price_note'] ?? '' ),
-                    'currency'    => sanitize_text_field( $item['currency'] ?? '' ) ?: 'USD',
+                    'price'       => isset( $item['price'] ) && is_scalar( $item['price'] ) ? sanitize_text_field( (string) $item['price'] ) : '',
+                    'note'        => isset( $item['price_note'] ) && is_scalar( $item['price_note'] ) ? sanitize_text_field( (string) $item['price_note'] ) : '',
+                    'currency'    => in_array( $legacy_currency, [ 'USD', 'ARS', 'EUR', 'BRL' ], true ) ? $legacy_currency : 'USD',
                     'highlighted' => true,
                 ]];
                 update_post_meta( $post_id, TP_Package_Data::META_PRICES, $prices );
@@ -266,7 +349,10 @@ class TP_Admin_Handlers {
 
             if ( isset( $item['custom_fields'] ) && is_array( $item['custom_fields'] ) ) {
                 foreach ( $item['custom_fields'] as $cf_key => $cf_val ) {
-                    update_post_meta( $post_id, '_tp_cf_' . sanitize_key( $cf_key ), sanitize_text_field( $cf_val ) );
+                    if ( ! is_scalar( $cf_val ) ) {
+                        continue;
+                    }
+                    update_post_meta( $post_id, '_tp_cf_' . sanitize_key( (string) $cf_key ), sanitize_text_field( (string) $cf_val ) );
                 }
             }
 
@@ -299,7 +385,7 @@ class TP_Admin_Handlers {
                 }
             }
 
-            if ( ! empty( $item['featured_image_url'] ) ) {
+            if ( ! empty( $item['featured_image_url'] ) && is_string( $item['featured_image_url'] ) ) {
                 $thumb_id = self::sideload_image( $item['featured_image_url'], $post_id, $title );
                 if ( $thumb_id ) {
                     set_post_thumbnail( $post_id, $thumb_id );
@@ -309,6 +395,9 @@ class TP_Admin_Handlers {
             if ( ! empty( $item['gallery_urls'] ) && is_array( $item['gallery_urls'] ) ) {
                 $gallery_ids = [];
                 foreach ( $item['gallery_urls'] as $gallery_url ) {
+                    if ( ! is_string( $gallery_url ) || $gallery_url === '' ) {
+                        continue;
+                    }
                     $image_id = self::sideload_image( $gallery_url, $post_id, $title );
                     if ( $image_id ) {
                         $gallery_ids[] = $image_id;
@@ -316,6 +405,13 @@ class TP_Admin_Handlers {
                 }
                 if ( $gallery_ids ) {
                     update_post_meta( $post_id, '_tp_gallery', implode( ',', $gallery_ids ) );
+                }
+            }
+
+            if ( ! empty( $item['seo_image_url'] ) && is_string( $item['seo_image_url'] ) ) {
+                $seo_image_id = self::sideload_image( $item['seo_image_url'], $post_id, $title );
+                if ( $seo_image_id ) {
+                    update_post_meta( $post_id, TP_Package_Data::META_SEO_IMAGE, $seo_image_id );
                 }
             }
 
@@ -348,6 +444,11 @@ class TP_Admin_Handlers {
             return 0;
         }
 
+        // Evita SSRF hacia hosts internos/privados.
+        if ( function_exists( 'wp_http_validate_url' ) && ! wp_http_validate_url( $url ) ) {
+            return 0;
+        }
+
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
@@ -373,6 +474,10 @@ class TP_Admin_Handlers {
 
         if ( ! $post || $post->post_type !== TP_Package_Data::POST_TYPE ) {
             wp_die( __( 'Paquete no encontrado.', 'travel-packages' ) );
+        }
+
+        if ( ! current_user_can( 'delete_post', $post_id ) ) {
+            wp_die( __( 'No tienes permisos para eliminar este paquete.', 'travel-packages' ) );
         }
 
         wp_delete_post( $post_id, true );

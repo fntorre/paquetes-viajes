@@ -89,12 +89,13 @@ class TP_CustomFields {
         ?>
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php TP_Admin::render_brand(); ?>
+                    <div class="tp-tureo-heading">
                         <h1><?php _e( 'Campos Personalizados', 'travel-packages' ); ?></h1>
                         <p><?php _e( 'Definí campos adicionales que se mostrarán en todos los paquetes de viaje.', 'travel-packages' ); ?></p>
                     </div>
+                    <?php TP_Admin::render_version_badge(); ?>
                 </div>
             </div>
 
@@ -267,11 +268,14 @@ class TP_CustomFields {
 
         $definitions = [];
         foreach ( $labels as $i => $label ) {
-            $label = sanitize_text_field( wp_unslash( $label ) );
-            $key   = isset( $keys[$i] ) ? sanitize_key( $keys[$i] ) : '';
+            if ( ! is_scalar( $label ) ) {
+                continue;
+            }
+            $label = sanitize_text_field( wp_unslash( (string) $label ) );
+            $key   = ( isset( $keys[$i] ) && is_scalar( $keys[$i] ) ) ? sanitize_key( (string) $keys[$i] ) : '';
             if ( empty( $label ) || empty( $key ) ) continue;
 
-            $type = isset( $types[$i] ) ? sanitize_key( $types[$i] ) : 'text';
+            $type = ( isset( $types[$i] ) && is_scalar( $types[$i] ) ) ? sanitize_key( (string) $types[$i] ) : 'text';
             $valid_types = array_keys( apply_filters( 'tp_custom_field_types', [] ) );
             if ( ! in_array( $type, $valid_types, true ) ) $type = 'text';
 
@@ -280,7 +284,7 @@ class TP_CustomFields {
                 'key'      => $key,
                 'type'     => $type,
                 'required' => ! empty( $required[ $i ] ),
-                'options'  => isset( $options[$i] ) ? sanitize_text_field( wp_unslash( $options[$i] ) ) : '',
+                'options'  => ( isset( $options[$i] ) && is_scalar( $options[$i] ) ) ? sanitize_text_field( wp_unslash( (string) $options[$i] ) ) : '',
             ];
         }
 
@@ -372,13 +376,17 @@ class TP_CustomFields {
 
             $value = isset( $_POST[ $post_key ] ) ? $_POST[ $post_key ] : null;
 
+            if ( ! is_scalar( $value ) && $value !== null ) {
+                $value = null;
+            }
+
             if ( $value !== null ) {
                 if ( $field['type'] === 'textarea' ) {
-                    $value = sanitize_textarea_field( wp_unslash( $value ) );
+                    $value = sanitize_textarea_field( wp_unslash( (string) $value ) );
                 } elseif ( $field['type'] === 'checkbox' ) {
                     $value = $value === '1' ? '1' : '0';
                 } else {
-                    $value = sanitize_text_field( wp_unslash( $value ) );
+                    $value = sanitize_text_field( wp_unslash( (string) $value ) );
                 }
                 update_post_meta( $post_id, $meta_key, $value );
             } elseif ( $field['type'] === 'checkbox' ) {

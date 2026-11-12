@@ -372,7 +372,11 @@ class TP_Reservations {
             wp_die( __( 'No tienes permisos.', 'travel-packages' ) );
         }
 
-        $id   = isset( $_POST['reservation_id'] ) ? (int) $_POST['reservation_id'] : 0;
+        $id = isset( $_POST['reservation_id'] ) ? (int) $_POST['reservation_id'] : 0;
+        if ( $id && ( ! get_post( $id ) || get_post_type( $id ) !== self::POST_TYPE || ! current_user_can( 'edit_post', $id ) ) ) {
+            wp_die( __( 'No tienes permisos para editar esta reserva.', 'travel-packages' ) );
+        }
+
         $data = [
             'package'  => isset( $_POST['tp_res_package'] ) ? (int) $_POST['tp_res_package'] : 0,
             'uid'      => isset( $_POST['tp_res_departure'] ) ? sanitize_key( wp_unslash( $_POST['tp_res_departure'] ) ) : '',
@@ -411,7 +415,15 @@ class TP_Reservations {
             wp_die( __( 'No tienes permisos.', 'travel-packages' ) );
         }
 
-        $id = isset( $_POST['reservation_id'] ) ? (int) $_POST['reservation_id'] : 0;
+        $id   = isset( $_POST['reservation_id'] ) ? (int) $_POST['reservation_id'] : 0;
+        $post = $id ? get_post( $id ) : null;
+        if ( ! $post || $post->post_type !== self::POST_TYPE ) {
+            wp_die( __( 'Reserva no encontrada.', 'travel-packages' ) );
+        }
+        if ( ! current_user_can( 'delete_post', $id ) ) {
+            wp_die( __( 'No tienes permisos para eliminar esta reserva.', 'travel-packages' ) );
+        }
+
         self::delete( $id );
 
         wp_safe_redirect( admin_url( 'admin.php?page=tp-reservations&status=deleted' ) );
@@ -455,6 +467,9 @@ class TP_Reservations {
 
         if ( ! isset( $_POST['tp_inquiry_nonce'] ) || ! wp_verify_nonce( $_POST['tp_inquiry_nonce'], 'tp_public_inquiry' ) ) {
             $fail( 'nonce' );
+        }
+        if ( class_exists( 'TP_Settings' ) && ! TP_Settings::is_inquiry_enabled() ) {
+            $fail( 'package' );
         }
         if ( ! empty( $_POST['tp_website'] ) ) {
             $fail( 'spam' );
@@ -660,12 +675,13 @@ class TP_Reservations {
         ?>
         <div class="wrap tp-admin-wrap tp-reservations-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php TP_Admin::render_brand(); ?>
+                    <div class="tp-tureo-heading">
                         <h1><?php _e( 'Reservas', 'travel-packages' ); ?></h1>
                         <p><?php _e( 'Módulo opcional para registrar reservas y descontar cupos automáticamente.', 'travel-packages' ); ?></p>
                     </div>
+                    <?php TP_Admin::render_version_badge(); ?>
                 </div>
             </div>
 

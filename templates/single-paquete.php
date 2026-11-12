@@ -50,7 +50,21 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
 
     <?php if ( $thumb_url ) : ?>
     <div class="tp-single-hero">
-        <img src="<?php echo esc_url($thumb_url); ?>" alt="<?php echo esc_attr( get_the_title( $post ) ); ?>" loading="lazy">
+        <?php
+        $tp_hero_id = (int) get_post_thumbnail_id( $post->ID );
+        if ( $tp_hero_id ) {
+            echo wp_get_attachment_image( $tp_hero_id, 'full', false, [
+                'class'         => 'tp-single-hero-img',
+                'alt'           => get_the_title( $post ),
+                'loading'       => 'eager',
+                'fetchpriority' => 'high',
+                'decoding'      => 'async',
+                'sizes'         => '(max-width: 1024px) 100vw, 1200px',
+            ] );
+        } else {
+            echo '<img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( get_the_title( $post ) ) . '" loading="eager" fetchpriority="high" decoding="async">';
+        }
+        ?>
     </div>
     <?php endif; ?>
 
@@ -105,12 +119,24 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                                 </div>
                                 <div class="tp-date-card-info">
                                     <span class="tp-date-label"><?php _e( 'Salida', 'travel-packages' ); ?></span>
-                                    <span class="tp-date-value"><?php echo esc_html( $short_date ); ?></span>
+                                    <span class="tp-date-value">
+                                        <?php if ( ! empty( $d['from_ts'] ) ) : ?>
+                                        <time datetime="<?php echo esc_attr( wp_date( 'Y-m-d', (int) $d['from_ts'] ) ); ?>"><?php echo esc_html( $short_date ); ?></time>
+                                        <?php else : ?>
+                                        <?php echo esc_html( $short_date ); ?>
+                                        <?php endif; ?>
+                                    </span>
                                 </div>
                                 <div class="tp-date-card-arrow">→</div>
                                 <div class="tp-date-card-info">
                                     <span class="tp-date-label"><?php _e( 'Regreso', 'travel-packages' ); ?></span>
-                                    <span class="tp-date-value"><?php echo esc_html( $short_to ); ?></span>
+                                    <span class="tp-date-value">
+                                        <?php if ( ! empty( $d['to'] ) && ! empty( $d['to_ts'] ) ) : ?>
+                                        <time datetime="<?php echo esc_attr( wp_date( 'Y-m-d', (int) $d['to_ts'] ) ); ?>"><?php echo esc_html( $short_to ); ?></time>
+                                        <?php else : ?>
+                                        <?php echo esc_html( $short_to ); ?>
+                                        <?php endif; ?>
+                                    </span>
                                 </div>
                                 <div class="tp-date-card-meta">
                                     <span class="tp-date-status tp-date-status--<?php echo esc_attr( $status ); ?>">
@@ -197,9 +223,19 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                         <?php foreach ( $ids_arr as $img_id ) :
                             $thumb = wp_get_attachment_image_url($img_id, 'medium');
                             $full  = wp_get_attachment_image_url($img_id, 'full') ?: wp_get_attachment_image_url($img_id, 'large');
-                            if ( !$thumb ) continue; ?>
+                            if ( !$thumb ) continue;
+                            $tp_img_alt = (string) get_post_meta( $img_id, '_wp_attachment_image_alt', true );
+                            if ( $tp_img_alt === '' ) {
+                                $tp_img_alt = $tp_share_title;
+                            }
+                            ?>
                         <a href="#" class="tp-gallery-item-link" data-full="<?php echo esc_url($full); ?>">
-                            <img src="<?php echo esc_url($thumb); ?>" alt="" loading="lazy">
+                            <?php echo wp_get_attachment_image( $img_id, 'medium', false, [
+                                'class'    => 'tp-gallery-img',
+                                'alt'      => $tp_img_alt,
+                                'loading'  => 'lazy',
+                                'decoding' => 'async',
+                            ] ); ?>
                         </a>
                         <?php endforeach; ?>
                     </div>

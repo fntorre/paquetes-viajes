@@ -3,6 +3,7 @@ jQuery(document).ready(function($) {
     var packageSearch = $('#tp-package-search');
     var mediaFrame;
     var featuredFrame;
+    var seoImageFrame;
     var reservationsEnabled = !!( window.TP_ADMIN && TP_ADMIN.reservations_enabled === '1' );
 
     $(document).on('click', '#tp-new-package, #tp-new-package-empty', function() {
@@ -179,6 +180,14 @@ jQuery(document).ready(function($) {
         $('#tp-short-count').text( $(this).val().length );
     });
 
+    $(document).on('input', '#tp_seo_title', function() {
+        $('#tp-seo-title-count').text( $(this).val().length );
+    });
+
+    $(document).on('input', '#tp_seo_description', function() {
+        $('#tp-seo-description-count').text( $(this).val().length );
+    });
+
     // Featured image for packages manager
     $(document).on('click', '#tp-set-featured-main', function(e) {
         e.preventDefault();
@@ -193,7 +202,7 @@ jQuery(document).ready(function($) {
             var selection = featuredFrame.state().get('selection').first().toJSON();
             var id = selection.id;
             var thumb = selection.sizes && selection.sizes.medium ? selection.sizes.medium.url : selection.url;
-            $('#tp-featured-preview-main').html('<img src="'+thumb+'" style="max-width:220px;border-radius:8px;display:block;">');
+            $('#tp-featured-preview-main').html('<img src="' + escAttr(thumb) + '" style="max-width:220px;border-radius:8px;display:block;">');
             $('#tp_featured_image').val(id);
         });
         featuredFrame.open();
@@ -203,6 +212,31 @@ jQuery(document).ready(function($) {
         e.preventDefault();
         $('#tp-featured-preview-main').empty();
         $('#tp_featured_image').val('');
+    });
+
+    // Imagen para redes sociales (Open Graph)
+    $(document).on('click', '#tp-set-seo-image', function(e) {
+        e.preventDefault();
+        if ( seoImageFrame ) { seoImageFrame.open(); return; }
+        seoImageFrame = wp.media({
+            title: 'Seleccionar imagen SEO',
+            button: { text: 'Usar imagen' },
+            library: { type: 'image' },
+            multiple: false
+        });
+        seoImageFrame.on('select', function() {
+            var selection = seoImageFrame.state().get('selection').first().toJSON();
+            var thumb = selection.sizes && selection.sizes.medium ? selection.sizes.medium.url : selection.url;
+            $('#tp-seo-image-preview').html('<img src="' + escAttr(thumb) + '" style="max-width:220px;border-radius:8px;display:block;">');
+            $('#tp_seo_image').val(selection.id);
+        });
+        seoImageFrame.open();
+    });
+
+    $(document).on('click', '#tp-remove-seo-image', function(e) {
+        e.preventDefault();
+        $('#tp-seo-image-preview').empty();
+        $('#tp_seo_image').val('');
     });
 
     function markSelectedPackage(id) {
@@ -235,6 +269,15 @@ jQuery(document).ready(function($) {
         $('#tp_video_url').val(data.tp_video_url || '');
         $('#tp_map_location').val(data.tp_map_location || '');
         $('#tp_whatsapp_number').val(data.tp_whatsapp || '');
+        $('#tp_seo_title').val(data.tp_seo_title || '').trigger('input');
+        $('#tp_seo_description').val(data.tp_seo_description || '').trigger('input');
+        $('#tp_seo_noindex').prop('checked', data.tp_seo_noindex === '1');
+        $('#tp_seo_image').val(data.tp_seo_image || '');
+        if ( data.tp_seo_image_url ) {
+            $('#tp-seo-image-preview').html('<img src="' + escAttr(data.tp_seo_image_url) + '" alt="" style="max-width:220px;height:auto;border-radius:8px;display:block;">');
+        } else {
+            $('#tp-seo-image-preview').empty();
+        }
         setPackageContent(data.post_content || '');
         $('#tp_slider').prop('checked', data.tp_slider === '1');
         $('#tp_featured').prop('checked', data.tp_featured === '1');
@@ -248,7 +291,7 @@ jQuery(document).ready(function($) {
             $(this).prop('checked', similarDestinos.indexOf(String($(this).val())) !== -1);
         });
         $('input[name="tp_tipo_viaje"]').prop('checked', false);
-        if ( data.tp_tipo_viaje ) {
+        if ( data.tp_tipo_viaje === 'nacional' || data.tp_tipo_viaje === 'internacional' ) {
             $('input[name="tp_tipo_viaje"][value="' + data.tp_tipo_viaje + '"]').prop('checked', true);
         } else {
             $('input[name="tp_tipo_viaje"][value=""]').prop('checked', true);
@@ -267,8 +310,8 @@ jQuery(document).ready(function($) {
                     nonce: TP_ADMIN.nonce
                 },
                 success: function(response) {
-                    if ( response.success ) {
-                        $('#tp-featured-preview-main').html('<img src="' + response.data.url + '" alt="" style="max-width:220px;height:auto;border-radius:8px;display:block;">');
+                    if ( response.success && response.data && response.data.url ) {
+                        $('#tp-featured-preview-main').html('<img src="' + escAttr(response.data.url) + '" alt="" style="max-width:220px;height:auto;border-radius:8px;display:block;">');
                     }
                 }
             });
@@ -329,7 +372,9 @@ jQuery(document).ready(function($) {
             var keys = cfOrder.split(',');
             var $wrap = $('#tp-custom-fields-wrap');
             keys.forEach(function(k) {
-                $wrap.find('.tp-cf-field[data-key="' + k + '"]').appendTo($wrap);
+                $wrap.find('.tp-cf-field').filter(function() {
+                    return String($(this).data('key')) === String(k);
+                }).appendTo($wrap);
             });
         }
 
@@ -352,6 +397,11 @@ jQuery(document).ready(function($) {
         $('#tp_video_url').val('');
         $('#tp_map_location').val('');
         $('#tp_whatsapp_number').val('');
+        $('#tp_seo_title').val('').trigger('input');
+        $('#tp_seo_description').val('').trigger('input');
+        $('#tp_seo_noindex').prop('checked', false);
+        $('#tp_seo_image').val('');
+        $('#tp-seo-image-preview').empty();
         $('#tp-prices-list').empty();
         $('#tp-dates-list').empty();
         $('#tp-tech-fields').empty();
@@ -388,6 +438,7 @@ jQuery(document).ready(function($) {
         var idx = $('#tp-prices-list .tp-price-item').length;
         var checked = highlighted ? ' checked' : '';
         var symbols = { USD: 'US$', ARS: '$', EUR: '€', BRL: 'R$' };
+        currency = (currency === 'ARS' || currency === 'EUR' || currency === 'BRL') ? currency : 'USD';
         var field = '<div class="tp-price-item">' +
             '<select name="tp_currency_item[]" class="tp-price-currency">' +
                 '<option value="USD"' + (currency === 'USD' ? ' selected' : '') + '>' + symbols.USD + '</option>' +
@@ -395,8 +446,8 @@ jQuery(document).ready(function($) {
                 '<option value="EUR"' + (currency === 'EUR' ? ' selected' : '') + '>' + symbols.EUR + '</option>' +
                 '<option value="BRL"' + (currency === 'BRL' ? ' selected' : '') + '>' + symbols.BRL + '</option>' +
             '</select>' +
-            '<input type="number" name="tp_price_item[]" class="tp-price-value" step="0.01" min="0" placeholder="Precio" value="' + (price || '') + '">' +
-            '<input type="text" name="tp_price_note_item[]" class="tp-price-note" placeholder="Nota (ej: por persona en doble)" value="' + (note || '') + '">' +
+            '<input type="number" name="tp_price_item[]" class="tp-price-value" step="0.01" min="0" placeholder="Precio" value="' + escAttr(price) + '">' +
+            '<input type="text" name="tp_price_note_item[]" class="tp-price-note" placeholder="Nota (ej: por persona en doble)" value="' + escAttr(note) + '">' +
             '<label class="tp-price-highlight-label"><input type="checkbox" name="tp_price_highlighted[]" value="' + idx + '"' + checked + '> Destacar</label>' +
             '<button type="button" class="tp-remove-price tp-btn-icon" title="Eliminar precio">✕</button>' +
             '</div>';
@@ -570,8 +621,8 @@ jQuery(document).ready(function($) {
 
     function addTechField(key, value) {
         var field = '<div class="tp-tech-field"><div class="tp-tech-row">' +
-            '<input type="text" name="tp_tech_key[]" placeholder="Etiqueta (ej: Duración)" class="tp-tech-key" value="' + (key || '') + '">' +
-            '<input type="text" name="tp_tech_val[]" placeholder="Valor (ej: 7 días / 6 noches)" class="tp-tech-val" value="' + (value || '') + '">' +
+            '<input type="text" name="tp_tech_key[]" placeholder="Etiqueta (ej: Duración)" class="tp-tech-key" value="' + escAttr(key) + '">' +
+            '<input type="text" name="tp_tech_val[]" placeholder="Valor (ej: 7 días / 6 noches)" class="tp-tech-val" value="' + escAttr(value) + '">' +
             '<button type="button" class="tp-remove-field tp-btn-icon" title="Eliminar campo">✕</button>' +
             '</div></div>';
         $('#tp-tech-fields').append(field);
@@ -581,12 +632,16 @@ jQuery(document).ready(function($) {
         if ( ! id || ! url ) {
             return;
         }
-        var exists = $('#tp-gallery-preview .tp-gallery-item[data-id="' + id + '"]');
+        var safeId = parseInt(id, 10) || 0;
+        if ( ! safeId ) {
+            return;
+        }
+        var exists = $('#tp-gallery-preview .tp-gallery-item[data-id="' + safeId + '"]');
         if ( exists.length ) {
             return;
         }
-        var item = '<div class="tp-gallery-item" data-id="' + id + '">' +
-            '<img src="' + url + '">' +
+        var item = '<div class="tp-gallery-item" data-id="' + safeId + '">' +
+            '<img src="' + escAttr(url) + '">' +
             '<button type="button" class="tp-gallery-remove" title="Eliminar">✕</button>' +
             '</div>';
         $('#tp-gallery-preview').append(item);

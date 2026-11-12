@@ -21,6 +21,10 @@ class TP_Package_Data {
     const META_WHATSAPP   = '_tp_whatsapp';
     const META_ITINERARY  = '_tp_itinerary';
     const META_SIMILAR_DESTINOS = '_tp_similar_destinos';
+    const META_SEO_TITLE       = '_tp_seo_title';
+    const META_SEO_DESCRIPTION = '_tp_seo_description';
+    const META_SEO_IMAGE       = '_tp_seo_image';
+    const META_SEO_NOINDEX     = '_tp_seo_noindex';
 
     const CURRENCY_SYMBOLS = [
         'USD' => 'US$',
@@ -288,7 +292,10 @@ class TP_Package_Data {
 
     /** Normaliza montos que llegan del formulario como texto. */
     private static function sanitize_amount( $value ) {
-        $value = sanitize_text_field( wp_unslash( $value ) );
+        if ( ! is_scalar( $value ) ) {
+            return '';
+        }
+        $value = sanitize_text_field( wp_unslash( (string) $value ) );
         if ( $value === '' ) {
             return '';
         }
@@ -783,6 +790,9 @@ class TP_Package_Data {
             unset( $date );
         }
 
+        $seo_image_raw = get_post_meta( $post->ID, self::META_SEO_IMAGE, true );
+        $seo_image_id  = is_scalar( $seo_image_raw ) ? (int) $seo_image_raw : 0;
+
         return [
             'ID'               => $post->ID,
             'post_title'       => $post->post_title,
@@ -806,6 +816,11 @@ class TP_Package_Data {
             'tp_cf_order'      => get_post_meta( $post->ID, '_tp_cf_order', true ),
             'tp_tipo_viaje'    => get_post_meta( $post->ID, self::META_TIPO_VIAJE, true ),
             'tp_similar_destinos' => self::get_similar_destinos( $post->ID ),
+            'tp_seo_title'       => get_post_meta( $post->ID, self::META_SEO_TITLE, true ),
+            'tp_seo_description' => get_post_meta( $post->ID, self::META_SEO_DESCRIPTION, true ),
+            'tp_seo_image'       => $seo_image_id,
+            'tp_seo_image_url'   => $seo_image_id ? ( wp_get_attachment_image_url( $seo_image_id, 'medium' ) ?: '' ) : '',
+            'tp_seo_noindex'     => get_post_meta( $post->ID, self::META_SEO_NOINDEX, true ),
             'destinos'         => self::get_term_slugs( $post->ID, self::TAX_DESTINO ),
             'tipologias'       => self::get_term_slugs( $post->ID, self::TAX_TIPOLOGIA ),
         ];
@@ -842,25 +857,52 @@ class TP_Package_Data {
 
     private static function save_meta_fields( $post_id, $input ) {
         foreach ( self::META_MAP as $field => $meta_key ) {
-            if ( isset( $input[ $field ] ) ) {
-                update_post_meta( $post_id, $meta_key, sanitize_text_field( wp_unslash( $input[ $field ] ) ) );
+            if ( isset( $input[ $field ] ) && is_scalar( $input[ $field ] ) ) {
+                update_post_meta( $post_id, $meta_key, sanitize_text_field( wp_unslash( (string) $input[ $field ] ) ) );
             }
         }
 
         update_post_meta( $post_id, '_tp_slider',   empty( $input['tp_slider'] )   ? '0' : '1' );
         update_post_meta( $post_id, '_tp_featured', empty( $input['tp_featured'] ) ? '0' : '1' );
 
-        $tipo_viaje = isset( $input['tp_tipo_viaje'] ) ? sanitize_text_field( $input['tp_tipo_viaje'] ) : '';
+        $seo_title = isset( $input['tp_seo_title'] ) && is_scalar( $input['tp_seo_title'] ) ? sanitize_text_field( wp_unslash( (string) $input['tp_seo_title'] ) ) : '';
+        if ( $seo_title !== '' ) {
+            update_post_meta( $post_id, self::META_SEO_TITLE, $seo_title );
+        } else {
+            delete_post_meta( $post_id, self::META_SEO_TITLE );
+        }
+
+        $seo_desc = isset( $input['tp_seo_description'] ) && is_scalar( $input['tp_seo_description'] ) ? sanitize_textarea_field( wp_unslash( (string) $input['tp_seo_description'] ) ) : '';
+        if ( $seo_desc !== '' ) {
+            update_post_meta( $post_id, self::META_SEO_DESCRIPTION, $seo_desc );
+        } else {
+            delete_post_meta( $post_id, self::META_SEO_DESCRIPTION );
+        }
+
+        $seo_image = isset( $input['tp_seo_image'] ) && is_scalar( $input['tp_seo_image'] ) ? absint( $input['tp_seo_image'] ) : 0;
+        if ( $seo_image && wp_attachment_is_image( $seo_image ) ) {
+            update_post_meta( $post_id, self::META_SEO_IMAGE, $seo_image );
+        } else {
+            delete_post_meta( $post_id, self::META_SEO_IMAGE );
+        }
+
+        if ( ! empty( $input['tp_seo_noindex'] ) ) {
+            update_post_meta( $post_id, self::META_SEO_NOINDEX, '1' );
+        } else {
+            delete_post_meta( $post_id, self::META_SEO_NOINDEX );
+        }
+
+        $tipo_viaje = isset( $input['tp_tipo_viaje'] ) && is_scalar( $input['tp_tipo_viaje'] ) ? sanitize_text_field( (string) $input['tp_tipo_viaje'] ) : '';
         if ( in_array( $tipo_viaje, [ 'nacional', 'internacional' ], true ) ) {
             update_post_meta( $post_id, self::META_TIPO_VIAJE, $tipo_viaje );
         } else {
             delete_post_meta( $post_id, self::META_TIPO_VIAJE );
         }
 
-        $cf_order = isset( $input['tp_cf_order'] ) ? sanitize_text_field( wp_unslash( $input['tp_cf_order'] ) ) : '';
+        $cf_order = isset( $input['tp_cf_order'] ) && is_scalar( $input['tp_cf_order'] ) ? sanitize_text_field( wp_unslash( (string) $input['tp_cf_order'] ) ) : '';
         update_post_meta( $post_id, '_tp_cf_order', $cf_order );
 
-        $video_url = isset( $input['tp_video_url'] ) ? esc_url_raw( wp_unslash( $input['tp_video_url'] ) ) : '';
+        $video_url = isset( $input['tp_video_url'] ) && is_scalar( $input['tp_video_url'] ) ? esc_url_raw( wp_unslash( (string) $input['tp_video_url'] ) ) : '';
         if ( $video_url !== '' ) {
             update_post_meta( $post_id, self::META_VIDEO, $video_url );
         } else {
@@ -874,7 +916,7 @@ class TP_Package_Data {
             delete_post_meta( $post_id, self::META_MAP_LOCATION );
         }
 
-        $whatsapp = isset( $input['tp_whatsapp_number'] ) ? preg_replace( '/\D+/', '', (string) wp_unslash( $input['tp_whatsapp_number'] ) ) : '';
+        $whatsapp = isset( $input['tp_whatsapp_number'] ) && is_scalar( $input['tp_whatsapp_number'] ) ? preg_replace( '/\D+/', '', (string) wp_unslash( $input['tp_whatsapp_number'] ) ) : '';
         if ( $whatsapp !== '' ) {
             update_post_meta( $post_id, self::META_WHATSAPP, $whatsapp );
         } else {
@@ -910,9 +952,9 @@ class TP_Package_Data {
         $rows  = [];
 
         for ( $i = 0; $i < $count; $i++ ) {
-            $day   = isset( $days[ $i ] ) ? sanitize_text_field( wp_unslash( $days[ $i ] ) ) : '';
-            $title = isset( $titles[ $i ] ) ? sanitize_text_field( wp_unslash( $titles[ $i ] ) ) : '';
-            $desc  = isset( $descs[ $i ] ) ? sanitize_textarea_field( wp_unslash( $descs[ $i ] ) ) : '';
+            $day   = isset( $days[ $i ] ) && is_scalar( $days[ $i ] ) ? sanitize_text_field( wp_unslash( (string) $days[ $i ] ) ) : '';
+            $title = isset( $titles[ $i ] ) && is_scalar( $titles[ $i ] ) ? sanitize_text_field( wp_unslash( (string) $titles[ $i ] ) ) : '';
+            $desc  = isset( $descs[ $i ] ) && is_scalar( $descs[ $i ] ) ? sanitize_textarea_field( wp_unslash( (string) $descs[ $i ] ) ) : '';
 
             if ( $day === '' && $title === '' && $desc === '' ) {
                 continue;
@@ -929,19 +971,19 @@ class TP_Package_Data {
 
     /** Guarda precios por pasajero, suplemento y seña. */
     private static function save_pricing( $post_id, $input ) {
-        $deposit_type = isset( $input['tp_deposit_type'] ) ? sanitize_key( $input['tp_deposit_type'] ) : 'none';
+        $deposit_type = isset( $input['tp_deposit_type'] ) && is_scalar( $input['tp_deposit_type'] ) ? sanitize_key( (string) $input['tp_deposit_type'] ) : 'none';
         if ( ! in_array( $deposit_type, [ 'none', 'percent', 'amount' ], true ) ) {
             $deposit_type = 'none';
         }
 
         $pricing = [
-            'currency'          => isset( $input['tp_currency_base'] ) ? sanitize_text_field( wp_unslash( $input['tp_currency_base'] ) ) : 'USD',
+            'currency'          => isset( $input['tp_currency_base'] ) && is_scalar( $input['tp_currency_base'] ) ? sanitize_text_field( wp_unslash( (string) $input['tp_currency_base'] ) ) : 'USD',
             'price_adult'       => self::sanitize_amount( $input['tp_price_adult'] ?? '' ),
             'price_child'       => self::sanitize_amount( $input['tp_price_child'] ?? '' ),
             'single_supplement' => self::sanitize_amount( $input['tp_single_supplement'] ?? '' ),
             'deposit_type'      => $deposit_type,
             'deposit_value'     => self::sanitize_amount( $input['tp_deposit_value'] ?? '' ),
-            'deposit_note'      => isset( $input['tp_deposit_note'] ) ? sanitize_text_field( wp_unslash( $input['tp_deposit_note'] ) ) : '',
+            'deposit_note'      => isset( $input['tp_deposit_note'] ) && is_scalar( $input['tp_deposit_note'] ) ? sanitize_text_field( wp_unslash( (string) $input['tp_deposit_note'] ) ) : '',
         ];
 
         if ( ! in_array( $pricing['currency'], array_keys( self::CURRENCY_SYMBOLS ), true ) ) {
@@ -990,12 +1032,24 @@ class TP_Package_Data {
         $prices = [];
         $count  = max( count( $raw_prices ), count( $raw_notes ), count( $raw_currs ) );
         for ( $i = 0; $i < $count; $i++ ) {
-            $p = sanitize_text_field( wp_unslash( $raw_prices[ $i ] ?? '' ) );
+            $raw_price = $raw_prices[ $i ] ?? '';
+            if ( ! is_scalar( $raw_price ) ) {
+                continue;
+            }
+            $p = sanitize_text_field( wp_unslash( (string) $raw_price ) );
             if ( $p === '' ) continue;
+
+            $raw_note     = $raw_notes[ $i ] ?? '';
+            $raw_currency = $raw_currs[ $i ] ?? '';
+            $currency     = is_scalar( $raw_currency ) ? sanitize_text_field( wp_unslash( (string) $raw_currency ) ) : '';
+            if ( ! in_array( $currency, array_keys( self::CURRENCY_SYMBOLS ), true ) ) {
+                $currency = 'USD';
+            }
+
             $prices[] = [
                 'price'       => $p,
-                'note'        => sanitize_text_field( wp_unslash( $raw_notes[ $i ] ?? '' ) ),
-                'currency'    => sanitize_text_field( wp_unslash( $raw_currs[ $i ] ?? '' ) ) ?: 'USD',
+                'note'        => is_scalar( $raw_note ) ? sanitize_text_field( wp_unslash( (string) $raw_note ) ) : '',
+                'currency'    => $currency,
                 'highlighted' => in_array( (string) $i, $raw_high ),
             ];
         }
@@ -1017,9 +1071,9 @@ class TP_Package_Data {
     }
 
     private static function save_featured_image( $post_id, $input ) {
-        if ( isset( $input['tp_featured_image'] ) && $input['tp_featured_image'] !== '' ) {
+        if ( isset( $input['tp_featured_image'] ) && is_scalar( $input['tp_featured_image'] ) && $input['tp_featured_image'] !== '' ) {
             $fid = intval( $input['tp_featured_image'] );
-            if ( $fid ) {
+            if ( $fid && get_post_type( $fid ) === 'attachment' ) {
                 set_post_thumbnail( $post_id, $fid );
             }
         }
@@ -1032,8 +1086,12 @@ class TP_Package_Data {
         $tech = [];
 
         foreach ( $keys as $index => $key ) {
-            $k = sanitize_text_field( $key );
-            $v = sanitize_text_field( $vals[ $index ] ?? '' );
+            if ( ! is_scalar( $key ) ) {
+                continue;
+            }
+            $k = sanitize_text_field( (string) $key );
+            $raw_val = $vals[ $index ] ?? '';
+            $v = is_scalar( $raw_val ) ? sanitize_text_field( (string) $raw_val ) : '';
             if ( $k ) {
                 $tech[] = [ 'key' => $k, 'val' => $v ];
             }
@@ -1070,8 +1128,10 @@ class TP_Package_Data {
         }
 
         for ( $i = 0; $i < $max; $i++ ) {
-            $f = isset( $columns['from'][ $i ] ) ? sanitize_text_field( wp_unslash( $columns['from'][ $i ] ) ) : '';
-            $t = isset( $columns['to'][ $i ] ) ? sanitize_text_field( wp_unslash( $columns['to'][ $i ] ) ) : '';
+            $raw_from = $columns['from'][ $i ] ?? '';
+            $raw_to   = $columns['to'][ $i ] ?? '';
+            $f = is_scalar( $raw_from ) ? sanitize_text_field( wp_unslash( (string) $raw_from ) ) : '';
+            $t = is_scalar( $raw_to ) ? sanitize_text_field( wp_unslash( (string) $raw_to ) ) : '';
 
             if ( ! $f && ! $t ) {
                 continue;
@@ -1085,17 +1145,20 @@ class TP_Package_Data {
                 }
             }
 
-            $status = isset( $columns['status'][ $i ] ) ? sanitize_key( $columns['status'][ $i ] ) : 'auto';
+            $raw_status = $columns['status'][ $i ] ?? '';
+            $status = is_scalar( $raw_status ) ? sanitize_key( (string) $raw_status ) : 'auto';
             if ( ! in_array( $status, [ 'auto', 'open', 'soldout', 'closed' ], true ) ) {
                 $status = 'auto';
             }
 
-            $currency = isset( $columns['currency'][ $i ] ) ? sanitize_text_field( wp_unslash( $columns['currency'][ $i ] ) ) : '';
+            $raw_currency = $columns['currency'][ $i ] ?? '';
+            $currency = is_scalar( $raw_currency ) ? sanitize_text_field( wp_unslash( (string) $raw_currency ) ) : '';
             if ( $currency && ! in_array( $currency, array_keys( self::CURRENCY_SYMBOLS ), true ) ) {
                 $currency = '';
             }
 
-            $uid = isset( $columns['uid'][ $i ] ) ? sanitize_key( (string) $columns['uid'][ $i ] ) : '';
+            $raw_uid = $columns['uid'][ $i ] ?? '';
+            $uid = is_scalar( $raw_uid ) ? sanitize_key( (string) $raw_uid ) : '';
             if ( $uid === '' ) {
                 $uid = self::departure_uid( $f, $t );
             }
@@ -1108,7 +1171,7 @@ class TP_Package_Data {
                 'seats_booked' => self::sanitize_int_or_empty( $columns['seats_booked'][ $i ] ?? '' ),
                 'min_pax'      => self::sanitize_int_or_empty( $columns['min_pax'][ $i ] ?? '' ),
                 'max_pax'      => self::sanitize_int_or_empty( $columns['max_pax'][ $i ] ?? '' ),
-                'cutoff'       => isset( $columns['cutoff'][ $i ] ) ? sanitize_text_field( wp_unslash( $columns['cutoff'][ $i ] ) ) : '',
+                'cutoff'       => ( isset( $columns['cutoff'][ $i ] ) && is_scalar( $columns['cutoff'][ $i ] ) ) ? sanitize_text_field( wp_unslash( (string) $columns['cutoff'][ $i ] ) ) : '',
                 'status'       => $status,
                 'price_adult'  => self::sanitize_amount( $columns['price_adult'][ $i ] ?? '' ),
                 'price_child'  => self::sanitize_amount( $columns['price_child'][ $i ] ?? '' ),
@@ -1119,7 +1182,10 @@ class TP_Package_Data {
         // Soporte legacy (campo único tp_dates).
         if ( empty( $dates ) && isset( $input['tp_dates'] ) ) {
             foreach ( (array) $input['tp_dates'] as $d ) {
-                $d = sanitize_text_field( wp_unslash( $d ) );
+                if ( ! is_scalar( $d ) ) {
+                    continue;
+                }
+                $d = sanitize_text_field( wp_unslash( (string) $d ) );
                 if ( $d ) {
                     $dates[] = [ 'uid' => self::departure_uid( $d, '' ), 'from' => $d, 'to' => '' ];
                 }
@@ -1129,7 +1195,10 @@ class TP_Package_Data {
     }
 
     private static function sanitize_int_or_empty( $value ) {
-        $value = sanitize_text_field( wp_unslash( $value ) );
+        if ( ! is_scalar( $value ) ) {
+            return '';
+        }
+        $value = sanitize_text_field( wp_unslash( (string) $value ) );
         return $value === '' ? '' : (string) max( 0, (int) $value );
     }
 
@@ -1175,11 +1244,11 @@ class TP_Package_Data {
     private static function save_taxonomy_term( $post_id, $taxonomy, $existing_slug, $new_name ) {
         $requested = [];
 
-        if ( $existing_slug ) {
-            $requested[] = sanitize_text_field( wp_unslash( $existing_slug ) );
+        if ( $existing_slug && is_scalar( $existing_slug ) ) {
+            $requested[] = sanitize_text_field( wp_unslash( (string) $existing_slug ) );
         }
-        if ( $new_name ) {
-            $requested[] = sanitize_text_field( wp_unslash( $new_name ) );
+        if ( $new_name && is_scalar( $new_name ) ) {
+            $requested[] = sanitize_text_field( wp_unslash( (string) $new_name ) );
         }
 
         $term_ids = [];
@@ -1221,7 +1290,11 @@ class TP_Package_Data {
     public static function resolve_term_id( $name_or_slug, $taxonomy ) {
         global $wpdb;
 
-        $value = sanitize_text_field( $name_or_slug );
+        if ( ! is_scalar( $name_or_slug ) ) {
+            return 0;
+        }
+
+        $value = sanitize_text_field( (string) $name_or_slug );
         if ( ! $value ) {
             return 0;
         }
@@ -1259,15 +1332,24 @@ class TP_Package_Data {
 
     /** Crea/actualiza el post base y devuelve el ID (0 si falla). */
     public static function upsert_post( $input ) {
+        $status = isset( $input['tp_post_status'] ) && in_array( $input['tp_post_status'], [ 'publish', 'draft' ], true ) ? $input['tp_post_status'] : 'draft';
+        if ( $status === 'publish' && ! current_user_can( 'publish_posts' ) ) {
+            $status = 'draft';
+        }
+
         $post_data = [
             'post_type'    => self::POST_TYPE,
             'post_title'   => isset( $input['tp_title'] ) ? sanitize_text_field( wp_unslash( $input['tp_title'] ) ) : '',
             'post_content' => isset( $input['tp_content'] ) ? wp_kses_post( wp_unslash( $input['tp_content'] ) ) : '',
-            'post_status'  => isset( $input['tp_post_status'] ) && in_array( $input['tp_post_status'], [ 'publish', 'draft' ], true ) ? $input['tp_post_status'] : 'draft',
+            'post_status'  => $status,
         ];
 
         $package_id = ! empty( $input['tp_package_id'] ) ? intval( $input['tp_package_id'] ) : 0;
         if ( $package_id ) {
+            $existing = get_post( $package_id );
+            if ( ! $existing || $existing->post_type !== self::POST_TYPE || ! current_user_can( 'edit_post', $package_id ) ) {
+                return new WP_Error( 'tp_invalid_package', __( 'Paquete inválido o sin permisos.', 'travel-packages' ) );
+            }
             $post_data['ID'] = $package_id;
             return wp_update_post( $post_data );
         }
@@ -1286,7 +1368,7 @@ class TP_Package_Data {
                 update_post_meta( $to_id, $meta_key, $val );
             }
         }
-        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_ITINERARY, self::META_TIPO_VIAJE, self::META_PRICES, self::META_PRICING, self::META_WHATSAPP, self::META_MAP_LOCATION, self::META_SIMILAR_DESTINOS ] as $meta_key ) {
+        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_ITINERARY, self::META_TIPO_VIAJE, self::META_PRICES, self::META_PRICING, self::META_WHATSAPP, self::META_MAP_LOCATION, self::META_SIMILAR_DESTINOS, self::META_SEO_TITLE, self::META_SEO_DESCRIPTION, self::META_SEO_IMAGE, self::META_SEO_NOINDEX ] as $meta_key ) {
             $val = get_post_meta( $from_id, $meta_key, true );
             if ( $val !== '' ) {
                 update_post_meta( $to_id, $meta_key, $val );

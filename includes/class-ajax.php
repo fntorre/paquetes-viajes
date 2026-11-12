@@ -12,9 +12,10 @@ class TP_Ajax {
 
     public static function toggle_slider() {
         check_ajax_referer( 'tp_admin_nonce', 'nonce' );
-        if ( ! current_user_can('edit_posts') ) wp_send_json_error();
 
-        $post_id = (int) $_POST['post_id'];
+        $post_id = isset( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0;
+        if ( ! self::can_edit_package( $post_id ) ) wp_send_json_error();
+
         $current = get_post_meta( $post_id, '_tp_slider', true );
         $new_val = $current === '1' ? '0' : '1';
         update_post_meta( $post_id, '_tp_slider', $new_val );
@@ -23,21 +24,31 @@ class TP_Ajax {
 
     public static function toggle_featured() {
         check_ajax_referer( 'tp_admin_nonce', 'nonce' );
-        if ( ! current_user_can('edit_posts') ) wp_send_json_error();
 
-        $post_id = (int) $_POST['post_id'];
+        $post_id = isset( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0;
+        if ( ! self::can_edit_package( $post_id ) ) wp_send_json_error();
+
         $current = get_post_meta( $post_id, '_tp_featured', true );
         $new_val = $current === '1' ? '0' : '1';
         update_post_meta( $post_id, '_tp_featured', $new_val );
         wp_send_json_success([ 'value' => $new_val ]);
     }
 
+    /** Comprueba que el post sea un paquete y que el usuario pueda editarlo. */
+    private static function can_edit_package( $post_id ) {
+        $post_id = (int) $post_id;
+        if ( $post_id <= 0 || get_post_type( $post_id ) !== TP_Package_Data::POST_TYPE ) {
+            return false;
+        }
+        return current_user_can( 'edit_post', $post_id );
+    }
+
     public static function get_image_thumb() {
         check_ajax_referer( 'tp_admin_nonce', 'nonce' );
         if ( ! current_user_can('edit_posts') ) wp_send_json_error();
 
-        $id = (int) $_POST['id'];
-        if ( ! $id ) wp_send_json_error();
+        $id = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+        if ( ! $id || get_post_type( $id ) !== 'attachment' ) wp_send_json_error();
 
         $url = wp_get_attachment_image_url( $id, 'medium' );
         if ( ! $url ) wp_send_json_error();

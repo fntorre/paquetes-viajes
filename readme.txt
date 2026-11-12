@@ -1,17 +1,17 @@
-=== TourFlow ===
-Contributors: tourflow
-Tags: tourflow, turismo, viajes, paquetes, agencia, slider
+=== Tureo ===
+Contributors: tureo
+Tags: tureo, turismo, viajes, paquetes, agencia, slider
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
 Stable tag: 2.7.2
 License: GPLv2 or later
 
-TourFlow — plugin completo para gestión de paquetes de viaje en agencias de turismo.
+Tureo — plugin completo para gestión de paquetes de viaje en agencias de turismo.
 
 == Descripción ==
 
-TourFlow es un plugin WordPress completo para agencias de turismo.
+Tureo es un plugin WordPress completo para agencias de turismo.
 
 **Características:**
 
@@ -37,7 +37,7 @@ TourFlow es un plugin WordPress completo para agencias de turismo.
 
 1. Subí la carpeta `travel-packages` al directorio `/wp-content/plugins/`
 2. Activá el plugin desde el menú "Plugins" en WordPress
-3. Navegá a "TourFlow" en el menú lateral para comenzar
+3. Navegá a "Tureo" en el menú lateral para comenzar
 
 == Shortcodes ==
 
@@ -76,6 +76,7 @@ Ver SHORTCODES.md para documentación completa.
 * Nuevo campo "Ubicación del hotel en Google Maps" en la ficha del paquete.
 * El mapa se muestra debajo de la galería de fotos, con diseño responsive.
 * Acepta dirección, coordenadas, enlace de Google Maps o código iframe.
+* Identidad visual Tureo aplicada a todas las pantallas del panel: paquetes, calendario, ajustes, reservas, campos personalizados y shortcodes.
 
 = 2.7.1 =
 * Nuevo shortcode [tp_buscador] con sugerencias en vivo vía AJAX.
@@ -84,7 +85,7 @@ Ver SHORTCODES.md para documentación completa.
 * Nueva configuración del buscador en Ajustes (página de resultados, textos y filtros).
 
 = 2.7.0 =
-* Rebranding del plugin a TourFlow.
+* Rebranding del plugin a Tureo.
 * Nuevo nombre, tagline e identidad visual en el panel de administración.
 
 = 2.6.0 =

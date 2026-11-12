@@ -48,12 +48,12 @@ class TP_Admin {
         $pages  = [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields' ];
         $is_tp  = in_array( $page, $pages, true );
 
-        if ( ! $is_tp && $screen && isset( $screen->post_type, $screen->base ) && $screen->post_type === 'paquete_viaje' && $screen->base === 'post' ) {
+        if ( ! $is_tp && $screen && isset( $screen->post_type ) && $screen->post_type === 'paquete_viaje' ) {
             $is_tp = true;
         }
 
         if ( $is_tp ) {
-            $classes .= ' tp-admin-neu';
+            $classes .= ' tp-admin-neu tp-admin-tureo';
         }
 
         if ( self::is_plugin_page() ) {
@@ -70,7 +70,7 @@ class TP_Admin {
             'manage_options',
             'tp-dashboard',
             [ __CLASS__, 'render_dashboard' ],
-            'dashicons-airplane',
+            self::menu_icon(),
             20
         );
 
@@ -143,7 +143,9 @@ class TP_Admin {
         }
 
         if ( $load_admin_assets ) {
-            wp_enqueue_style(  'tp-admin', TP_PLUGIN_URL . 'admin/css/admin.css', [], TP_VERSION );
+            $css_file = TP_PLUGIN_DIR . 'admin/css/admin.css';
+            $css_ver  = file_exists( $css_file ) ? filemtime( $css_file ) : TP_VERSION;
+            wp_enqueue_style(  'tp-admin', TP_PLUGIN_URL . 'admin/css/admin.css', [], $css_ver );
             wp_enqueue_script( 'tp-admin', TP_PLUGIN_URL . 'admin/js/admin.js',   [ 'jquery' ], TP_VERSION, true );
             wp_localize_script( 'tp-admin', 'TP_ADMIN', [
                 'nonce'                => wp_create_nonce('tp_admin_nonce'),
@@ -164,8 +166,36 @@ class TP_Admin {
         }
     }
 
+    /** Ícono del menú con la marca Tureo en verde sobre el menú oscuro de WordPress. */
+    private static function menu_icon() {
+        $file = TP_PLUGIN_DIR . 'admin/img/tureo-mark.svg';
+
+        if ( file_exists( $file ) ) {
+            $svg = @file_get_contents( $file );
+            if ( $svg ) {
+                $svg = str_replace( '#233d32', '#c9ef74', $svg );
+                return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+            }
+        }
+
+        return 'dashicons-airplane';
+    }
+
+    /** Marca Tureo reutilizable en los encabezados del admin. */
+    public static function render_brand() {
+        $logo = TP_PLUGIN_URL . 'admin/img/tureo-mark.svg';
+        ?>
+        <div class="tp-tureo-brand" aria-label="<?php echo esc_attr( TP_BRAND ); ?>">
+            <span class="tp-tureo-mark" aria-hidden="true">
+                <img src="<?php echo esc_url( $logo ); ?>" alt="">
+            </span>
+            <span class="tp-tureo-word"><?php echo esc_html( TP_BRAND ); ?><span class="tp-tureo-dot">.</span></span>
+        </div>
+        <?php
+    }
+
     /** Badge de versión/build para identificar la versión en prueba en el admin. */
-    private static function render_version_badge() {
+    public static function render_version_badge() {
         ?>
         <span class="tp-version-badge" title="<?php echo esc_attr( sprintf( __( 'Versión de %s', 'travel-packages' ), TP_BRAND ) ); ?>">
             <span class="dashicons dashicons-superhero"></span>
@@ -190,10 +220,10 @@ class TP_Admin {
         ?>
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
-                        <h1><?php echo esc_html( TP_BRAND ); ?></h1>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php self::render_brand(); ?>
+                    <div class="tp-tureo-heading">
+                        <h1><?php _e( 'Panel de control', 'travel-packages' ); ?></h1>
                         <p><?php echo esc_html( TP_BRAND_TAGLINE ); ?></p>
                     </div>
                     <?php self::render_version_badge(); ?>
@@ -206,21 +236,21 @@ class TP_Admin {
             <!-- Stats Cards -->
             <div class="tp-stats-grid">
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#e8f4fd;color:#0073aa;">✈</div>
+                    <div class="tp-stat-icon">✈</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo $published; ?></span>
                         <span class="tp-stat-label"><?php _e('Paquetes Publicados', 'travel-packages'); ?></span>
                     </div>
                 </div>
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#fff3e0;color:#f57c00;">🖼</div>
+                    <div class="tp-stat-icon">🖼</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo $slider_count; ?></span>
                         <span class="tp-stat-label"><?php _e('En el Slider', 'travel-packages'); ?></span>
                     </div>
                 </div>
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#f3e5f5;color:#7b1fa2;">⭐</div>
+                    <div class="tp-stat-icon">⭐</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo $featured_count; ?></span>
                         <span class="tp-stat-label"><?php _e('Destacados', 'travel-packages'); ?></span>
@@ -461,9 +491,9 @@ class TP_Admin {
         ?>
         <div class="wrap tp-admin-wrap tp-packages-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php self::render_brand(); ?>
+                    <div class="tp-tureo-heading">
                         <h1><?php _e('Gestión de Paquetes', 'travel-packages'); ?></h1>
                         <p><?php _e('Un gestor visual y rápido para crear y editar tus paquetes como en un portal de viajes.', 'travel-packages'); ?></p>
                     </div>
@@ -659,6 +689,7 @@ class TP_Admin {
                             <a href="#tp-section-departures"><?php _e('Salidas', 'travel-packages'); ?></a>
                             <a href="#tp-section-itinerary"><?php _e('Itinerario', 'travel-packages'); ?></a>
                             <a href="#tp-section-publish"><?php _e('Publicación', 'travel-packages'); ?></a>
+                            <a href="#tp-section-seo"><?php _e('SEO', 'travel-packages'); ?></a>
                             <a href="#tp-section-extra"><?php _e('Adicional', 'travel-packages'); ?></a>
                         </nav>
 
@@ -857,6 +888,40 @@ class TP_Admin {
                             </div>
                         </div>
 
+                        <div class="tp-panel" id="tp-section-seo">
+                            <h2><?php _e('SEO y redes sociales', 'travel-packages'); ?></h2>
+                            <p class="tp-help"><?php _e('Opcional. Si dejás estos campos vacíos se usan el título, la descripción corta y la imagen principal del paquete.', 'travel-packages'); ?></p>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_seo_title"><?php _e('Título SEO', 'travel-packages'); ?></label>
+                                <input type="text" name="tp_seo_title" id="tp_seo_title" maxlength="70" placeholder="<?php esc_attr_e('Ej: Tour por Europa 12 días | Tureo', 'travel-packages'); ?>">
+                                <div class="tp-char-count"><span id="tp-seo-title-count">0</span>/70</div>
+                                <small><?php _e('Se usa en el título del documento y en Open Graph/Twitter.', 'travel-packages'); ?></small>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_seo_description"><?php _e('Meta descripción', 'travel-packages'); ?></label>
+                                <textarea name="tp_seo_description" id="tp_seo_description" rows="3" maxlength="160" placeholder="<?php esc_attr_e('Resumen que aparece en Google y al compartir el paquete.', 'travel-packages'); ?>"></textarea>
+                                <div class="tp-char-count"><span id="tp-seo-description-count">0</span>/160</div>
+                                <small><?php _e('Si se deja vacía se usa la descripción corta del paquete.', 'travel-packages'); ?></small>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label"><?php _e('Imagen para redes sociales', 'travel-packages'); ?></label>
+                                <div class="tp-featured-wrap">
+                                    <div id="tp-seo-image-preview"></div>
+                                    <input type="hidden" name="tp_seo_image" id="tp_seo_image" value="">
+                                    <p>
+                                        <button type="button" class="button" id="tp-set-seo-image"><?php _e('Seleccionar imagen SEO', 'travel-packages'); ?></button>
+                                        <button type="button" class="button" id="tp-remove-seo-image"><?php _e('Eliminar imagen', 'travel-packages'); ?></button>
+                                    </p>
+                                </div>
+                                <small><?php _e('Recomendado: 1200 x 630 px. Si no se define, se usa la imagen principal.', 'travel-packages'); ?></small>
+                            </div>
+                            <label class="tp-toggle-row" style="margin-top:12px;">
+                                <span><?php _e('No indexar este paquete', 'travel-packages'); ?></span>
+                                <input type="checkbox" name="tp_seo_noindex" id="tp_seo_noindex" value="1">
+                            </label>
+                            <small><?php _e('Oculta el paquete de Google y de otros buscadores. Usalo solo para contenido temporal o duplicado.', 'travel-packages'); ?></small>
+                        </div>
+
                         <div class="tp-panel" id="tp-section-departures">
                             <h2><?php _e('Salidas y disponibilidad', 'travel-packages'); ?></h2>
                             <small><?php _e('Cada salida puede tener cupos, precio propio, mínimo/máximo de pasajeros, cierre de venta y estado.', 'travel-packages'); ?></small>
@@ -991,12 +1056,13 @@ class TP_Admin {
         ?>
         <div class="wrap tp-admin-wrap tp-calendar-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php self::render_brand(); ?>
+                    <div class="tp-tureo-heading">
                         <h1><?php printf( esc_html__( 'Calendario de Salidas — %s %s', 'travel-packages' ), esc_html( date_i18n( 'F', $first ) ), esc_html( $year ) ); ?></h1>
                         <p><?php _e( 'Cupos, estados y precios de todas las salidas del mes.', 'travel-packages' ); ?></p>
                     </div>
+                    <?php self::render_version_badge(); ?>
                 </div>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-package-new' ) ); ?>" class="tp-btn-primary">
                     <span class="dashicons dashicons-plus-alt"></span> <?php _e( 'Nuevo Paquete', 'travel-packages' ); ?>
@@ -1005,28 +1071,28 @@ class TP_Admin {
 
             <div class="tp-stats-grid tp-stats-grid-4">
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#e8f4fd;color:#0073aa;">🗓</div>
+                    <div class="tp-stat-icon">🗓</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo (int) $month_total; ?></span>
                         <span class="tp-stat-label"><?php _e( 'Salidas del mes', 'travel-packages' ); ?></span>
                     </div>
                 </div>
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#ecfdf5;color:#059669;">🎟</div>
+                    <div class="tp-stat-icon">🎟</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo (int) $seats_open; ?></span>
                         <span class="tp-stat-label"><?php _e( 'Cupos disponibles', 'travel-packages' ); ?></span>
                     </div>
                 </div>
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#fff7ed;color:#ea580c;">👥</div>
+                    <div class="tp-stat-icon">👥</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo (int) $seats_booked; ?></span>
                         <span class="tp-stat-label"><?php _e( 'Pasajeros reservados', 'travel-packages' ); ?></span>
                     </div>
                 </div>
                 <div class="tp-stat-card">
-                    <div class="tp-stat-icon" style="background:#f3e5f5;color:#7b1fa2;">📦</div>
+                    <div class="tp-stat-icon">📦</div>
                     <div class="tp-stat-info">
                         <span class="tp-stat-number"><?php echo (int) count( $package_ids ); ?></span>
                         <span class="tp-stat-label"><?php _e( 'Paquetes con salidas', 'travel-packages' ); ?></span>
@@ -1121,9 +1187,9 @@ class TP_Admin {
         ?>
         <div class="wrap tp-admin-wrap">
             <div class="tp-admin-header">
-                <div class="tp-header-left">
-                    <span class="tp-logo-icon tp-logo-brand" aria-hidden="true">TF</span>
-                    <div>
+                <div class="tp-header-left tp-tureo-header-left">
+                    <?php self::render_brand(); ?>
+                    <div class="tp-tureo-heading">
                         <h1><?php _e('Guía de Shortcodes', 'travel-packages'); ?></h1>
                         <p><?php _e('Copiá y pegá estos shortcodes en cualquier página o widget.', 'travel-packages'); ?></p>
                     </div>
