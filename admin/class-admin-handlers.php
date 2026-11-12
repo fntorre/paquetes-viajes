@@ -27,12 +27,6 @@ class TP_Admin_Handlers {
             wp_die( __( 'No tienes permisos para guardar este paquete.', 'travel-packages' ) );
         }
 
-        $title = isset( $_POST['tp_title'] ) ? sanitize_text_field( wp_unslash( $_POST['tp_title'] ) ) : '';
-        if ( empty( $title ) ) {
-            wp_redirect( admin_url( 'admin.php?page=tp-packages&status=error' ) );
-            exit;
-        }
-
         // Un autor solo puede publicar si tiene la capacidad correspondiente.
         if ( isset( $_POST['tp_post_status'] ) && $_POST['tp_post_status'] === 'publish' && ! current_user_can( 'publish_posts' ) ) {
             $_POST['tp_post_status'] = 'draft';
@@ -51,6 +45,28 @@ class TP_Admin_Handlers {
             }
         }
 
+        $title = isset( $_POST['tp_title'] ) ? sanitize_text_field( wp_unslash( $_POST['tp_title'] ) ) : '';
+        if ( $title === '' ) {
+            $restore_data = wp_unslash( $_POST );
+            unset( $restore_data['action'], $restore_data['tp_package_nonce'] );
+            $restore_token = strtolower( wp_generate_password( 32, false, false ) );
+            $restore_key   = 'tp_pkg_form_' . get_current_user_id() . '_' . $restore_token;
+            if ( ! set_transient( $restore_key, $restore_data, 10 * MINUTE_IN_SECONDS ) ) {
+                wp_die( __( 'No se pudieron conservar los datos ingresados. Volvé a intentarlo.', 'travel-packages' ) );
+            }
+
+            $redirect_args = [
+                'page'            => 'tp-package-new',
+                'status'          => 'error',
+                'tp_form_restore' => $restore_token,
+            ];
+            if ( $target_id ) {
+                $redirect_args['package_id'] = $target_id;
+            }
+            wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'admin.php' ) ) );
+            exit;
+        }
+
         $package_id = TP_Package_Data::upsert_post( $_POST );
 
         if ( is_wp_error( $package_id ) ) {
@@ -59,8 +75,11 @@ class TP_Admin_Handlers {
 
         TP_Package_Data::save_from_post( $package_id, $_POST );
 
-        $redirect_url = add_query_arg( 'package_id', $package_id, admin_url( 'admin.php?page=tp-packages&status=success' ) );
-        wp_redirect( $redirect_url );
+        $redirect_url = add_query_arg(
+            [ 'page' => 'tp-package-new', 'status' => 'success', 'package_id' => $package_id ],
+            admin_url( 'admin.php' )
+        );
+        wp_safe_redirect( $redirect_url );
         exit;
     }
 
@@ -506,7 +525,7 @@ class TP_Admin_Handlers {
             $post_id = intval( $_GET['post'] );
             $post    = get_post( $post_id );
             if ( $post && $post->post_type === TP_Package_Data::POST_TYPE ) {
-                wp_safe_redirect( admin_url( 'admin.php?page=tp-packages&package_id=' . $post_id ) );
+                wp_safe_redirect( admin_url( 'admin.php?page=tp-package-new&package_id=' . $post_id ) );
                 exit;
             }
         }

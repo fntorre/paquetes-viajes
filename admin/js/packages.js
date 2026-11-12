@@ -1,48 +1,24 @@
 jQuery(document).ready(function($) {
     var packageForm = $('#tp-package-form');
-    var packageSearch = $('#tp-package-search');
     var mediaFrame;
     var featuredFrame;
     var seoImageFrame;
     var reservationsEnabled = !!( window.TP_ADMIN && TP_ADMIN.reservations_enabled === '1' );
 
-    $(document).on('click', '#tp-new-package, #tp-new-package-empty', function() {
-        resetPackageForm();
-        $('html, body').animate({ scrollTop: packageForm.offset().top - 20 }, 400);
-    });
-
     $(document).on('click', '#tp-similar-clear', function() {
         $('#tp_similar_destinos input[type="checkbox"]').prop('checked', false);
     });
 
-    $(document).on('click', '.tp-package-card', function() {
-        var data = $(this).data('package');
-        if ( typeof data === 'string' ) {
-            try {
-                data = JSON.parse( data );
-            } catch ( e ) {
-                data = {};
-            }
-        }
-        fillPackageForm(data);
-        $('html, body').animate({ scrollTop: packageForm.offset().top - 20 }, 400);
+    $('#tp_title').on('invalid', function() {
+        $('#tp-title-error').show();
+        $(this).attr('aria-invalid', 'true');
     });
 
-    $(document).on('input', '#tp-package-search', function() {
-        var query = $(this).val().toLowerCase();
-        var visible = 0;
-        var total = $('.tp-package-card').length;
-
-        $('.tp-package-card').each(function() {
-            var title = $(this).find('strong').text().toLowerCase();
-            var match = title.indexOf(query) !== -1;
-            $(this).toggle(match);
-            if ( match ) {
-                visible++;
-            }
-        });
-
-        $('#tp-package-no-results').toggle( total > 0 && visible === 0 );
+    $('#tp_title').on('input', function() {
+        if ( $.trim($(this).val()) ) {
+            $('#tp-title-error').hide();
+            $(this).removeAttr('aria-invalid');
+        }
     });
 
     $(document).on('click', '#tp-reset-package', function() {
@@ -55,6 +31,8 @@ jQuery(document).ready(function($) {
             window.tinymce.triggerSave();
         }
         var valid = true;
+        $('#tp-dates-list .tp-datepicker-from, #tp-dates-list .tp-datepicker-to').removeAttr('aria-invalid');
+        $('#tp-dates-list .tp-date-error').remove();
         $('#tp-dates-list .tp-date-item').each(function() {
             var from = $(this).find('.tp-datepicker-from').val();
             var to = $(this).find('.tp-datepicker-to').val();
@@ -63,12 +41,15 @@ jQuery(document).ready(function($) {
                 var t = parseDMY(to);
                 if ( f && t && t < f ) {
                     valid = false;
+                    var $returnDate = $(this).find('.tp-datepicker-to');
+                    $returnDate.attr('aria-invalid', 'true');
+                    $(this).find('.tp-departure-head').after('<span class="tp-inline-error tp-date-error" role="alert">La fecha de regreso no puede ser anterior a la fecha de salida.</span>');
+                    $returnDate.trigger('focus');
                     return false;
                 }
             }
         });
         if ( ! valid ) {
-            alert('La fecha de regreso no puede ser anterior a la fecha de salida.');
             e.preventDefault();
             return false;
         }
@@ -78,6 +59,11 @@ jQuery(document).ready(function($) {
             if (k) cfOrder.push(k);
         });
         $('#tp_cf_order').val(cfOrder.join(','));
+    });
+
+    $(document).on('change', '#tp-dates-list .tp-datepicker-from, #tp-dates-list .tp-datepicker-to', function() {
+        $(this).closest('.tp-date-item').find('.tp-date-error').remove();
+        $(this).removeAttr('aria-invalid');
     });
 
     function setPackageContent(html) {
@@ -621,6 +607,9 @@ jQuery(document).ready(function($) {
         $('#tp-view-package')
             .attr('href', data.view_url || '#')
             .toggle(!!(data.ID && data.view_url));
+        $('.tp-sticky-view-package')
+            .attr('href', data.view_url || '#')
+            .toggle(!!(data.ID && data.view_url));
         $('#tp_title').val(data.post_title || '');
         $('#tp_short_desc').val(data.tp_short_desc || '').trigger('input');
         $('#tp_video_url').val(data.tp_video_url || '');
@@ -750,10 +739,15 @@ jQuery(document).ready(function($) {
 
     function resetPackageForm() {
         packageForm[0].reset();
+        $('#tp-title-error').hide();
+        $('#tp_title').removeAttr('aria-invalid');
+        $('#tp-dates-list .tp-date-error').remove();
+        $('#tp-dates-list [aria-invalid="true"]').removeAttr('aria-invalid');
         $('#tp_package_id').val('0');
         markSelectedPackage(0);
         $('#tp-form-title').text('Nuevo paquete');
         $('#tp-view-package').hide().attr('href', '#');
+        $('.tp-sticky-view-package').hide().attr('href', '#');
         setPackageContent('');
         $('#tp-short-count').text('0');
         $('#tp_video_url').val('');
@@ -796,7 +790,220 @@ jQuery(document).ready(function($) {
                 $input.val('');
             }
         });
+        initOptionalSections();
     }
+
+    function restoreFormData(data) {
+        if ( ! data || ! packageForm.length ) {
+            return;
+        }
+
+        var excludedNames = [
+            'tp_price_item[]', 'tp_currency_item[]', 'tp_price_note_item[]', 'tp_price_highlighted[]',
+            'tp_dates_uid[]', 'tp_dates_from[]', 'tp_dates_to[]', 'tp_dates_seats[]',
+            'tp_dates_seats_booked[]', 'tp_dates_min_pax[]', 'tp_dates_max_pax[]',
+            'tp_dates_cutoff[]', 'tp_dates_status[]', 'tp_dates_price_adult[]',
+            'tp_dates_price_child[]', 'tp_dates_currency[]', 'tp_tech_key[]', 'tp_tech_val[]',
+            'tp_itinerary_day[]', 'tp_itinerary_title[]', 'tp_itinerary_desc[]'
+        ];
+
+        packageForm.find('input[name], textarea[name], select[name]').each(function() {
+            var name = this.name;
+            if ( excludedNames.indexOf(name) !== -1 || name === 'action' || name === 'tp_package_nonce' ) {
+                return;
+            }
+
+            var match = name.match(/^tp_cf\[([^\]]+)\]$/);
+            var dataName = name.replace(/\[\]$/, '');
+            var value = match
+                ? (data.tp_cf || {})[match[1]]
+                : (typeof data[dataName] !== 'undefined' ? data[dataName] : data[name]);
+
+            if ( this.type === 'checkbox' ) {
+                if ( /\[\]$/.test(name) ) {
+                    this.checked = Array.isArray(value) && value.map(String).indexOf(String(this.value)) !== -1;
+                } else {
+                    this.checked = value === '1' || value === 1 || value === true;
+                }
+            } else if ( this.type === 'radio' ) {
+                this.checked = value !== undefined && String(value) === String(this.value);
+            } else if ( value !== undefined && !Array.isArray(value) ) {
+                $(this).val(value);
+            }
+        });
+
+        setPackageContent(data.tp_content || '');
+
+        var prices = Array.isArray(data.tp_price_item) ? data.tp_price_item : [];
+        var currencies = Array.isArray(data.tp_currency_item) ? data.tp_currency_item : [];
+        var notes = Array.isArray(data.tp_price_note_item) ? data.tp_price_note_item : [];
+        var highlighted = Array.isArray(data.tp_price_highlighted) ? data.tp_price_highlighted.map(String) : [];
+        $('#tp-prices-list').empty();
+        prices.forEach(function(price, index) {
+            addPriceField(price, notes[index] || '', currencies[index] || 'USD', highlighted.indexOf(String(index)) !== -1);
+        });
+
+        var dateNames = [
+            'tp_dates_uid', 'tp_dates_from', 'tp_dates_to', 'tp_dates_seats',
+            'tp_dates_seats_booked', 'tp_dates_min_pax', 'tp_dates_max_pax',
+            'tp_dates_cutoff', 'tp_dates_status', 'tp_dates_price_adult',
+            'tp_dates_price_child', 'tp_dates_currency'
+        ];
+        var dateValues = {};
+        var dateCount = 0;
+        dateNames.forEach(function(name) {
+            dateValues[name] = Array.isArray(data[name]) ? data[name] : [];
+            dateCount = Math.max(dateCount, dateValues[name].length);
+        });
+        $('#tp-dates-list').empty();
+        for ( var dateIndex = 0; dateIndex < dateCount; dateIndex++ ) {
+            var date = {
+                uid: dateValues.tp_dates_uid[dateIndex],
+                seats: dateValues.tp_dates_seats[dateIndex],
+                seats_booked: dateValues.tp_dates_seats_booked[dateIndex],
+                min_pax: dateValues.tp_dates_min_pax[dateIndex],
+                max_pax: dateValues.tp_dates_max_pax[dateIndex],
+                cutoff: dateValues.tp_dates_cutoff[dateIndex],
+                status: dateValues.tp_dates_status[dateIndex],
+                price_adult: dateValues.tp_dates_price_adult[dateIndex],
+                price_child: dateValues.tp_dates_price_child[dateIndex],
+                currency: dateValues.tp_dates_currency[dateIndex]
+            };
+            addDateField(dateValues.tp_dates_from[dateIndex], dateValues.tp_dates_to[dateIndex], date);
+        }
+
+        var techKeys = Array.isArray(data.tp_tech_key) ? data.tp_tech_key : [];
+        var techValues = Array.isArray(data.tp_tech_val) ? data.tp_tech_val : [];
+        $('#tp-tech-fields').empty();
+        techKeys.forEach(function(key, index) {
+            addTechField(key, techValues[index] || '');
+        });
+
+        var itineraryDays = Array.isArray(data.tp_itinerary_day) ? data.tp_itinerary_day : [];
+        var itineraryTitles = Array.isArray(data.tp_itinerary_title) ? data.tp_itinerary_title : [];
+        var itineraryDescs = Array.isArray(data.tp_itinerary_desc) ? data.tp_itinerary_desc : [];
+        $('#tp-itinerary-list').empty();
+        itineraryDays.forEach(function(day, index) {
+            addItineraryRow(day, itineraryTitles[index] || '', itineraryDescs[index] || '');
+        });
+
+        $('#tp_gallery_ids').val(data.tp_gallery || '');
+        loadRestoredGallery(data.tp_gallery || '');
+        loadRestoredImage(data.tp_featured_image, '#tp-featured-preview-main', '#tp_featured_image_url');
+        loadRestoredImage(data.tp_seo_image, '#tp-seo-image-preview');
+    }
+
+    function loadRestoredImage(id, target, urlInput) {
+        if ( ! id ) {
+            $(target).empty();
+            if ( urlInput ) {
+                $(urlInput).val('');
+            }
+            return;
+        }
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: { action: 'tp_get_image_thumb', id: id, nonce: TP_ADMIN.nonce }
+        }).done(function(response) {
+            if ( response.success && response.data && response.data.url ) {
+                $(target).html('<img src="' + escAttr(response.data.url) + '" alt="" style="max-width:220px;height:auto;border-radius:8px;display:block;">');
+                if ( urlInput ) {
+                    $(urlInput).val(response.data.url);
+                }
+            } else {
+                console.error('No se pudo recuperar la vista previa de la imagen del paquete.');
+            }
+        }).fail(function() {
+            console.error('Error al recuperar la vista previa de la imagen del paquete.');
+        });
+    }
+
+    function loadRestoredGallery(rawIds) {
+        var ids = String(rawIds || '').split(',').filter(function(id) {
+            return /^\d+$/.test(id) && parseInt(id, 10) > 0;
+        });
+        $('#tp-gallery-preview').empty();
+        if ( ! ids.length ) {
+            return;
+        }
+
+        var loaded = 0;
+        var failed = false;
+        ids.forEach(function(id) {
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: { action: 'tp_get_image_thumb', id: id, nonce: TP_ADMIN.nonce }
+            }).done(function(response) {
+                if ( response.success && response.data && response.data.url ) {
+                    addGalleryItem(id, response.data.url);
+                } else {
+                    failed = true;
+                }
+            }).fail(function() {
+                failed = true;
+            }).always(function() {
+                loaded++;
+                if ( loaded === ids.length && ! failed ) {
+                    var $items = $('#tp-gallery-preview .tp-gallery-item');
+                    var byId = {};
+                    $items.each(function() {
+                        byId[String($(this).data('id'))] = $(this);
+                    });
+                    ids.forEach(function(itemId) {
+                        if ( byId[itemId] ) {
+                            $('#tp-gallery-preview').append(byId[itemId]);
+                        }
+                    });
+                    updateGalleryIds();
+                }
+            });
+        });
+    }
+
+    function initOptionalSections() {
+        var optionalIds = [
+            'tp-section-seo', 'tp-section-departures', 'tp-section-itinerary',
+            'tp-section-extra', 'tp-section-promo'
+        ];
+        optionalIds.forEach(function(id) {
+            var $panel = $('#' + id);
+            if ( ! $panel.length ) {
+                return;
+            }
+
+            var $toggle = $panel.children('.tp-panel-toggle');
+            if ( ! $toggle.length ) {
+                $toggle = $('<button type="button" class="tp-panel-toggle"></button>')
+                    .insertAfter($panel.children('h2').first());
+            }
+
+            var hasValue = $panel.find('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select').filter(function() {
+                return $.trim($(this).val() || '') !== '';
+            }).length > 0 || $panel.find('input[type="checkbox"]:checked').length > 0;
+
+            if ( $panel.find('#tp-dates-list .tp-date-item, #tp-itinerary-list .tp-itinerary-item, #tp-tech-fields .tp-tech-field').length ) {
+                hasValue = true;
+            }
+            if ( id === 'tp-section-promo' ) {
+                hasValue = false;
+            }
+
+            $panel.toggleClass('is-collapsed', ! hasValue);
+            $toggle
+                .text(hasValue ? 'Ocultar sección' : 'Mostrar sección')
+                .attr('aria-expanded', hasValue ? 'true' : 'false');
+        });
+    }
+
+    $(document).on('click', '.tp-panel-toggle', function() {
+        var $panel = $(this).closest('.tp-panel');
+        var expanded = $panel.hasClass('is-collapsed');
+        $panel.toggleClass('is-collapsed', ! expanded);
+        $(this).text(expanded ? 'Ocultar sección' : 'Mostrar sección').attr('aria-expanded', expanded ? 'true' : 'false');
+    });
 
     function addPriceField(price, note, currency, highlighted) {
         var idx = $('#tp-prices-list .tp-price-item').length;
@@ -845,16 +1052,29 @@ jQuery(document).ready(function($) {
         if ( ! day ) {
             day = 'Día ' + index;
         }
-        var row = '<div class="tp-itinerary-item">' +
+        var hasDescription = !!$.trim(desc || '');
+        var row = '<div class="tp-itinerary-item' + (hasDescription ? '' : ' is-collapsed') + '">' +
             '<div class="tp-itinerary-head">' +
                 '<input type="text" name="tp_itinerary_day[]" class="tp-itinerary-day" value="' + escAttr(day) + '" placeholder="Día 1">' +
                 '<input type="text" name="tp_itinerary_title[]" class="tp-itinerary-title" value="' + escAttr(title) + '" placeholder="Título del día">' +
+                '<button type="button" class="tp-itinerary-toggle" aria-expanded="' + (hasDescription ? 'true' : 'false') + '">' + (hasDescription ? 'Ocultar descripción' : 'Agregar descripción') + '</button>' +
                 '<button type="button" class="tp-remove-itinerary tp-btn-icon" title="Eliminar día">✕</button>' +
             '</div>' +
-            '<textarea name="tp_itinerary_desc[]" rows="3" placeholder="Descripción, actividades, comidas, hotel...">' + escHtml(desc) + '</textarea>' +
+            '<div class="tp-itinerary-body">' +
+                '<textarea name="tp_itinerary_desc[]" rows="3" placeholder="Descripción, actividades, comidas, hotel...">' + escHtml(desc) + '</textarea>' +
+            '</div>' +
             '</div>';
         $('#tp-itinerary-list').append(row);
     }
+
+    $(document).on('click', '.tp-itinerary-toggle', function() {
+        var $item = $(this).closest('.tp-itinerary-item');
+        var expanded = $item.hasClass('is-collapsed');
+        $item.toggleClass('is-collapsed', !expanded);
+        $(this)
+            .attr('aria-expanded', expanded ? 'true' : 'false')
+            .text(expanded ? 'Ocultar descripción' : 'Agregar descripción');
+    });
 
     function departureNumberField(label, name, value, placeholder) {
         return '<label class="tp-dep-field"><span>' + label + '</span>' +
@@ -1131,6 +1351,9 @@ jQuery(document).ready(function($) {
                 return;
             }
             e.preventDefault();
+            if ( $target.hasClass('is-collapsed') ) {
+                $target.children('.tp-panel-toggle').trigger('click');
+            }
             $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
             $links.removeClass('is-active');
             $(this).addClass('is-active');
@@ -1155,16 +1378,34 @@ jQuery(document).ready(function($) {
         }
     })();
 
-    // Prefill form from server-side selected package (e.g. ?package_id=X)
+    // Prefill the editor from the selected package, then restore rejected form input.
     var $selectedData = $('#tp-selected-package-data');
+    var selected = {};
     if ( $selectedData.length && $selectedData.val() && $selectedData.val() !== '[]' && $selectedData.val() !== '{}' ) {
         try {
-            var selected = JSON.parse( $selectedData.val() );
+            selected = JSON.parse( $selectedData.val() );
             if ( selected && selected.ID ) {
                 fillPackageForm(selected);
             }
         } catch ( e ) {
-            // ignore malformed JSON
+            console.error('No se pudieron cargar los datos del paquete para editar.', e);
         }
+    }
+
+    var $invalidData = $('#tp-invalid-form-data');
+    if ( $invalidData.length && $invalidData.val() && $invalidData.val() !== '[]' && $invalidData.val() !== '{}' ) {
+        try {
+            var restored = JSON.parse($invalidData.val());
+            if ( restored && typeof restored === 'object' && !Array.isArray(restored) ) {
+                restoreFormData(restored);
+            }
+        } catch ( e ) {
+            console.error('No se pudieron restaurar los datos enviados del formulario.', e);
+        }
+    }
+
+    initOptionalSections();
+    if ( $('#tp-title-error').is(':visible') && !$.trim($('#tp_title').val()) ) {
+        $('#tp_title').attr('aria-invalid', 'true').trigger('focus');
     }
 });

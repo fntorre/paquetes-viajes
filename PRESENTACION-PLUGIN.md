@@ -25,12 +25,15 @@ Una vez activado el plugin, en el menú lateral de WordPress aparece la opción 
 
 | Sección | Para qué sirve |
 |---|---|
-| **Panel de Paquetes** | Vista general con estadísticas y accesos rápidos |
-| **Gestión de Paquetes** | Crear, editar, duplicar y eliminar paquetes |
-| **+ Agregar Paquete** | Atajo directo al formulario de carga |
+| **Tureo** | Vista general con estadísticas y accesos rápidos |
+| **Paquetes** | Buscar, filtrar, duplicar, exportar/importar y eliminar paquetes |
+| **+ Agregar Paquete** | Abre el editor dedicado para crear un paquete |
 | **Calendario de Salidas** | Vista mensual de salidas, cupos, estados y precios |
 | **Destinos** | Administrar los destinos del catálogo |
 | **Tipologías** | Administrar las categorías de tipo de viaje |
+| **Reservas** | Consultar y administrar las reservas |
+| **Campos Personalizados** | Definir datos adicionales para todos los paquetes |
+| **Ajustes** | Configuración general del plugin |
 | **Guía de Shortcodes** | Consulta rápida de códigos para insertar en páginas |
 
 ---
@@ -52,7 +55,8 @@ Al ingresar ves un resumen del estado del catálogo:
 
 ## 4. Crear un Paquete Paso a Paso
 
-Desde **Gestión de Paquetes → Nuevo paquete** se abre el formulario visual, organizado en secciones con una barra de navegación rápida:
+Desde **Paquetes → + Agregar Paquete** se abre el editor visual dedicado, organizado en secciones con una barra de navegación rápida. Las secciones opcionales vacías comienzan plegadas y se expanden automáticamente cuando ya tienen información.
+El título es obligatorio; si falta, el formulario vuelve a abrirse con los datos ingresados para que puedas corregirlo sin empezar de nuevo. La barra inferior mantiene a mano las acciones de guardado y vista previa.
 
 ### 4.1 Contenido
 
@@ -104,10 +108,10 @@ Se pueden agregar **múltiples salidas** con selector de calendario. Cada salida
 
 ## 5. Gestionar el Catálogo con Agilidad
 
-La pantalla **Gestión de Paquetes** muestra el listado y el formulario lado a lado. Incluye:
+La pantalla **Paquetes** se enfoca en el listado; cada paquete se edita en una pantalla independiente. El buscador consulta todo el catálogo y conserva los filtros al paginar. Incluye:
 
-- **Buscador instantáneo** por nombre.
-- **Filtros avanzados:** destino, tipología, tipo de viaje, rango de precio mínimo/máximo, si está en slider, si es destacado, ordenamiento por fecha/título/precio (ascendente o descendente).
+- **Buscador por nombre** y filtros avanzados: destino, tipología, tipo de viaje, rango de precio mínimo/máximo, si está en slider, si es destacado y ordenamiento por fecha/título/precio (ascendente o descendente).
+- **Editor separado:** crear o editar abre el formulario en una pantalla propia, con acceso rápido al listado y a la vista previa.
 - **Duplicar paquete:** crea una copia para reutilizar estructura (ideal para paquetes similares entre temporadas).
 - **Exportar:** descarga todo el catálogo en formato JSON (backup o traslado a otro sitio).
 - **Importar:** carga masiva desde un archivo JSON previamente exportado.

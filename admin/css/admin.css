@@ -1514,7 +1514,6 @@ body.tp-admin-neu .tp-admin-wrap {
     box-shadow: var(--tp-neu-inset-sm), 0 0 0 3px rgba(15,76,129,.16);
     outline: none;
 }
-#tp-package-search { padding-left: 44px; }
 .tp-departure-seats input[type="number"] { width: 78px; padding: 7px 10px; }
 
 /* ---- Toggles & radio pills ---- */
@@ -1895,7 +1894,6 @@ body.tp-admin-neu .tp-admin-wrap {
 .tp-empty-state strong { color: var(--tp-neu-text); font-size: 15px; }
 .tp-empty-state p { margin: 0 0 6px; max-width: 260px; font-size: 12px; }
 .tp-empty-state .tp-btn-primary { margin-top: 4px; }
-.tp-search-empty { margin-top: 12px; }
 #tp-dates-list:empty::before,
 #tp-prices-list:empty::before,
 #tp-tech-fields:empty::before,
@@ -3610,6 +3608,164 @@ body.tp-admin-tureo .tp-form-nav a,
 body.tp-admin-tureo .tp-res-active-toggle,
 body.tp-admin-tureo .tp-admin-wrap .button {
     border-radius: 10px;
+}
+
+/* ---- Flujo del editor de paquetes ---- */
+body.tp-admin-tureo .tp-packages-grid.is-list-only,
+body.tp-admin-tureo .tp-packages-grid.is-editor-only {
+    grid-template-columns: minmax(0, 1fr);
+}
+body.tp-admin-tureo .tp-package-search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(460px, 100%);
+}
+body.tp-admin-tureo .tp-package-search-form .tp-package-search {
+    flex: 1 1 220px;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-package-search-form .button {
+    flex: 0 0 auto;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-packages-grid.is-editor-only .tp-package-form {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+body.tp-admin-tureo .tp-packages-grid.is-list-only .tp-packages-list {
+    position: static;
+    align-self: stretch;
+    max-height: none;
+    overflow: visible;
+}
+body.tp-admin-tureo .tp-package-card {
+    cursor: default;
+}
+body.tp-admin-tureo .tp-card-edit-link {
+    display: block;
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-decoration: none;
+}
+body.tp-admin-tureo .tp-card-edit-link:hover,
+body.tp-admin-tureo .tp-card-edit-link:focus {
+    color: #57703f;
+    text-decoration: underline;
+}
+body.tp-admin-tureo .tp-card-edit-action {
+    color: #233d32;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+}
+body.tp-admin-tureo .tp-card-edit-action:hover,
+body.tp-admin-tureo .tp-card-edit-action:focus {
+    color: #57703f;
+    text-decoration: underline;
+}
+body.tp-admin-tureo .tp-back-to-packages {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+body.tp-admin-tureo .tp-inline-error {
+    display: block;
+    margin-top: 6px;
+    color: #b42318;
+    font-size: 12px;
+    font-weight: 600;
+}
+body.tp-admin-tureo #tp_title[aria-invalid="true"],
+body.tp-admin-tureo .tp-package-form [aria-invalid="true"] {
+    border-color: #b42318;
+    box-shadow: 0 0 0 2px rgba(180, 35, 24, .12);
+}
+body.tp-admin-tureo .tp-panel-toggle {
+    margin: -4px 0 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #57703f;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+body.tp-admin-tureo .tp-panel-toggle:hover,
+body.tp-admin-tureo .tp-panel-toggle:focus {
+    color: #233d32;
+    text-decoration: underline;
+}
+body.tp-admin-tureo .tp-itinerary-item.is-collapsed .tp-itinerary-body {
+    display: none;
+}
+body.tp-admin-tureo .tp-itinerary-toggle {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: #eaf3dc;
+    color: #4f6b3c;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+body.tp-admin-tureo .tp-itinerary-toggle:hover,
+body.tp-admin-tureo .tp-itinerary-toggle:focus {
+    background: #dcebc8;
+}
+body.tp-admin-tureo .tp-panel.is-collapsed > :not(h2):not(.tp-panel-toggle) {
+    display: none !important;
+}
+body.tp-admin-tureo .tp-package-form .tp-panel-actions {
+    position: sticky;
+    bottom: 12px;
+    z-index: 12;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid #e1e7de;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 8px 24px rgba(23, 42, 39, .12);
+}
+body.tp-admin-tureo .tp-package-form .tp-panel-actions .tp-btn-primary,
+body.tp-admin-tureo .tp-package-form .tp-panel-actions .tp-btn-secondary,
+body.tp-admin-tureo .tp-package-form .tp-panel-actions .tp-btn-danger {
+    margin: 0;
+}
+body.tp-admin-tureo .tp-package-form .tp-panel-actions .tp-form-view-link {
+    margin: 0 auto 0 0;
+}
+body.tp-admin-tureo .tp-packages-wrap .tp-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+body.tp-admin-tureo .tp-package-form .tp-panel[id] {
+    scroll-margin-top: 110px;
+}
+@media (max-width: 782px) {
+    body.tp-admin-tureo .tp-package-form .tp-panel-actions {
+        bottom: 8px;
+        padding: 10px;
+    }
+    body.tp-admin-tureo .tp-itinerary-head {
+        flex-wrap: wrap;
+    }
+    body.tp-admin-tureo .tp-itinerary-title {
+        flex-basis: calc(100% - 110px);
+    }
 }
 
 /* ---- Imagen promocional ---- */
