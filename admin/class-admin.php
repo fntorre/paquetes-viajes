@@ -199,6 +199,21 @@ class TP_Admin {
         }
 
         if ( $load_admin_assets ) {
+            $promo_fonts = [
+                'heading' => 'Arial, Helvetica, sans-serif',
+                'body'    => 'Arial, Helvetica, sans-serif',
+            ];
+            if ( class_exists( 'TP_Settings' ) ) {
+                $pairings = TP_Settings::get_font_pairings();
+                $pairing  = TP_Settings::get_font_pairing();
+                if ( ! empty( $pairings[ $pairing ]['heading'] ) && ! empty( $pairings[ $pairing ]['body'] ) ) {
+                    $promo_fonts = [
+                        'heading' => $pairings[ $pairing ]['heading'],
+                        'body'    => $pairings[ $pairing ]['body'],
+                    ];
+                }
+            }
+
             $css_file = TP_PLUGIN_DIR . 'admin/css/admin.css';
             $css_ver  = file_exists( $css_file ) ? filemtime( $css_file ) : TP_VERSION;
             wp_enqueue_style(  'tp-admin', TP_PLUGIN_URL . 'admin/css/admin.css', [], $css_ver );
@@ -209,6 +224,7 @@ class TP_Admin {
                 'ajax_url'             => admin_url('admin-ajax.php'),
                 'reservations_enabled' => ( class_exists( 'TP_Reservations' ) && TP_Reservations::is_enabled() ) ? '1' : '0',
                 'site_name'            => get_bloginfo( 'name' ),
+                'promo_fonts'          => $promo_fonts,
             ]);
         }
 
@@ -1213,8 +1229,20 @@ class TP_Admin {
                                 <select id="tp_promo_format">
                                     <option value="square"><?php _e('Cuadrado — 1080 x 1080 px', 'travel-packages'); ?></option>
                                     <option value="story"><?php _e('Vertical — 1080 x 1920 px', 'travel-packages'); ?></option>
+                                    <option value="custom"><?php _e('Personalizado', 'travel-packages'); ?></option>
                                 </select>
-                                <small><?php _e('Elegí cuadrado para el feed o vertical para historias y reels.', 'travel-packages'); ?></small>
+                                <small><?php _e('Elegí un formato predefinido o definí el ancho y alto en píxeles.', 'travel-packages'); ?></small>
+                            </div>
+                            <div id="tp-promo-custom-dimensions" class="tp-promo-custom-dimensions" hidden>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_promo_width"><?php _e('Ancho (px)', 'travel-packages'); ?></label>
+                                    <input type="number" id="tp_promo_width" min="320" max="4096" step="1" value="1200" inputmode="numeric">
+                                </div>
+                                <div class="tp-field-group">
+                                    <label class="tp-label" for="tp_promo_height"><?php _e('Alto (px)', 'travel-packages'); ?></label>
+                                    <input type="number" id="tp_promo_height" min="320" max="4096" step="1" value="628" inputmode="numeric">
+                                </div>
+                                <small><?php _e('Ingresá valores entre 320 y 4096 px por lado.', 'travel-packages'); ?></small>
                             </div>
                             <div class="tp-promo-actions">
                                 <button type="button" class="tp-btn tp-btn-primary" id="tp-generate-promo">

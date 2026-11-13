@@ -4336,6 +4336,20 @@ body.tp-admin-tureo .tp-promo-actions {
     align-items: center;
     margin: 12px 0;
 }
+body.tp-admin-tureo .tp-promo-custom-dimensions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 180px));
+    gap: 0 14px;
+    align-items: end;
+    margin-top: 12px;
+}
+body.tp-admin-tureo .tp-promo-custom-dimensions[hidden] {
+    display: none;
+}
+body.tp-admin-tureo .tp-promo-custom-dimensions > small {
+    grid-column: 1 / -1;
+    color: #748078;
+}
 body.tp-admin-tureo .tp-promo-preview-wrap {
     display: flex;
     justify-content: center;

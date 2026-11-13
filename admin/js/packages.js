@@ -260,6 +260,34 @@ jQuery(document).ready(function($) {
         }
     }
 
+    function promoFonts() {
+        var fonts = window.TP_ADMIN && TP_ADMIN.promo_fonts ? TP_ADMIN.promo_fonts : {};
+        return {
+            heading: fonts.heading || 'Arial, Helvetica, sans-serif',
+            body: fonts.body || 'Arial, Helvetica, sans-serif'
+        };
+    }
+
+    function promoFont(weight, size, family) {
+        return weight + ' ' + size + 'px ' + family;
+    }
+
+    function promoEnsureFonts() {
+        var fonts = promoFonts();
+        if ( ! document.fonts || ! document.fonts.load ) {
+            return Promise.resolve(true);
+        }
+
+        return Promise.all([
+            document.fonts.load(promoFont(700, 32, fonts.heading)),
+            document.fonts.load(promoFont(400, 24, fonts.body))
+        ]).then(function() {
+            return true;
+        }, function() {
+            return false;
+        });
+    }
+
     function promoSelectedDate() {
         var chosen = null;
         var next = null;
@@ -362,9 +390,19 @@ jQuery(document).ready(function($) {
     }
 
     function promoDimensions() {
-        return $('#tp_promo_format').val() === 'story'
-            ? { W: 1080, H: 1920 }
-            : { W: 1080, H: 1080 };
+        var format = $('#tp_promo_format').val();
+        if ( format === 'story' ) {
+            return { W: 1080, H: 1920 };
+        }
+        if ( format === 'custom' ) {
+            var width = Number($('#tp_promo_width').val());
+            var height = Number($('#tp_promo_height').val());
+            if ( ! Number.isInteger(width) || ! Number.isInteger(height) || width < 320 || width > 4096 || height < 320 || height > 4096 ) {
+                return null;
+            }
+            return { W: width, H: height };
+        }
+        return { W: 1080, H: 1080 };
     }
 
     function promoDraw(data, img) {
@@ -372,20 +410,27 @@ jQuery(document).ready(function($) {
         if ( ! canvas ) { return; }
 
         var dims = promoDimensions();
+        if ( ! dims ) { return; }
         var W = dims.W;
         var H = dims.H;
         var isStory = H > W;
-        var pad = isStory ? 84 : 72;
-        var siteSize = isStory ? 28 : 26;
-        var titleSize = isStory ? 72 : 62;
-        var subtitleSize = isStory ? 34 : 30;
-        var dateSize = isStory ? 28 : 25;
-        var childSize = isStory ? 30 : 27;
-        var priceSize = isStory ? 84 : 70;
+        var fontScale = Math.min(W, H) / 1080;
+        var pad = Math.round((isStory ? 84 : 72) * fontScale);
+        var siteSize = Math.round((isStory ? 28 : 26) * fontScale);
+        var titleSize = Math.round((isStory ? 72 : 62) * fontScale);
+        var subtitleSize = Math.round((isStory ? 34 : 30) * fontScale);
+        var dateSize = Math.round((isStory ? 28 : 25) * fontScale);
+        var childSize = Math.round((isStory ? 30 : 27) * fontScale);
+        var priceSize = Math.round((isStory ? 84 : 70) * fontScale);
         var titleLineHeight = Math.round(titleSize * 1.12);
         var subtitleLineHeight = Math.round(subtitleSize * 1.32);
-        var datePillHeight = dateSize + 20;
-        var gap = isStory ? 24 : 18;
+        var datePillHeight = dateSize + Math.round(20 * fontScale);
+        var gap = Math.round((isStory ? 24 : 18) * fontScale);
+        var fontPair = promoFonts();
+        var titleFont = promoFont(700, titleSize, fontPair.heading);
+        var subtitleFont = promoFont(400, subtitleSize, fontPair.body);
+        var dateFont = promoFont(600, dateSize, fontPair.body);
+        var childFont = promoFont(600, childSize, fontPair.body);
 
         if ( canvas.width !== W ) { canvas.width = W; }
         if ( canvas.height !== H ) { canvas.height = H; }
@@ -402,9 +447,9 @@ jQuery(document).ready(function($) {
         ctx.fillRect(0, 0, W, H);
 
         if ( img && img.width && img.height ) {
-            var scale = Math.max(W / img.width, H / img.height);
-            var dw = img.width * scale;
-            var dh = img.height * scale;
+            var imageScale = Math.max(W / img.width, H / img.height);
+            var dw = img.width * imageScale;
+            var dh = img.height * imageScale;
             ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
         }
 
@@ -422,16 +467,12 @@ jQuery(document).ready(function($) {
         ctx.fillRect(0, 0, W, H * 0.3);
 
         if ( data.site ) {
-            ctx.font = '700 ' + siteSize + 'px Arial, Helvetica, sans-serif';
+            ctx.font = promoFont(700, siteSize, fontPair.body);
             ctx.fillStyle = 'rgba(255,255,255,0.92)';
             ctx.textBaseline = 'top';
-            ctx.fillText(String(data.site).toUpperCase(), pad, isStory ? 80 : 56);
+            ctx.fillText(String(data.site).toUpperCase(), pad, Math.round((isStory ? 80 : 56) * fontScale));
         }
 
-        var titleFont = '700 ' + titleSize + 'px Arial, Helvetica, sans-serif';
-        var subtitleFont = '400 ' + subtitleSize + 'px Arial, Helvetica, sans-serif';
-        var dateFont = '600 ' + dateSize + 'px Arial, Helvetica, sans-serif';
-        var childFont = '600 ' + childSize + 'px Arial, Helvetica, sans-serif';
         var maxTextWidth = W - pad * 2;
 
         var titleLines = promoWrapText(ctx, data.title, maxTextWidth, 3, titleFont);
@@ -447,10 +488,10 @@ jQuery(document).ready(function($) {
         var priceText = data.price ? 'Desde ' + data.currency + ' ' + promoFormatNumber(data.price) : 'Consultar precio';
         var childText = data.childPrice ? 'Niños ' + data.currency + ' ' + promoFormatNumber(data.childPrice) : '';
 
-        ctx.font = '800 ' + priceSize + 'px Arial, Helvetica, sans-serif';
-        while ( ctx.measureText(priceText).width > maxTextWidth && priceSize > 36 ) {
+        ctx.font = promoFont(800, priceSize, fontPair.heading);
+        while ( ctx.measureText(priceText).width > maxTextWidth && priceSize > Math.max(12, Math.round(36 * fontScale)) ) {
             priceSize -= 2;
-            ctx.font = '800 ' + priceSize + 'px Arial, Helvetica, sans-serif';
+            ctx.font = promoFont(800, priceSize, fontPair.heading);
         }
 
         var dateHeight = dateText ? datePillHeight : 0;
@@ -461,20 +502,21 @@ jQuery(document).ready(function($) {
         var total = dateHeight + ( dateText ? gap : 0 ) + titleHeight +
             ( subtitleLines.length ? gap + subtitleHeight : 0 ) +
             gap + priceHeight + ( childText ? 8 + childHeight : 0 );
-        var minY = ( isStory ? 80 : 56 ) + siteSize + 48;
+        var minY = Math.round((isStory ? 80 : 56) * fontScale) + siteSize + Math.round(48 * fontScale);
         var y = H - pad - total;
         if ( y < minY ) { y = minY; }
 
         if ( dateText ) {
             ctx.font = dateFont;
             var dateWidth = ctx.measureText(dateText).width;
-            var pillW = Math.min(dateWidth + 40, maxTextWidth);
+            var datePadding = Math.round(20 * fontScale);
+            var pillW = Math.min(dateWidth + datePadding * 2, maxTextWidth);
             ctx.fillStyle = 'rgba(255,255,255,0.18)';
             promoRoundRect(ctx, pad, y, pillW, datePillHeight, datePillHeight / 2);
             ctx.fill();
             ctx.fillStyle = '#fff';
             ctx.textBaseline = 'middle';
-            ctx.fillText(dateText, pad + 20, y + datePillHeight / 2 + 1);
+            ctx.fillText(dateText, pad + datePadding, y + datePillHeight / 2 + 1);
             y += dateHeight + gap;
         }
 
@@ -498,7 +540,7 @@ jQuery(document).ready(function($) {
 
         y += gap;
         ctx.fillStyle = '#fff';
-        ctx.font = '800 ' + priceSize + 'px Arial, Helvetica, sans-serif';
+        ctx.font = promoFont(800, priceSize, fontPair.heading);
         ctx.fillText(priceText, pad, y);
 
         if ( childText ) {
@@ -524,29 +566,43 @@ jQuery(document).ready(function($) {
         var canvas = document.getElementById('tp-promo-canvas');
         if ( ! canvas ) { return; }
 
+        var dims = promoDimensions();
+        if ( ! dims ) {
+            $('#tp-promo-status').text('Ingresá un ancho y alto entre 320 y 4096 px.');
+            $('#tp_promo_width').trigger('focus');
+            return;
+        }
+
         $('#tp-promo-status').text('Generando imagen…');
         $('#tp-download-promo').prop('disabled', true);
 
-        promoLoadImage(data.background, function(img) {
-            promoDraw(data, img);
-            canvas.style.display = 'block';
-            $('#tp-download-promo').prop('disabled', false);
+        promoEnsureFonts().then(function(fontsLoaded) {
+            promoLoadImage(data.background, function(img) {
+                promoDraw(data, img);
+                canvas.style.display = 'block';
+                $('#tp-download-promo').prop('disabled', false);
 
-            if ( ! data.background ) {
-                $('#tp-promo-status').text('Imagen creada sin foto de fondo. Seleccioná una imagen principal para mejorar el resultado.');
-            } else if ( ! img ) {
-                $('#tp-promo-status').text('No se pudo cargar la imagen principal. Se generó la imagen con fondo de color.');
-            } else {
-                $('#tp-promo-status').text('Imagen lista. Podés descargarla como PNG.');
-            }
+                var status = ! data.background
+                    ? 'Imagen creada sin foto de fondo. Seleccioná una imagen principal para mejorar el resultado.'
+                    : ( ! img ? 'No se pudo cargar la imagen principal. Se generó la imagen con fondo de color.' : 'Imagen lista. Podés descargarla como PNG.' );
+                if ( ! fontsLoaded ) {
+                    status += ' No se pudieron cargar las tipografías seleccionadas; se usó la fuente alternativa.';
+                }
+                $('#tp-promo-status').text(status);
+            });
         });
     }
 
     function downloadPromoImage() {
         var canvas = document.getElementById('tp-promo-canvas');
         if ( ! canvas || canvas.style.display === 'none' || ! canvas.toBlob ) { return; }
-        var format = $('#tp_promo_format').val() === 'story' ? '1080x1920' : '1080x1080';
-        var filename = 'paquete-' + promoSlug($('#tp_title').val()) + '-' + format + '.png';
+        var dims = promoDimensions();
+        if ( ! dims ) {
+            $('#tp-promo-status').text('Ingresá un ancho y alto entre 320 y 4096 px.');
+            $('#tp-download-promo').prop('disabled', true);
+            return;
+        }
+        var filename = 'paquete-' + promoSlug($('#tp_title').val()) + '-' + dims.W + 'x' + dims.H + '.png';
 
         try {
             canvas.toBlob(function(blob) {
@@ -569,6 +625,11 @@ jQuery(document).ready(function($) {
     }
 
     $(document).on('change', '#tp_promo_format', function() {
+        $('#tp-promo-custom-dimensions').prop('hidden', $(this).val() !== 'custom');
+        resetPromoPreview();
+    });
+
+    $(document).on('input change', '#tp_promo_width, #tp_promo_height', function() {
         resetPromoPreview();
     });
 

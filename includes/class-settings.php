@@ -228,6 +228,14 @@ class TP_Settings {
         }
 
         wp_enqueue_style( 'tp-admin-fonts', $url, [], null );
+
+        if ( $page === 'tp-package-new' ) {
+            $pairing  = self::get_font_pairing();
+            $pairings = self::get_font_pairings();
+            if ( ! empty( $pairings[ $pairing ]['google_url'] ) ) {
+                wp_enqueue_style( 'tp-admin-promo-fonts', $pairings[ $pairing ]['google_url'], [], null );
+            }
+        }
     }
 
     public static function add_body_class( $classes ) {
