@@ -25,14 +25,17 @@ class TP_Reservations {
     const META_STATUS   = '_tp_reserva_status';
     const META_NOTES    = '_tp_reserva_notes';
     const META_SOURCE   = '_tp_reserva_source';
+    const USER_META_LAST_SEEN_ID = 'tp_reservations_last_seen_id_v2';
 
     private static $booked_cache   = [];
     private static $packages_cache = null;
+    private static $new_reservations_count = null;
 
     public static function init() {
         add_action( 'init', [ __CLASS__, 'register_post_type' ] );
         add_action( 'admin_menu', [ __CLASS__, 'add_submenu_page' ], 21 );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
+        add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_notification_styles' ] );
         add_action( 'admin_post_tp_save_reservation', [ __CLASS__, 'handle_save' ] );
         add_action( 'admin_post_tp_delete_reservation', [ __CLASS__, 'handle_delete' ] );
         add_action( 'admin_post_tp_toggle_reservations', [ __CLASS__, 'handle_toggle' ] );
@@ -319,13 +322,108 @@ class TP_Reservations {
     }
 
     public static function add_submenu_page() {
+        $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+        if ( $page === 'tp-reservations' && current_user_can( 'edit_posts' ) ) {
+            self::mark_reservations_seen();
+        }
+
+        $new_count = self::get_new_reservations_count();
+        $menu_title = __( 'Reservas', 'travel-packages' );
+        if ( $new_count > 0 ) {
+            $menu_title .= sprintf(
+                ' <span class="tp-reservation-new-count" role="status" aria-label="%s"><span>%s</span></span>',
+                esc_attr( sprintf( __( '%d nuevas reservas', 'travel-packages' ), $new_count ) ),
+                esc_html( number_format_i18n( $new_count ) )
+            );
+        }
+
         add_submenu_page(
             'tp-dashboard',
             __( 'Reservas', 'travel-packages' ),
-            __( 'Reservas', 'travel-packages' ),
+            $menu_title,
             'edit_posts',
             'tp-reservations',
             [ __CLASS__, 'render_page' ]
+        );
+    }
+
+    private static function get_latest_reservation_id() {
+        global $wpdb;
+
+        return (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = 'publish' ORDER BY ID DESC LIMIT 1",
+            self::POST_TYPE
+        ) );
+    }
+
+    private static function mark_reservations_seen() {
+        $user_id = get_current_user_id();
+        if ( ! $user_id ) {
+            return;
+        }
+
+        update_user_meta( $user_id, self::USER_META_LAST_SEEN_ID, self::get_latest_reservation_id() );
+        self::$new_reservations_count = 0;
+    }
+
+    private static function get_new_reservations_count() {
+        if ( self::$new_reservations_count !== null ) {
+            return self::$new_reservations_count;
+        }
+
+        global $wpdb;
+        $user_id = get_current_user_id();
+        if ( ! $user_id ) {
+            self::$new_reservations_count = 0;
+            return 0;
+        }
+
+        $last_seen_id = get_user_meta( $user_id, self::USER_META_LAST_SEEN_ID, true );
+        if ( $last_seen_id === '' ) {
+            $last_seen_id = 0;
+            update_user_meta( $user_id, self::USER_META_LAST_SEEN_ID, $last_seen_id );
+        }
+
+        self::$new_reservations_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s AND post_status = 'publish' AND ID > %d",
+            self::POST_TYPE,
+            (int) $last_seen_id
+        ) );
+
+        return self::$new_reservations_count;
+    }
+
+    public static function enqueue_notification_styles() {
+        if ( self::get_new_reservations_count() <= 0 ) {
+            return;
+        }
+
+        wp_register_style( 'tp-reservation-notification', false, [], TP_VERSION );
+        wp_enqueue_style( 'tp-reservation-notification' );
+        wp_add_inline_style(
+            'tp-reservation-notification',
+            '@keyframes tp-reservation-notification-glow {
+                0%, 100% { box-shadow: 0 0 0 0 rgba(201,239,116,.24); }
+                50% { box-shadow: 0 0 7px 2px rgba(201,239,116,.62); }
+            }
+            #toplevel_page_tp-dashboard .wp-submenu a[href*="page=tp-reservations"] .tp-reservation-new-count {
+                display: inline-flex;
+                min-width: 15px;
+                height: 15px;
+                margin-left: 3px;
+                padding: 0 4px;
+                align-items: center;
+                justify-content: center;
+                box-sizing: border-box;
+                border-radius: 999px;
+                background: #c9ef74;
+                color: #233d32;
+                font-size: 9px;
+                font-weight: 600;
+                line-height: 15px;
+                vertical-align: middle;
+                animation: tp-reservation-notification-glow 2.4s ease-in-out infinite;
+            }'
         );
     }
 
@@ -645,6 +743,19 @@ class TP_Reservations {
         $enabled  = self::is_enabled();
         $edit_id  = isset( $_GET['edit'] ) ? (int) $_GET['edit'] : 0;
         $editing  = $edit_id ? self::get_reservation( $edit_id ) : null;
+        $view_id  = isset( $_GET['view'] ) ? (int) $_GET['view'] : 0;
+        $viewing  = null;
+        $view_post = null;
+        if ( $view_id ) {
+            $view_post = get_post( $view_id );
+            if ( ! $view_post || $view_post->post_type !== self::POST_TYPE ) {
+                wp_die( esc_html__( 'Reserva no encontrada.', 'travel-packages' ) );
+            }
+            if ( ! current_user_can( 'edit_post', $view_id ) ) {
+                wp_die( esc_html__( 'No tienes permisos para ver esta reserva.', 'travel-packages' ) );
+            }
+            $viewing = self::get_reservation( $view_id );
+        }
         $packages = self::get_packages_with_departures();
         $statuses = self::get_statuses();
         $notice   = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
@@ -815,6 +926,7 @@ class TP_Reservations {
                                     <td><span class="tp-res-status is-<?php echo esc_attr( $res_status ); ?>"><?php echo esc_html( $res_status_label ); ?></span></td>
                                     <td class="tp-res-actions">
                                         <div class="tp-res-action-buttons">
+                                            <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'tp-reservations', 'view' => $reservation['id'] ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php _e( 'Ver', 'travel-packages' ); ?></a>
                                             <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'tp-reservations', 'edit' => $reservation['id'] ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php _e( 'Editar', 'travel-packages' ); ?></a>
                                             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( '¿Eliminar esta reserva?', 'travel-packages' ) ); ?>');">
                                                 <input type="hidden" name="action" value="tp_delete_reservation">
@@ -854,6 +966,39 @@ class TP_Reservations {
                     <?php endif; ?>
                 </div>
 
+                <?php if ( $viewing ) : ?>
+                <?php
+                    $view_status = $viewing['status'];
+                    $view_status_label = $statuses[ $view_status ] ?? $view_status;
+                    $view_package_title = $viewing['package'] ? get_the_title( $viewing['package'] ) : '';
+                    $view_created = $view_post->post_date_gmt && $view_post->post_date_gmt !== '0000-00-00 00:00:00'
+                        ? get_date_from_gmt( $view_post->post_date_gmt, get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) )
+                        : get_the_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $view_post );
+                ?>
+                <section class="tp-package-form tp-res-form tp-res-detail">
+                    <div class="tp-res-detail-heading">
+                        <h2><?php _e( 'Detalle de la reserva', 'travel-packages' ); ?></h2>
+                        <span class="tp-res-status is-<?php echo esc_attr( $view_status ); ?>"><?php echo esc_html( $view_status_label ); ?></span>
+                    </div>
+                    <dl class="tp-res-detail-grid">
+                        <div><dt><?php _e( 'Cliente', 'travel-packages' ); ?></dt><dd><?php echo esc_html( $viewing['customer'] ?: __( 'Sin nombre', 'travel-packages' ) ); ?></dd></div>
+                        <div><dt><?php _e( 'Paquete', 'travel-packages' ); ?></dt><dd><?php echo esc_html( $view_package_title ?: __( 'Paquete eliminado', 'travel-packages' ) ); ?></dd></div>
+                        <div><dt><?php _e( 'Salida', 'travel-packages' ); ?></dt><dd><?php echo esc_html( trim( $viewing['from'] . ( $viewing['to'] ? ' → ' . $viewing['to'] : '' ) ) ?: '—' ); ?></dd></div>
+                        <div><dt><?php _e( 'Email', 'travel-packages' ); ?></dt><dd><?php echo $viewing['email'] ? esc_html( $viewing['email'] ) : '—'; ?></dd></div>
+                        <div><dt><?php _e( 'Teléfono', 'travel-packages' ); ?></dt><dd><?php echo $viewing['phone'] ? esc_html( $viewing['phone'] ) : '—'; ?></dd></div>
+                        <div><dt><?php _e( 'Adultos', 'travel-packages' ); ?></dt><dd><?php echo (int) $viewing['adults']; ?></dd></div>
+                        <div><dt><?php _e( 'Niños', 'travel-packages' ); ?></dt><dd><?php echo (int) $viewing['children']; ?></dd></div>
+                        <div><dt><?php _e( 'Total de pasajeros', 'travel-packages' ); ?></dt><dd><?php echo (int) $viewing['pax']; ?></dd></div>
+                        <div><dt><?php _e( 'Origen', 'travel-packages' ); ?></dt><dd><?php echo esc_html( ( $viewing['source'] ?? '' ) === 'web' ? __( 'Web', 'travel-packages' ) : __( 'Administrativa', 'travel-packages' ) ); ?></dd></div>
+                        <div><dt><?php _e( 'Creada', 'travel-packages' ); ?></dt><dd><?php echo esc_html( $view_created ); ?></dd></div>
+                        <div class="tp-res-detail-notes"><dt><?php _e( 'Notas', 'travel-packages' ); ?></dt><dd><?php echo $viewing['notes'] !== '' ? nl2br( esc_html( $viewing['notes'] ) ) : '—'; ?></dd></div>
+                    </dl>
+                    <div class="tp-panel-actions">
+                        <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'tp-reservations', 'edit' => $view_id ], admin_url( 'admin.php' ) ) ); ?>" class="tp-btn-primary"><?php _e( 'Editar reserva', 'travel-packages' ); ?></a>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations' ) ); ?>" class="tp-btn tp-btn-secondary"><?php _e( 'Volver al listado', 'travel-packages' ); ?></a>
+                    </div>
+                </section>
+                <?php else : ?>
                 <div class="tp-package-form tp-res-form">
                     <h2><?php echo $editing ? esc_html__( 'Editar reserva', 'travel-packages' ) : esc_html__( 'Nueva reserva', 'travel-packages' ); ?></h2>
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tp-res-form">
@@ -936,6 +1081,7 @@ class TP_Reservations {
                     </form>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
         <?php

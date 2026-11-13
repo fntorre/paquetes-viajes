@@ -11,7 +11,8 @@ class TP_Admin {
 
     public static function init() {
         add_action( 'admin_menu',            [ __CLASS__, 'register_menu' ] );
-        add_action( 'admin_menu',            [ __CLASS__, 'remove_duplicate_dashboard_submenu' ], 99 );
+        add_action( 'admin_menu',            [ __CLASS__, 'label_dashboard_submenu' ], 99 );
+        add_action( 'admin_menu',            [ __CLASS__, 'order_submenu' ], 999 );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
         add_filter( 'admin_body_class',      [ __CLASS__, 'admin_body_class' ] );
         add_action( 'in_admin_header',       [ __CLASS__, 'suppress_foreign_notices' ], 0 );
@@ -134,9 +135,58 @@ class TP_Admin {
             );
     }
 
-    /** El acceso al dashboard ya existe en el elemento raíz del menú. */
-    public static function remove_duplicate_dashboard_submenu() {
-        remove_submenu_page( 'tp-dashboard', 'tp-dashboard' );
+    /** Mantiene el panel como primer acceso para que el clic en Tureo abra el dashboard. */
+    public static function label_dashboard_submenu() {
+        global $submenu;
+
+        if ( empty( $submenu['tp-dashboard'] ) ) {
+            return;
+        }
+
+        foreach ( $submenu['tp-dashboard'] as &$item ) {
+            if ( isset( $item[2] ) && $item[2] === 'tp-dashboard' ) {
+                $item[0] = __( 'Panel de control', 'travel-packages' );
+                $item[3] = __( 'Panel de control', 'travel-packages' );
+                break;
+            }
+        }
+        unset( $item );
+    }
+
+    /** Prioriza las tareas frecuentes sin eliminar otros accesos del menú. */
+    public static function order_submenu() {
+        global $submenu;
+
+        if ( empty( $submenu['tp-dashboard'] ) ) {
+            return;
+        }
+
+        $priority = [
+            'tp-dashboard',
+            'tp-packages',
+            'tp-reservations',
+            'tp-calendar',
+            'tp-package-new',
+            'edit-tags.php?taxonomy=destino&post_type=paquete_viaje',
+            'edit-tags.php?taxonomy=tipologia&post_type=paquete_viaje',
+            'tp-custom-fields',
+            'tp-settings',
+            'tp-shortcodes',
+        ];
+        $items = $submenu['tp-dashboard'];
+        $ordered = [];
+
+        foreach ( $priority as $slug ) {
+            foreach ( $items as $index => $item ) {
+                if ( isset( $item[2] ) && $item[2] === $slug ) {
+                    $ordered[] = $item;
+                    unset( $items[ $index ] );
+                    break;
+                }
+            }
+        }
+
+        $submenu['tp-dashboard'] = array_values( array_merge( $ordered, $items ) );
     }
 
     public static function enqueue( $hook ) {
@@ -212,20 +262,32 @@ class TP_Admin {
     }
 
     public static function render_dashboard() {
-        // Stats
-        $total    = wp_count_posts('paquete_viaje');
-        $published = isset($total->publish) ? $total->publish : 0;
-
-        $slider_q = new WP_Query(['post_type'=>'paquete_viaje','post_status'=>'publish','posts_per_page'=>-1,'meta_query'=>[['key'=>'_tp_slider','value'=>'1']],'fields'=>'ids']);
-        $featured_q = new WP_Query(['post_type'=>'paquete_viaje','post_status'=>'publish','posts_per_page'=>-1,'meta_query'=>[['key'=>'_tp_featured','value'=>'1']],'fields'=>'ids']);
-
-        $slider_count   = $slider_q->found_posts;
-        $featured_count = $featured_q->found_posts;
-
-        // Recent packages
-        $recent = new WP_Query(['post_type'=>'paquete_viaje','post_status'=>'publish','posts_per_page'=>5,'orderby'=>'date','order'=>'DESC']);
+        $total          = wp_count_posts( 'paquete_viaje' );
+        $published      = isset( $total->publish ) ? (int) $total->publish : 0;
+        $slider_q       = new WP_Query( [ 'post_type' => 'paquete_viaje', 'post_status' => 'publish', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_query' => [ [ 'key' => '_tp_slider', 'value' => '1' ] ] ] );
+        $featured_q     = new WP_Query( [ 'post_type' => 'paquete_viaje', 'post_status' => 'publish', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_query' => [ [ 'key' => '_tp_featured', 'value' => '1' ] ] ] );
+        $slider_count   = (int) $slider_q->found_posts;
+        $featured_count = (int) $featured_q->found_posts;
+        $recent         = new WP_Query( [
+            'post_type'      => 'paquete_viaje',
+            'post_status'    => 'publish',
+            'posts_per_page' => 5,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+        ] );
+        $recent_reservations = class_exists( 'TP_Reservations' )
+            ? get_posts( [
+                'post_type'      => TP_Reservations::POST_TYPE,
+                'post_status'    => 'publish',
+                'posts_per_page' => 5,
+                'orderby'        => 'date',
+                'order'          => 'DESC',
+            ] )
+            : [];
+        $reservation_counts = class_exists( 'TP_Reservations' ) ? wp_count_posts( TP_Reservations::POST_TYPE ) : null;
+        $reservation_count  = $reservation_counts && isset( $reservation_counts->publish ) ? (int) $reservation_counts->publish : 0;
         ?>
-        <div class="wrap tp-admin-wrap">
+        <div class="wrap tp-admin-wrap tp-dashboard-wrap">
             <div class="tp-admin-header">
                 <div class="tp-header-left tp-tureo-header-left">
                     <?php self::render_brand(); ?>
@@ -263,7 +325,58 @@ class TP_Admin {
                         <span class="tp-stat-label"><?php _e('Destacados', 'travel-packages'); ?></span>
                     </div>
                 </div>
+                <?php if ( current_user_can( 'edit_posts' ) ) : ?>
+                <div class="tp-stat-card">
+                    <div class="tp-stat-icon"><span class="dashicons dashicons-tickets-alt"></span></div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo $reservation_count; ?></span>
+                        <span class="tp-stat-label"><?php _e('Reservas registradas', 'travel-packages'); ?></span>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
+
+            <section class="tp-dashboard-tools">
+                <div class="tp-dashboard-tools-heading">
+                    <h2><?php _e( 'Herramientas de Tureo', 'travel-packages' ); ?></h2>
+                    <p><?php _e( 'Accedé rápidamente a las secciones de gestión.', 'travel-packages' ); ?></p>
+                </div>
+                <div class="tp-dashboard-tools-grid">
+                    <?php if ( current_user_can( 'edit_posts' ) ) : ?>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-packages' ) ); ?>">
+                        <span class="dashicons dashicons-portfolio" aria-hidden="true"></span><span><strong><?php _e( 'Paquetes', 'travel-packages' ); ?></strong><small><?php _e( 'Administrar el catálogo', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-package-new' ) ); ?>">
+                        <span class="dashicons dashicons-plus-alt" aria-hidden="true"></span><span><strong><?php _e( 'Agregar paquete', 'travel-packages' ); ?></strong><small><?php _e( 'Crear una nueva propuesta', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-calendar' ) ); ?>">
+                        <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span><span><strong><?php _e( 'Calendario de salidas', 'travel-packages' ); ?></strong><small><?php _e( 'Ver fechas y disponibilidad', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations' ) ); ?>">
+                        <span class="dashicons dashicons-tickets-alt" aria-hidden="true"></span><span><strong><?php _e( 'Reservas', 'travel-packages' ); ?></strong><small><?php _e( 'Consultar y administrar reservas', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-shortcodes' ) ); ?>">
+                        <span class="dashicons dashicons-shortcode" aria-hidden="true"></span><span><strong><?php _e( 'Guía de shortcodes', 'travel-packages' ); ?></strong><small><?php _e( 'Insertar módulos en el sitio', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <?php endif; ?>
+                    <?php if ( current_user_can( 'manage_categories' ) ) : ?>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=destino&post_type=paquete_viaje' ) ); ?>">
+                        <span class="dashicons dashicons-location" aria-hidden="true"></span><span><strong><?php _e( 'Destinos', 'travel-packages' ); ?></strong><small><?php _e( 'Administrar destinos', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=tipologia&post_type=paquete_viaje' ) ); ?>">
+                        <span class="dashicons dashicons-tag" aria-hidden="true"></span><span><strong><?php _e( 'Tipologías', 'travel-packages' ); ?></strong><small><?php _e( 'Organizar paquetes', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <?php endif; ?>
+                    <?php if ( current_user_can( 'manage_options' ) ) : ?>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-custom-fields' ) ); ?>">
+                        <span class="dashicons dashicons-editor-table" aria-hidden="true"></span><span><strong><?php _e( 'Campos personalizados', 'travel-packages' ); ?></strong><small><?php _e( 'Configurar datos adicionales', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <a class="tp-dashboard-tool" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-settings' ) ); ?>">
+                        <span class="dashicons dashicons-admin-generic" aria-hidden="true"></span><span><strong><?php _e( 'Ajustes', 'travel-packages' ); ?></strong><small><?php _e( 'Configurar el plugin', 'travel-packages' ); ?></small></span>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </section>
 
             <div class="tp-dashboard-grid">
                 <!-- Recent Packages -->
@@ -350,6 +463,39 @@ class TP_Admin {
                             <p><?php _e('Buscador de paquetes para cualquier parte del template.', 'travel-packages'); ?></p>
                         </div>
                     </div>
+
+                    <?php if ( current_user_can( 'edit_posts' ) ) : ?>
+                    <div class="tp-dashboard-card tp-dashboard-reservations">
+                        <div class="tp-card-header">
+                            <h2><?php _e( 'Últimas reservas', 'travel-packages' ); ?></h2>
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations' ) ); ?>"><?php _e( 'Ver todas →', 'travel-packages' ); ?></a>
+                        </div>
+                        <div class="tp-dashboard-reservations-list">
+                            <?php if ( $recent_reservations ) : ?>
+                                <?php foreach ( $recent_reservations as $recent_reservation_post ) :
+                                    $reservation = TP_Reservations::get_reservation( $recent_reservation_post->ID );
+                                    if ( ! $reservation ) {
+                                        continue;
+                                    }
+                                    $reservation_statuses = TP_Reservations::get_statuses();
+                                    $reservation_status = $reservation_statuses[ $reservation['status'] ] ?? $reservation['status'];
+                                    $package_title = $reservation['package'] ? get_the_title( $reservation['package'] ) : __( 'Paquete eliminado', 'travel-packages' );
+                                ?>
+                                <a class="tp-dashboard-reservation" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations&view=' . (int) $reservation['id'] ) ); ?>">
+                                    <span class="tp-dashboard-reservation-main">
+                                        <strong><?php echo esc_html( $reservation['customer'] ?: __( 'Sin nombre', 'travel-packages' ) ); ?></strong>
+                                        <small><?php echo esc_html( $package_title ); ?></small>
+                                    </span>
+                                    <span class="tp-res-status is-<?php echo esc_attr( $reservation['status'] ); ?>"><?php echo esc_html( $reservation_status ); ?></span>
+                                    <span class="tp-dashboard-reservation-date"><?php echo esc_html( get_the_date( get_option( 'date_format' ), $recent_reservation_post ) ); ?></span>
+                                </a>
+                                <?php endforeach; ?>
+                            <?php else : ?>
+                            <p class="tp-dashboard-empty"><?php _e( 'Todavía no hay reservas registradas.', 'travel-packages' ); ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
