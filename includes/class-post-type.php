@@ -95,7 +95,7 @@ class TP_PostType {
             case 'tp_price':
                 $best = TP_Package_Data::get_best_price( $post_id );
                 if ( $best ) {
-                    echo '<strong style="color:#0073aa;">' . esc_html( $best['currency'] . ' ' . number_format( (float) $best['price'], 2, ',', '.' ) ) . '</strong>';
+                    echo '<strong style="color:#0073aa;white-space:nowrap;">' . esc_html( $best['currency'] ) . '&nbsp;' . esc_html( number_format( (float) $best['price'], 2, ',', '.' ) ) . '</strong>';
                 } else {
                     echo '—';
                 }

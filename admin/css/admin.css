@@ -107,6 +107,7 @@
 .tp-recent-table td { padding: 12px 16px; border-bottom: 1px solid #f8fafc; vertical-align: middle; font-size: 13px; }
 .tp-recent-table tr:last-child td { border-bottom: none; }
 .tp-recent-table tr:hover td { background: #f8fafc; }
+.tp-recent-price { white-space: nowrap; }
 .tp-table-title { display: flex; align-items: center; gap: 10px; }
 .tp-table-title strong { font-weight: 600; color: #0f172a; }
 .tp-table-thumb { width: 40px; height: 30px; object-fit: cover; border-radius: 6px; }
@@ -193,6 +194,7 @@
 .tp-package-card-body { flex: 1; display: grid; gap: 3px; }
 .tp-package-card-body strong { display: block; font-size: 15px; color: #0f172a; font-weight: 600; }
 .tp-package-card-meta { display: block; font-size: 12px; color: #64748b; }
+.tp-package-card-price { white-space: nowrap; }
 .tp-package-card-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; font-size: 11px; color: #0f4c81; font-weight: 500; }
 .tp-package-card-tags::before { content: 'Destino: '; font-weight: 600; color: #475569; }
 .tp-tags-tipologia { color: #92400e; }
@@ -3289,9 +3291,6 @@ body.tp-admin-tureo .tp-dashboard-tool small {
     color: #748078;
     font-size: 10px;
     line-height: 1.3;
-}
-body.tp-admin-tureo .tp-dashboard-reservations {
-    margin-top: 20px;
 }
 body.tp-admin-tureo .tp-dashboard-reservation {
     display: flex;

@@ -342,7 +342,7 @@ body[class*="tp-font-"] .tp-catalogo-count #tp-catalogo-total {
 
 .tp-slide-price { margin-bottom: 12px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .tp-from { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; opacity: .85; }
-.tp-amount { font-size: 28px; font-weight: 800; }
+.tp-amount { font-size: 28px; font-weight: 800; white-space: nowrap; }
 .tp-note { font-size: 12px; opacity: .75; }
 
 .tp-slide-title { font-size: 38px; font-weight: 800; margin: 0 0 12px; line-height: 1.15; text-shadow: 0 2px 8px rgba(var(--tp-primary-rgb),.35); color: var(--tp-bg); }
@@ -470,7 +470,7 @@ body[class*="tp-font-"] .tp-catalogo-count #tp-catalogo-total {
 
 .tp-card-price { margin-bottom: 14px; }
 .tp-from-small  { font-size: 11px; color: var(--tp-muted); text-transform: uppercase; letter-spacing: .05em; display: block; }
-.tp-price-amount { font-size: 20px; font-weight: 800; color: var(--tp-dark); }
+.tp-price-amount { font-size: 20px; font-weight: 800; color: var(--tp-dark); white-space: nowrap; }
 .tp-price-amount strong { color: var(--tp-aqua-dark); }
 .tp-price-note  { display: block; font-size: 11px; color: var(--tp-muted); margin-top: 2px; }
 
@@ -1129,6 +1129,7 @@ body[class*="tp-font-"] .tp-catalogo-count #tp-catalogo-total {
     align-items: baseline;
     gap: 6px;
     margin-bottom: 4px;
+    white-space: nowrap;
 }
 .tp-price-currency {
     font-size: 13px;
@@ -1317,6 +1318,10 @@ body.tp-lightbox-open { overflow: hidden; }
     font-size: 14px;
     font-weight: 800;
     color: var(--tp-dark);
+    white-space: nowrap;
+}
+.tp-deposit-amount {
+    white-space: nowrap;
 }
 .tp-date-card--soldout,
 .tp-date-card--closed {

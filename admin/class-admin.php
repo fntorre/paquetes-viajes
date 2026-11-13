@@ -410,7 +410,7 @@ class TP_Admin {
                                         <strong><?php the_title(); ?></strong>
                                     </div>
                                 </td>
-                                <td><?php echo $best_p ? esc_html(TP_Package_Data::currency_symbol($best_p['currency']).' '.number_format((float)$best_p['price'],0,',','.')) : '—'; ?></td>
+                                <td class="tp-recent-price"><?php if ( $best_p ) : ?><span><?php echo esc_html( TP_Package_Data::currency_symbol( $best_p['currency'] ) ); ?>&nbsp;<?php echo esc_html( number_format( (float) $best_p['price'], 0, ',', '.' ) ); ?></span><?php else : ?>—<?php endif; ?></td>
                                 <td>
                                     <button class="tp-quick-toggle <?php echo $slider=='1' ? 'active' : ''; ?>" data-post="<?php the_ID(); ?>" data-action="tp_toggle_slider" title="<?php esc_attr_e('Toggle slider','travel-packages'); ?>">
                                         <?php echo $slider=='1' ? '✓' : '○'; ?>
@@ -463,40 +463,40 @@ class TP_Admin {
                             <p><?php _e('Buscador de paquetes para cualquier parte del template.', 'travel-packages'); ?></p>
                         </div>
                     </div>
-
-                    <?php if ( current_user_can( 'edit_posts' ) ) : ?>
-                    <div class="tp-dashboard-card tp-dashboard-reservations">
-                        <div class="tp-card-header">
-                            <h2><?php _e( 'Últimas reservas', 'travel-packages' ); ?></h2>
-                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations' ) ); ?>"><?php _e( 'Ver todas →', 'travel-packages' ); ?></a>
-                        </div>
-                        <div class="tp-dashboard-reservations-list">
-                            <?php if ( $recent_reservations ) : ?>
-                                <?php foreach ( $recent_reservations as $recent_reservation_post ) :
-                                    $reservation = TP_Reservations::get_reservation( $recent_reservation_post->ID );
-                                    if ( ! $reservation ) {
-                                        continue;
-                                    }
-                                    $reservation_statuses = TP_Reservations::get_statuses();
-                                    $reservation_status = $reservation_statuses[ $reservation['status'] ] ?? $reservation['status'];
-                                    $package_title = $reservation['package'] ? get_the_title( $reservation['package'] ) : __( 'Paquete eliminado', 'travel-packages' );
-                                ?>
-                                <a class="tp-dashboard-reservation" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations&view=' . (int) $reservation['id'] ) ); ?>">
-                                    <span class="tp-dashboard-reservation-main">
-                                        <strong><?php echo esc_html( $reservation['customer'] ?: __( 'Sin nombre', 'travel-packages' ) ); ?></strong>
-                                        <small><?php echo esc_html( $package_title ); ?></small>
-                                    </span>
-                                    <span class="tp-res-status is-<?php echo esc_attr( $reservation['status'] ); ?>"><?php echo esc_html( $reservation_status ); ?></span>
-                                    <span class="tp-dashboard-reservation-date"><?php echo esc_html( get_the_date( get_option( 'date_format' ), $recent_reservation_post ) ); ?></span>
-                                </a>
-                                <?php endforeach; ?>
-                            <?php else : ?>
-                            <p class="tp-dashboard-empty"><?php _e( 'Todavía no hay reservas registradas.', 'travel-packages' ); ?></p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
+
+                <?php if ( current_user_can( 'edit_posts' ) ) : ?>
+                <div class="tp-dashboard-card tp-dashboard-reservations">
+                    <div class="tp-card-header">
+                        <h2><?php _e( 'Últimas reservas', 'travel-packages' ); ?></h2>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations' ) ); ?>"><?php _e( 'Ver todas →', 'travel-packages' ); ?></a>
+                    </div>
+                    <div class="tp-dashboard-reservations-list">
+                        <?php if ( $recent_reservations ) : ?>
+                            <?php foreach ( $recent_reservations as $recent_reservation_post ) :
+                                $reservation = TP_Reservations::get_reservation( $recent_reservation_post->ID );
+                                if ( ! $reservation ) {
+                                    continue;
+                                }
+                                $reservation_statuses = TP_Reservations::get_statuses();
+                                $reservation_status = $reservation_statuses[ $reservation['status'] ] ?? $reservation['status'];
+                                $package_title = $reservation['package'] ? get_the_title( $reservation['package'] ) : __( 'Paquete eliminado', 'travel-packages' );
+                            ?>
+                            <a class="tp-dashboard-reservation" href="<?php echo esc_url( admin_url( 'admin.php?page=tp-reservations&view=' . (int) $reservation['id'] ) ); ?>">
+                                <span class="tp-dashboard-reservation-main">
+                                    <strong><?php echo esc_html( $reservation['customer'] ?: __( 'Sin nombre', 'travel-packages' ) ); ?></strong>
+                                    <small><?php echo esc_html( $package_title ); ?></small>
+                                </span>
+                                <span class="tp-res-status is-<?php echo esc_attr( $reservation['status'] ); ?>"><?php echo esc_html( $reservation_status ); ?></span>
+                                <span class="tp-dashboard-reservation-date"><?php echo esc_html( get_the_date( get_option( 'date_format' ), $recent_reservation_post ) ); ?></span>
+                            </a>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                        <p class="tp-dashboard-empty"><?php _e( 'Todavía no hay reservas registradas.', 'travel-packages' ); ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         <?php
@@ -609,7 +609,7 @@ class TP_Admin {
             </div>
             <div class="tp-package-card-body">
                 <a class="tp-card-edit-link" href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $package->post_title ); ?></a>
-                <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php echo $best_price ? esc_html( TP_Package_Data::currency_symbol( $best_price['currency'] ) . ' ' . number_format( (float) $best_price['price'], 0, ',', '.' ) ) : '—'; ?></span>
+                <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php if ( $best_price ) : ?><span class="tp-package-card-price"><?php echo esc_html( TP_Package_Data::currency_symbol( $best_price['currency'] ) ); ?>&nbsp;<?php echo esc_html( number_format( (float) $best_price['price'], 0, ',', '.' ) ); ?></span><?php else : ?>—<?php endif; ?></span>
                 <span class="tp-package-card-tags"><?php echo esc_html( implode( ', ', $destinos ) ); ?></span>
                 <span class="tp-package-card-tags tp-tags-tipologia"><?php echo esc_html( implode( ', ', $tipologias ) ); ?></span>
                 <?php if ( $tipo_viaje ) : ?>

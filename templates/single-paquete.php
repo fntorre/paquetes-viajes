@@ -157,7 +157,7 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                                     <?php endif; ?>
                                     <?php if ( $price !== '' && (float) $price > 0 ) : ?>
                                     <span class="tp-date-price">
-                                        <?php echo esc_html( TP_Package_Data::currency_symbol( $currency ) . ' ' . number_format( (float) $price, 0, ',', '.' ) ); ?>
+                                        <?php echo esc_html( TP_Package_Data::currency_symbol( $currency ) ); ?>&nbsp;<?php echo esc_html( number_format( (float) $price, 0, ',', '.' ) ); ?>
                                     </span>
                                     <?php endif; ?>
                                 </div>
@@ -364,7 +364,7 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                         if ( $tp_pricing['deposit_type'] === 'percent' ) {
                             echo esc_html( number_format( (float) $tp_pricing['deposit_value'], 0, ',', '.' ) . '%' );
                         } else {
-                            echo esc_html( TP_Package_Data::currency_symbol( $tp_pricing['currency'] ) . ' ' . number_format( (float) $tp_pricing['deposit_value'], 0, ',', '.' ) );
+                            echo '<span class="tp-deposit-amount">' . esc_html( TP_Package_Data::currency_symbol( $tp_pricing['currency'] ) ) . '&nbsp;' . esc_html( number_format( (float) $tp_pricing['deposit_value'], 0, ',', '.' ) ) . '</span>';
                         }
                         ?>
                         <?php if ( $tp_pricing['deposit_note'] ) : ?>
