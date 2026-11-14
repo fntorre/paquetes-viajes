@@ -38,10 +38,32 @@ foreach ( $tp_departures as $tp_dep ) {
 }
 $tp_inquiry_status = isset( $_GET['tp_inquiry'] ) ? sanitize_key( wp_unslash( $_GET['tp_inquiry'] ) ) : '';
 $tp_inquiry_code   = isset( $_GET['tp_inquiry_msg'] ) ? sanitize_key( wp_unslash( $_GET['tp_inquiry_msg'] ) ) : '';
+$tp_payment_available = class_exists( 'TP_Payments' ) && TP_Payments::is_checkout_available();
+$tp_payment_departure_available = false;
+$tp_payment_form_available = false;
+if ( $tp_payment_available ) {
+    foreach ( $tp_inquiry_departures as $tp_payment_departure ) {
+        if ( (float) $tp_payment_departure['price_adult'] > 0 && TP_Payments::is_currency_supported( $tp_payment_departure['currency'] ) ) {
+            $tp_payment_departure_available = true;
+            break;
+        }
+    }
+}
+$tp_payment_form_available = $tp_payment_available && $tp_payment_departure_available;
 $tp_inquiry_notice = '';
 if ( $tp_inquiry_status && class_exists( 'TP_Reservations' ) ) {
     $tp_inquiry_notice = TP_Reservations::get_inquiry_notice( $tp_inquiry_status === 'success' ? 'success' : $tp_inquiry_code );
 }
+$tp_payment_return_notice = '';
+if ( class_exists( 'TP_Payments' ) && isset( $_GET['tp_payment_reservation'], $_GET['tp_payment_token'] ) ) {
+    $tp_payment_return_notice = TP_Payments::return_notice(
+        absint( wp_unslash( $_GET['tp_payment_reservation'] ) ),
+        sanitize_text_field( wp_unslash( $_GET['tp_payment_token'] ) )
+    );
+}
+$tp_payment_error_notice = isset( $_GET['tp_payment_error'] ) && class_exists( 'TP_Payments' )
+    ? TP_Payments::error_notice( sanitize_key( wp_unslash( $_GET['tp_payment_error'] ) ) )
+    : '';
 
 $tp_similar_packages = TP_Package_Data::get_similar_packages( $post->ID, 8 );
 $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
@@ -403,10 +425,10 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
 
         </div>
 
-        <?php if ( $tp_inquiry_enabled || ! empty( $tp_similar_packages ) ) : ?>
+        <?php if ( $tp_inquiry_enabled || $tp_payment_form_available || ! empty( $tp_similar_packages ) ) : ?>
         <div class="tp-single-bottom<?php echo $tp_bottom_has_both ? ' has-similar' : ''; ?>">
 
-            <?php if ( $tp_inquiry_enabled ) : ?>
+            <?php if ( $tp_inquiry_enabled || $tp_payment_form_available ) : ?>
             <div class="tp-sidebar-card tp-inquiry-card tp-inquiry-full" id="tp-inquiry">
                 <h3 class="tp-sidebar-heading">
                     <span class="dashicons dashicons-email-alt"></span>
@@ -418,9 +440,13 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                     <?php echo esc_html( $tp_inquiry_notice ); ?>
                 </div>
                 <?php endif; ?>
+                <?php if ( $tp_payment_return_notice ) : ?>
+                    <?php echo wp_kses_post( $tp_payment_return_notice ); ?>
+                <?php elseif ( $tp_payment_error_notice ) : ?>
+                <div class="tp-inquiry-notice is-error"><?php echo esc_html( $tp_payment_error_notice ); ?></div>
+                <?php endif; ?>
 
                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="tp-inquiry-form">
-                    <input type="hidden" name="action" value="tp_public_inquiry">
                     <input type="hidden" name="tp_inquiry_package" value="<?php echo (int) $post->ID; ?>">
                     <?php wp_nonce_field( 'tp_public_inquiry', 'tp_inquiry_nonce' ); ?>
                     <div class="tp-inquiry-hp" aria-hidden="true">
@@ -473,7 +499,13 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                         <input type="checkbox" name="tp_inquiry_consent" value="1" required>
                         <span><?php _e( 'Acepto ser contactado por esta consulta.', 'travel-packages' ); ?></span>
                     </label>
-                    <button type="submit" class="tp-inquiry-submit"><?php _e( 'Enviar consulta', 'travel-packages' ); ?></button>
+                    <?php if ( $tp_inquiry_enabled ) : ?>
+                    <button type="submit" name="action" value="tp_public_inquiry" class="tp-inquiry-submit"><?php _e( 'Enviar consulta', 'travel-packages' ); ?></button>
+                    <?php endif; ?>
+                    <?php if ( $tp_payment_form_available ) : ?>
+                    <button type="submit" name="action" value="tp_start_payment" class="tp-inquiry-submit tp-inquiry-pay"><?php _e( 'Reservar y pagar total', 'travel-packages' ); ?></button>
+                    <small class="tp-payment-disclaimer"><?php _e( 'El pago se procesa de forma segura en Mercado Pago. Al iniciar, retenemos los cupos durante 15 minutos.', 'travel-packages' ); ?></small>
+                    <?php endif; ?>
                 </form>
             </div>
             <?php endif; ?>

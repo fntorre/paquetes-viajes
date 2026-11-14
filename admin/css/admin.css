@@ -4365,3 +4365,176 @@ body.tp-admin-tureo #tp-promo-canvas {
     background: #0f172a;
     box-shadow: 0 18px 40px rgba(15, 23, 42, .18);
 }
+
+/* ---- Payment settings ---- */
+body.tp-admin-tureo .tp-settings-payment {
+    display: grid;
+    gap: 16px;
+    margin: 28px 0;
+    padding: 24px;
+    border: 1px solid #e1e7de;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #fff, #fbfcf9);
+}
+body.tp-admin-tureo .tp-settings-payment > h2 {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--tureo-ink);
+    font-size: 18px;
+}
+body.tp-admin-tureo .tp-settings-payment > .tp-help,
+body.tp-admin-tureo .tp-settings-payment > .tp-payment-security {
+    margin: 0;
+    line-height: 1.55;
+}
+body.tp-admin-tureo .tp-settings-payment > .tp-toggle-row {
+    margin: 0;
+}
+body.tp-admin-tureo .tp-settings-payment > .tp-field-grid {
+    gap: 18px 20px;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-settings-payment .tp-field-group {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-settings-payment .tp-field-group > .tp-label {
+    margin: 0 0 7px;
+}
+body.tp-admin-tureo .tp-settings-payment input[type="password"],
+body.tp-admin-tureo .tp-settings-payment input[type="number"] {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 13px;
+    box-sizing: border-box;
+    border: 1px solid #dfe6da;
+    border-radius: 10px;
+    background: #f7f9f5;
+    color: var(--tureo-ink);
+    font: inherit;
+}
+body.tp-admin-tureo .tp-settings-payment input[type="password"]:hover,
+body.tp-admin-tureo .tp-settings-payment input[type="number"]:hover {
+    border-color: #cbd6c4;
+    background: #fff;
+}
+body.tp-admin-tureo .tp-settings-payment input[type="password"]:focus,
+body.tp-admin-tureo .tp-settings-payment input[type="number"]:focus {
+    border-color: #87ae45;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(135,174,69,.18);
+    outline: none;
+}
+body.tp-admin-tureo .tp-settings-payment .tp-field-group > small {
+    margin-top: 7px;
+    line-height: 1.5;
+}
+body.tp-admin-tureo .tp-settings-payment .tp-payment-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 9px;
+    color: var(--tureo-muted);
+    font-size: 12px;
+}
+body.tp-admin-tureo .tp-settings-payment .tp-payment-clear input {
+    margin: 0;
+}
+body.tp-admin-tureo .tp-payment-rates {
+    display: grid;
+    gap: 12px;
+    margin-top: 2px;
+    padding: 18px;
+    border: 1px solid #e6ebe2;
+    border-radius: 12px;
+    background: #f8faf6;
+}
+body.tp-admin-tureo .tp-payment-rates h3 {
+    margin: 0;
+    color: var(--tureo-ink);
+    font-size: 14px;
+}
+body.tp-admin-tureo .tp-payment-rates > .tp-help,
+body.tp-admin-tureo .tp-payment-rates > .tp-payment-hint {
+    margin: 0;
+    line-height: 1.5;
+}
+body.tp-admin-tureo .tp-payment-rate-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+body.tp-admin-tureo .tp-payment-rate-grid .tp-field-group {
+    gap: 5px;
+}
+body.tp-admin-tureo .tp-payment-rate-grid .tp-field-group > .tp-label {
+    margin: 0;
+}
+body.tp-admin-tureo .tp-payment-currency {
+    min-height: 18px;
+    color: var(--tureo-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+body.tp-admin-tureo .tp-payment-hint {
+    color: var(--tureo-muted);
+    font-size: 12px;
+}
+body.tp-admin-tureo .tp-payment-webhook {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid #e6ebe2;
+    border-radius: 12px;
+    background: #fff;
+}
+body.tp-admin-tureo .tp-payment-webhook strong {
+    color: var(--tureo-ink);
+    font-size: 13px;
+}
+body.tp-admin-tureo .tp-payment-webhook p {
+    margin: 3px 0 0;
+    color: var(--tureo-muted);
+    font-size: 12px;
+}
+body.tp-admin-tureo .tp-payment-webhook code {
+    display: block;
+    overflow-wrap: anywhere;
+    padding: 9px 11px;
+    border: 1px solid #e6ebe2;
+    border-radius: 8px;
+    background: #f7f9f5;
+    color: #435747;
+    font-size: 12px;
+    line-height: 1.5;
+}
+@media (max-width: 900px) {
+    body.tp-admin-tureo .tp-payment-rate-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 600px) {
+    body.tp-admin-tureo .tp-settings-payment {
+        gap: 14px;
+        margin: 22px 0;
+        padding: 16px;
+    }
+    body.tp-admin-tureo .tp-settings-payment .tp-payment-credentials,
+    body.tp-admin-tureo .tp-payment-rate-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    body.tp-admin-tureo .tp-payment-rates {
+        padding: 14px;
+    }
+    body.tp-admin-tureo .tp-payment-currency {
+        min-height: 0;
+    }
+}

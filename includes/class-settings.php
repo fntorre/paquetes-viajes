@@ -336,8 +336,14 @@ class TP_Settings {
         update_option( self::OPTION_SEARCH_BUTTON, $search_button );
         update_option( self::OPTION_SEARCH_DESTINO, $search_destino );
         update_option( self::OPTION_SEARCH_TIPO, $search_tipo );
+        if ( class_exists( 'TP_Payments' ) ) {
+            TP_Payments::save_settings( $_POST );
+        }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=tp-settings&status=saved' ) );
+        $status = class_exists( 'TP_Payments' ) && TP_Payments::is_enabled() && ! TP_Payments::is_checkout_available()
+            ? 'payments_incomplete'
+            : 'saved';
+        wp_safe_redirect( admin_url( 'admin.php?page=tp-settings&status=' . $status ) );
         exit;
     }
 
@@ -370,6 +376,8 @@ class TP_Settings {
 
             <?php if ( $notice === 'saved' ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php _e( 'Ajustes guardados.', 'travel-packages' ); ?></p></div>
+            <?php elseif ( $notice === 'payments_incomplete' ) : ?>
+            <div class="notice notice-warning is-dismissible"><p><?php _e( 'Ajustes guardados, pero los pagos siguen sin estar disponibles. Activá Reservas y completá las credenciales de Mercado Pago antes de ofrecer el cobro.', 'travel-packages' ); ?></p></div>
             <?php endif; ?>
 
             <div class="tp-package-form">
@@ -395,6 +403,10 @@ class TP_Settings {
                         <input type="checkbox" name="tp_inquiry_enabled" value="1" <?php checked( $inquiry ); ?>>
                     </label>
                     <p class="tp-help"><?php _e( 'Las consultas se guardan como reservas pendientes en el módulo de Reservas. Si el módulo está desactivado, no descuentan cupos.', 'travel-packages' ); ?></p>
+
+                    <?php if ( class_exists( 'TP_Payments' ) ) : ?>
+                    <?php TP_Payments::settings_markup(); ?>
+                    <?php endif; ?>
 
                     <div class="tp-palette-section">
                         <span class="tp-label"><?php _e( 'Paleta cromática del frontend', 'travel-packages' ); ?></span>

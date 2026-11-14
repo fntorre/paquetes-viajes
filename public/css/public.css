@@ -1491,6 +1491,17 @@ body.tp-lightbox-open { overflow: hidden; }
 .tp-inquiry-full .tp-inquiry-submit,
 .tp-inquiry-full .tp-inquiry-field--full { grid-column: 1 / -1; }
 .tp-inquiry-full .tp-inquiry-submit { max-width: 320px; }
+.tp-inquiry-full .tp-inquiry-pay {
+    background: var(--tp-aqua);
+    color: var(--tp-indigo) !important;
+}
+.tp-inquiry-full .tp-payment-disclaimer {
+    grid-column: 1 / -1;
+    max-width: 640px;
+    color: var(--tp-on-dark-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
 .tp-inquiry-field { display: flex; flex-direction: column; gap: 6px; }
 .tp-inquiry-field span { font-size: 12px; font-weight: 700; color: var(--tp-text); }
 .tp-inquiry-field input,

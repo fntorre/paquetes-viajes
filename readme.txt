@@ -30,6 +30,7 @@ Tureo es un plugin WordPress completo para agencias de turismo.
 * Botón y consulta directa por WhatsApp (número general o por paquete)
 * Formulario público de consulta/reserva con aviso por email
 * Módulo opcional de reservas con control de cupos
+* Cobros opcionales con Mercado Pago Checkout Pro y retención temporal de cupos
 * 8 paletas cromáticas con nombres temáticos y presets tipográficos configurables
 * Etiquetas Open Graph, Twitter Card y JSON-LD para SEO
 
@@ -69,6 +70,16 @@ El carrusel es de scroll infinito: envuelve al llegar al final sin saltos visibl
 `[tp_paquete id="123"]`
 
 Ver SHORTCODES.md para documentación completa.
+
+== Pagos online opcionales ==
+
+El módulo permite cobrar el total de una reserva mediante Mercado Pago Checkout Pro. Requiere tener activo el módulo de Reservas y configurar en **Tureo → Ajustes → Pagos online**:
+
+1. Activar los pagos e ingresar el Access Token y la clave secreta de Webhooks de Mercado Pago.
+2. Configurar las tasas manuales de conversión a ARS para las monedas que use la agencia. Los importes en ARS se cobran 1:1; no se consulta ni actualiza una cotización automáticamente.
+3. Registrar en Mercado Pago la URL de notificaciones que se muestra en Ajustes.
+
+Al iniciar el checkout, los cupos quedan retenidos durante 15 minutos. La reserva se confirma únicamente al verificar el pago aprobado desde la API de Mercado Pago. Un pago aprobado después del vencimiento requiere revisión manual y no libera cupos automáticamente. No se realizan reembolsos automáticos.
 
 == Changelog ==
 

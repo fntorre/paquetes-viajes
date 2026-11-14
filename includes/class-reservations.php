@@ -100,6 +100,9 @@ class TP_Reservations {
 
         $map = [];
         foreach ( $ids as $id ) {
+            if ( class_exists( 'TP_Payments' ) && TP_Payments::expire_if_due( $id ) ) {
+                continue;
+            }
             $uid = (string) get_post_meta( $id, self::META_UID, true );
             if ( $uid === '' ) {
                 continue;
@@ -147,6 +150,12 @@ class TP_Reservations {
             'status'   => (string) get_post_meta( $post->ID, self::META_STATUS, true ),
             'notes'    => (string) get_post_meta( $post->ID, self::META_NOTES, true ),
             'source'   => (string) get_post_meta( $post->ID, self::META_SOURCE, true ),
+            'payment_status' => class_exists( 'TP_Payments' ) ? (string) get_post_meta( $post->ID, TP_Payments::META_STATUS, true ) : '',
+            'payment_amount_ars' => class_exists( 'TP_Payments' ) ? (string) get_post_meta( $post->ID, TP_Payments::META_AMOUNT, true ) : '',
+            'payment_original_amount' => class_exists( 'TP_Payments' ) ? (string) get_post_meta( $post->ID, TP_Payments::META_ORIGINAL, true ) : '',
+            'payment_currency' => class_exists( 'TP_Payments' ) ? (string) get_post_meta( $post->ID, TP_Payments::META_CURRENCY, true ) : '',
+            'payment_review' => class_exists( 'TP_Payments' ) && get_post_meta( $post->ID, TP_Payments::META_REVIEW, true ) === '1',
+            'payment_id' => class_exists( 'TP_Payments' ) ? (string) get_post_meta( $post->ID, TP_Payments::META_PAYMENT_ID, true ) : '',
         ];
     }
 
@@ -193,6 +202,23 @@ class TP_Reservations {
             $uid = TP_Package_Data::departure_uid( $from, $to );
         }
 
+        if ( $id && class_exists( 'TP_Payments' ) ) {
+            $existing_reservation = self::get_reservation( $id );
+            $payment_status = (string) get_post_meta( $id, TP_Payments::META_STATUS, true );
+            if ( $existing_reservation && in_array( $payment_status, [ 'pending', 'approved', 'expired' ], true ) ) {
+                if (
+                    $package_id !== $existing_reservation['package']
+                    || $uid !== $existing_reservation['uid']
+                    || $from !== $existing_reservation['from']
+                    || $to !== $existing_reservation['to']
+                    || $adults !== $existing_reservation['adults']
+                    || $children !== $existing_reservation['children']
+                ) {
+                    return new WP_Error( 'tp_reservation_payment_locked', __( 'No se pueden cambiar el paquete, la salida ni los pasajeros mientras el pago esté pendiente o aprobado.', 'travel-packages' ) );
+                }
+            }
+        }
+
         $postarr = [
             'post_type'   => self::POST_TYPE,
             'post_title'  => $customer !== '' ? $customer : __( 'Reserva', 'travel-packages' ),
@@ -223,6 +249,14 @@ class TP_Reservations {
         update_post_meta( $post_id, self::META_PAX, $pax );
         update_post_meta( $post_id, self::META_STATUS, $status );
         update_post_meta( $post_id, self::META_NOTES, isset( $data['notes'] ) ? sanitize_textarea_field( wp_unslash( $data['notes'] ) ) : '' );
+        if ( class_exists( 'TP_Payments' ) ) {
+            $payment_status = (string) get_post_meta( $post_id, TP_Payments::META_STATUS, true );
+            if ( ( $payment_status === 'approved' && $status !== 'confirmed' ) || ( in_array( $payment_status, [ 'pending', 'expired' ], true ) && $status === 'confirmed' ) ) {
+                update_post_meta( $post_id, TP_Payments::META_REVIEW, '1' );
+            } elseif ( $payment_status === 'pending' && $status === 'cancelled' ) {
+                update_post_meta( $post_id, TP_Payments::META_STATUS, 'expired' );
+            }
+        }
 
         $source = isset( $data['source'] ) ? sanitize_key( $data['source'] ) : '';
         if ( $source !== '' ) {
@@ -236,11 +270,90 @@ class TP_Reservations {
         return (int) $post_id;
     }
 
+    public static function save_with_capacity_lock( $data, $id = 0 ) {
+        $package_id = isset( $data['package'] ) ? (int) $data['package'] : 0;
+        $uid = isset( $data['uid'] ) ? sanitize_key( $data['uid'] ) : '';
+        if ( ! $package_id || $uid === '' ) {
+            return self::save( $data, $id );
+        }
+
+        global $wpdb;
+        $lock_name = 'tpmp_' . md5( $package_id . '|' . $uid );
+        $locked = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 8)', $lock_name ) );
+        if ( (string) $locked !== '1' ) {
+            return new WP_Error( 'tp_reservation_busy', __( 'La salida se está actualizando. Intentá nuevamente en unos segundos.', 'travel-packages' ) );
+        }
+
+        $reservation_lock = '';
+        try {
+            self::clear_cache( $package_id );
+            $departure = null;
+            foreach ( TP_Package_Data::get_departures( $package_id, false, true ) as $candidate ) {
+                if ( $candidate['uid'] === $uid ) {
+                    $departure = $candidate;
+                    break;
+                }
+            }
+            if ( ! $departure ) {
+                return new WP_Error( 'tp_reservation_departure', __( 'La salida seleccionada ya no está disponible.', 'travel-packages' ) );
+            }
+
+            $existing = $id ? self::get_reservation( $id ) : null;
+            $current_pax = $existing
+                && $existing['package'] === $package_id
+                && $existing['uid'] === $uid
+                && in_array( $existing['status'], self::get_active_statuses(), true )
+                    ? $existing['pax']
+                    : 0;
+            $pax = isset( $data['adults'], $data['children'] )
+                ? max( 0, (int) $data['adults'] ) + max( 0, (int) $data['children'] )
+                : 0;
+
+            if ( $departure['status'] !== 'open' && $current_pax === 0 ) {
+                return new WP_Error( 'tp_reservation_departure', __( 'La salida seleccionada ya no está disponible.', 'travel-packages' ) );
+            }
+            if ( $departure['seats_left'] !== null && $pax > (int) $departure['seats_left'] + $current_pax ) {
+                return new WP_Error( 'tp_reservation_capacity', __( 'No hay suficientes cupos disponibles para esa cantidad de pasajeros.', 'travel-packages' ) );
+            }
+            if ( $departure['min_pax'] !== null && $pax < (int) $departure['min_pax'] ) {
+                return new WP_Error( 'tp_reservation_min_pax', __( 'La cantidad de pasajeros es menor al mínimo permitido.', 'travel-packages' ) );
+            }
+            if ( $departure['max_pax'] !== null && $pax > (int) $departure['max_pax'] ) {
+                return new WP_Error( 'tp_reservation_max_pax', __( 'La cantidad de pasajeros supera el máximo permitido.', 'travel-packages' ) );
+            }
+
+            $data['from'] = $departure['from'];
+            $data['to'] = $departure['to'];
+            if ( $id && class_exists( 'TP_Payments' ) && in_array( (string) get_post_meta( $id, TP_Payments::META_STATUS, true ), [ 'pending', 'approved', 'expired' ], true ) ) {
+                $reservation_lock = 'tpmp_res_' . (int) $id;
+                $reservation_locked = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 8)', $reservation_lock ) );
+                if ( (string) $reservation_locked !== '1' ) {
+                    $reservation_lock = '';
+                    return new WP_Error( 'tp_reservation_busy', __( 'El pago se está actualizando. Intentá nuevamente en unos segundos.', 'travel-packages' ) );
+                }
+            }
+
+            return self::save( $data, $id );
+        } finally {
+            if ( $reservation_lock !== '' ) {
+                $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $reservation_lock ) );
+            }
+            $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
+        }
+    }
+
     public static function delete( $id ) {
         $id   = (int) $id;
         $post = get_post( $id );
         if ( ! $post || $post->post_type !== self::POST_TYPE ) {
             return false;
+        }
+
+        if ( class_exists( 'TP_Payments' ) ) {
+            $payment_status = (string) get_post_meta( $id, TP_Payments::META_STATUS, true );
+            if ( in_array( $payment_status, [ 'pending', 'approved', 'expired' ], true ) || get_post_meta( $id, TP_Payments::META_REVIEW, true ) === '1' ) {
+                return false;
+            }
         }
 
         $package_id = (int) get_post_meta( $id, self::META_PACKAGE, true );
@@ -268,6 +381,18 @@ class TP_Reservations {
         ] );
 
         foreach ( $ids as $id ) {
+            if ( class_exists( 'TP_Payments' ) ) {
+                $payment_status = (string) get_post_meta( $id, TP_Payments::META_STATUS, true );
+                if ( in_array( $payment_status, [ 'pending', 'approved', 'expired' ], true ) || get_post_meta( $id, TP_Payments::META_REVIEW, true ) === '1' ) {
+                    if ( $payment_status === 'pending' ) {
+                        update_post_meta( $id, self::META_STATUS, 'cancelled' );
+                        update_post_meta( $id, TP_Payments::META_STATUS, 'expired' );
+                    } else {
+                        update_post_meta( $id, TP_Payments::META_REVIEW, '1' );
+                    }
+                    continue;
+                }
+            }
             wp_delete_post( $id, true );
         }
 
@@ -487,7 +612,7 @@ class TP_Reservations {
             'notes'    => isset( $_POST['tp_res_notes'] ) ? sanitize_textarea_field( wp_unslash( $_POST['tp_res_notes'] ) ) : '',
         ];
 
-        $result = self::save( $data, $id );
+        $result = self::save_with_capacity_lock( $data, $id );
         if ( is_wp_error( $result ) ) {
             wp_safe_redirect( add_query_arg( [
                 'page'    => 'tp-reservations',
@@ -522,7 +647,14 @@ class TP_Reservations {
             wp_die( __( 'No tienes permisos para eliminar esta reserva.', 'travel-packages' ) );
         }
 
-        self::delete( $id );
+        if ( ! self::delete( $id ) ) {
+            wp_safe_redirect( add_query_arg( [
+                'page'    => 'tp-reservations',
+                'status'  => 'error',
+                'message' => __( 'No se puede eliminar una reserva vinculada a un pago pendiente, aprobado, vencido o que requiere revisión.', 'travel-packages' ),
+            ], admin_url( 'admin.php' ) ) );
+            exit;
+        }
 
         wp_safe_redirect( admin_url( 'admin.php?page=tp-reservations&status=deleted' ) );
         exit;
@@ -537,9 +669,11 @@ class TP_Reservations {
         $messages = [
             'nonce'     => __( 'La sesión expiró. Recargá la página e intentá de nuevo.', 'travel-packages' ),
             'package'   => __( 'El paquete no está disponible.', 'travel-packages' ),
-            'fields'    => __( 'Completá tu nombre, un email válido y aceptá el contacto.', 'travel-packages' ),
+            'fields'    => __( 'Verificá tus datos, la cantidad de pasajeros y la salida seleccionada.', 'travel-packages' ),
             'departure' => __( 'La salida seleccionada ya no está disponible.', 'travel-packages' ),
+            'capacity'  => __( 'No hay suficientes cupos disponibles para esa cantidad de pasajeros.', 'travel-packages' ),
             'throttle'  => __( 'Esperá unos segundos antes de enviar otra consulta.', 'travel-packages' ),
+            'busy'      => __( 'La salida se está actualizando. Intentá nuevamente en unos segundos.', 'travel-packages' ),
             'save'      => __( 'No pudimos guardar la consulta. Intentá nuevamente.', 'travel-packages' ),
             'spam'      => __( 'No pudimos procesar la consulta.', 'travel-packages' ),
         ];
@@ -613,7 +747,7 @@ class TP_Reservations {
         }
         set_transient( $throttle_key, '1', 30 );
 
-        $result = self::save( [
+        $result = self::save_with_capacity_lock( [
             'package'  => $package_id,
             'uid'      => $uid,
             'from'     => $from,
@@ -629,7 +763,18 @@ class TP_Reservations {
         ] );
 
         if ( is_wp_error( $result ) ) {
-            $fail( 'save' );
+            $error_code = $result->get_error_code();
+            if ( $error_code === 'tp_reservation_capacity' ) {
+                $fail( 'capacity' );
+            } elseif ( $error_code === 'tp_reservation_departure' ) {
+                $fail( 'departure' );
+            } elseif ( in_array( $error_code, [ 'tp_reservation_min_pax', 'tp_reservation_max_pax' ], true ) ) {
+                $fail( 'fields' );
+            } elseif ( $error_code === 'tp_reservation_busy' ) {
+                $fail( 'busy' );
+            } else {
+                $fail( 'save' );
+            }
         }
 
         self::send_inquiry_email( (int) $result );
@@ -679,6 +824,50 @@ class TP_Reservations {
         }
 
         wp_mail( $to, $subject, implode( "\n", $lines ), $headers );
+    }
+
+    public static function send_payment_notification( $reservation_id, $approved = false ) {
+        if ( ! class_exists( 'TP_Settings' ) ) {
+            return false;
+        }
+
+        $reservation = self::get_reservation( $reservation_id );
+        $to = TP_Settings::get_inquiry_email();
+        if ( ! $reservation || ! $to ) {
+            return false;
+        }
+
+        $package_title = $reservation['package'] ? get_the_title( $reservation['package'] ) : __( 'Paquete', 'travel-packages' );
+        $dates = trim( $reservation['from'] . ( $reservation['to'] ? ' → ' . $reservation['to'] : '' ) );
+        $amount = $reservation['payment_amount_ars'] !== ''
+            ? 'ARS ' . number_format_i18n( (float) $reservation['payment_amount_ars'], 2 )
+            : '—';
+        $lines = [
+            sprintf( __( 'Paquete: %s', 'travel-packages' ), $package_title ),
+            sprintf( __( 'Salida: %s', 'travel-packages' ), $dates ?: '—' ),
+            sprintf( __( 'Pasajeros: %d adultos, %d niños', 'travel-packages' ), $reservation['adults'], $reservation['children'] ),
+            sprintf( __( 'Cliente: %s', 'travel-packages' ), $reservation['customer'] ),
+            sprintf( __( 'Email: %s', 'travel-packages' ), $reservation['email'] ),
+            sprintf( __( 'Teléfono: %s', 'travel-packages' ), $reservation['phone'] ?: '-' ),
+            sprintf( __( 'Total en ARS: %s', 'travel-packages' ), $amount ),
+            sprintf( __( 'Estado del pago: %s', 'travel-packages' ), $approved ? __( 'Aprobado', 'travel-packages' ) : __( 'Pendiente', 'travel-packages' ) ),
+            '',
+            __( 'Mensaje:', 'travel-packages' ),
+            $reservation['notes'] ?: '-',
+            '',
+            sprintf( __( 'Gestionar reserva: %s', 'travel-packages' ), admin_url( 'admin.php?page=tp-reservations&view=' . (int) $reservation_id ) ),
+        ];
+        $headers = $reservation['email'] ? [ 'Reply-To: ' . $reservation['email'] ] : [];
+        $subject = sprintf(
+            $approved ? __( 'Pago aprobado: %s', 'travel-packages' ) : __( 'Nueva reserva online pendiente de pago: %s', 'travel-packages' ),
+            $package_title
+        );
+
+        $sent = wp_mail( $to, $subject, implode( "\n", $lines ), $headers );
+        if ( ! $sent ) {
+            error_log( 'Tureo could not send Mercado Pago reservation notification for reservation ' . (int) $reservation_id );
+        }
+        return (bool) $sent;
     }
 
     private static function query_reservations( $args = [] ) {
@@ -980,6 +1169,38 @@ class TP_Reservations {
                         <h2><?php _e( 'Detalle de la reserva', 'travel-packages' ); ?></h2>
                         <span class="tp-res-status is-<?php echo esc_attr( $view_status ); ?>"><?php echo esc_html( $view_status_label ); ?></span>
                     </div>
+                    <?php if ( $viewing['payment_status'] !== '' ) : ?>
+                    <?php
+                    $payment_status_labels = [
+                        'pending' => __( 'Pendiente', 'travel-packages' ),
+                        'approved' => __( 'Aprobado', 'travel-packages' ),
+                        'expired' => __( 'Vencido', 'travel-packages' ),
+                        'failed' => __( 'Fallido', 'travel-packages' ),
+                        'rejected' => __( 'Rechazado', 'travel-packages' ),
+                        'cancelled' => __( 'Cancelado', 'travel-packages' ),
+                        'refunded' => __( 'Reembolsado', 'travel-packages' ),
+                        'charged_back' => __( 'Desconocido por el titular', 'travel-packages' ),
+                    ];
+                    ?>
+                    <div class="notice notice-<?php echo $viewing['payment_review'] ? 'warning' : ( $viewing['payment_status'] === 'approved' ? 'success' : 'info' ); ?> inline">
+                        <p>
+                        <strong><?php _e( 'Pago:', 'travel-packages' ); ?></strong>
+                        <?php echo esc_html( $payment_status_labels[ $viewing['payment_status'] ] ?? $viewing['payment_status'] ); ?>
+                        <?php if ( $viewing['payment_review'] ) : ?>
+                            — <strong><?php _e( 'Requiere revisión manual por disponibilidad.', 'travel-packages' ); ?></strong>
+                        <?php endif; ?>
+                        <?php if ( $viewing['payment_amount_ars'] !== '' ) : ?>
+                            <br><?php printf( esc_html__( 'Total cobrado: ARS %s', 'travel-packages' ), esc_html( number_format_i18n( (float) $viewing['payment_amount_ars'], 2 ) ) ); ?>
+                            <?php if ( $viewing['payment_original_amount'] !== '' && $viewing['payment_currency'] !== '' ) : ?>
+                                <span>(<?php echo esc_html( $viewing['payment_currency'] . ' ' . number_format_i18n( (float) $viewing['payment_original_amount'], 2 ) ); ?>)</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        <?php if ( $viewing['payment_id'] !== '' ) : ?>
+                            <br><?php printf( esc_html__( 'ID de pago: %s', 'travel-packages' ), esc_html( $viewing['payment_id'] ) ); ?>
+                        <?php endif; ?>
+                        </p>
+                    </div>
+                    <?php endif; ?>
                     <dl class="tp-res-detail-grid">
                         <div><dt><?php _e( 'Cliente', 'travel-packages' ); ?></dt><dd><?php echo esc_html( $viewing['customer'] ?: __( 'Sin nombre', 'travel-packages' ) ); ?></dd></div>
                         <div><dt><?php _e( 'Paquete', 'travel-packages' ); ?></dt><dd><?php echo esc_html( $view_package_title ?: __( 'Paquete eliminado', 'travel-packages' ) ); ?></dd></div>

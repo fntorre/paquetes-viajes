@@ -24,6 +24,7 @@ require_once TP_PLUGIN_DIR . 'includes/class-post-type.php';
 require_once TP_PLUGIN_DIR . 'includes/class-package-data.php';
 require_once TP_PLUGIN_DIR . 'includes/class-reservations.php';
 require_once TP_PLUGIN_DIR . 'includes/class-settings.php';
+require_once TP_PLUGIN_DIR . 'includes/class-payments.php';
 require_once TP_PLUGIN_DIR . 'includes/class-shortcodes.php';
 require_once TP_PLUGIN_DIR . 'includes/class-ajax.php';
 require_once TP_PLUGIN_DIR . 'includes/class-templates.php';
@@ -45,5 +46,6 @@ function tp_init() {
     TP_CustomFields::init();
     TP_Reservations::init();
     TP_Settings::init();
+    TP_Payments::init();
     TP_Admin_Handlers::init();
 }
