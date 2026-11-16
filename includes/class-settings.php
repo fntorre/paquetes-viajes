@@ -394,7 +394,7 @@ class TP_Settings {
                         <span><?php _e( 'Mostrar formulario de consulta en la ficha del paquete', 'travel-packages' ); ?></span>
                         <input type="checkbox" name="tp_inquiry_enabled" value="1" <?php checked( $inquiry ); ?>>
                     </label>
-                    <p class="tp-help"><?php _e( 'Las consultas se guardan como reservas pendientes en el módulo de Reservas. Si el módulo está desactivado, no descuentan cupos.', 'travel-packages' ); ?></p>
+                    <p class="tp-help"><?php _e( 'Las consultas se guardan como reservas pendientes en el módulo de Reservas. Los cupos solo se descuentan cuando la reserva se confirma desde el backend.', 'travel-packages' ); ?></p>
 
                     <div class="tp-palette-section">
                         <span class="tp-label"><?php _e( 'Paleta cromática del frontend', 'travel-packages' ); ?></span>

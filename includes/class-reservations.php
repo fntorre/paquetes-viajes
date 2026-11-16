@@ -5,7 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * TP_Reservations
  *
  * Módulo opcional de reservas. No procesa pagos: registra reservas y,
- * cuando está activo, descuenta cupos de las salidas del paquete.
+ * cuando está activo, descuenta cupos de las salidas del paquete
+ * únicamente cuando la reserva está confirmada.
  */
 class TP_Reservations {
 
@@ -76,7 +77,15 @@ class TP_Reservations {
         return [ 'pending', 'confirmed' ];
     }
 
-    /** Mapa uid de salida => pasajeros reservados activos. */
+    /**
+     * Estados que descuentan cupos. Solo las reservas aprobadas/confirmadas
+     * desde el backend reservan lugares; las consultas pendientes no.
+     */
+    public static function get_counted_statuses() {
+        return [ 'confirmed' ];
+    }
+
+    /** Mapa uid de salida => pasajeros de reservas confirmadas. */
     public static function get_booked_map( $package_id ) {
         $package_id = (int) $package_id;
         if ( $package_id <= 0 ) {
@@ -94,7 +103,7 @@ class TP_Reservations {
             'no_found_rows'  => true,
             'meta_query'     => [
                 [ 'key' => self::META_PACKAGE, 'value' => $package_id, 'compare' => '=', 'type' => 'NUMERIC' ],
-                [ 'key' => self::META_STATUS, 'value' => self::get_active_statuses(), 'compare' => 'IN' ],
+                [ 'key' => self::META_STATUS, 'value' => self::get_counted_statuses(), 'compare' => 'IN' ],
             ],
         ] );
 
@@ -817,7 +826,7 @@ class TP_Reservations {
                     <h2><?php _e( 'Estado del módulo', 'travel-packages' ); ?></h2>
                     <p>
                         <?php if ( $enabled ) : ?>
-                            <?php _e( 'Activo: las reservas pendientes y confirmadas descuentan cupos en el front y el calendario.', 'travel-packages' ); ?>
+                            <?php _e( 'Activo: solo las reservas confirmadas descuentan cupos en el front y el calendario. Las consultas pendientes no reservan lugares.', 'travel-packages' ); ?>
                         <?php else : ?>
                             <?php _e( 'Desactivado: los cupos se siguen gestionando manualmente desde cada paquete.', 'travel-packages' ); ?>
                         <?php endif; ?>
