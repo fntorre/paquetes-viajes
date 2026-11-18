@@ -1164,6 +1164,73 @@ body[class*="tp-font-"] .tp-catalogo-count #tp-catalogo-total {
     font-size: 13px;
     color: var(--tp-muted);
 }
+.tp-financing-options {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+.tp-financing-featured {
+    display: grid;
+    gap: 4px;
+    padding: 11px 12px;
+    border: 1px solid var(--tp-aqua-dark);
+    border-radius: 10px;
+    background: var(--tp-soft-aqua);
+}
+.tp-financing-featured-label {
+    color: var(--tp-aqua-dark);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.tp-financing-featured strong {
+    color: var(--tp-dark);
+    font-size: 13px;
+    line-height: 1.45;
+}
+.tp-financing-details {
+    border: 1px solid var(--tp-border);
+    border-radius: 10px;
+    background: var(--tp-bg);
+}
+.tp-financing-details summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 12px;
+    color: var(--tp-dark);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+    cursor: pointer;
+    list-style: none;
+}
+.tp-financing-details summary::-webkit-details-marker { display: none; }
+.tp-financing-details summary::marker { content: ''; }
+.tp-financing-details summary span {
+    flex: 0 0 auto;
+    color: var(--tp-aqua-dark);
+    font-size: 18px;
+    transition: transform .2s ease;
+}
+.tp-financing-details[open] summary span { transform: rotate(45deg); }
+.tp-financing-details summary:focus-visible {
+    outline: 2px solid var(--tp-aqua-dark);
+    outline-offset: 2px;
+    border-radius: 10px;
+}
+.tp-financing-details ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0 14px 14px 30px;
+    color: var(--tp-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.tp-financing-details li::marker { color: var(--tp-aqua-dark); }
 
 /* ---- CTA Button ---- */
 .tp-single-cta {

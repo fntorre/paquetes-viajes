@@ -16,6 +16,7 @@ class TP_Package_Data {
     const META_TIPO_VIAJE = '_tp_tipo_viaje';
     const META_PRICES     = '_tp_prices';
     const META_PRICING    = '_tp_pricing';
+    const META_FINANCING  = '_tp_financing';
     const META_VIDEO      = '_tp_video_url';
     const META_MAP_LOCATION = '_tp_map_location';
     const META_WHATSAPP   = '_tp_whatsapp';
@@ -129,6 +130,31 @@ class TP_Package_Data {
         }
 
         return array_merge( $defaults, $raw );
+    }
+
+    public static function get_financing_options( $post_id ) {
+        $options = get_post_meta( $post_id, self::META_FINANCING, true );
+        if ( ! is_array( $options ) ) {
+            return [];
+        }
+
+        $normalized = [];
+        $has_featured = false;
+        foreach ( $options as $option ) {
+            if ( ! is_array( $option ) || empty( $option['label'] ) ) {
+                continue;
+            }
+            $featured = ! $has_featured && ! empty( $option['featured'] );
+            $has_featured = $has_featured || $featured;
+            $normalized[] = [
+                'label'      => sanitize_text_field( (string) $option['label'] ),
+                'featured'  => $featured,
+            ];
+        }
+        if ( $normalized && ! $has_featured ) {
+            $normalized[0]['featured'] = true;
+        }
+        return $normalized;
     }
 
     /** true si el paquete tiene configuración de precios por pasajero. */
@@ -802,6 +828,7 @@ class TP_Package_Data {
             'tp_short_desc'    => get_post_meta( $post->ID, '_tp_short_desc', true ),
             'tp_prices'        => self::get_prices( $post->ID ),
             'tp_pricing'       => self::get_pricing( $post->ID ),
+            'tp_financing'     => self::get_financing_options( $post->ID ),
             'tp_slider'        => get_post_meta( $post->ID, '_tp_slider', true ),
             'tp_featured'      => get_post_meta( $post->ID, '_tp_featured', true ),
             'tp_featured_image'=> get_post_thumbnail_id( $post->ID ) ?: '',
@@ -941,6 +968,43 @@ class TP_Package_Data {
 
         self::save_prices( $post_id, $input );
         self::save_pricing( $post_id, $input );
+        self::save_financing_options( $post_id, $input );
+    }
+
+    private static function save_financing_options( $post_id, $input ) {
+        $labels = isset( $input['tp_financing_option'] ) && is_array( $input['tp_financing_option'] )
+            ? $input['tp_financing_option']
+            : [];
+        $featured_index = isset( $input['tp_financing_featured'] ) && is_scalar( $input['tp_financing_featured'] )
+            ? (int) $input['tp_financing_featured']
+            : -1;
+        $options = [];
+
+        foreach ( $labels as $index => $raw_label ) {
+            if ( ! is_scalar( $raw_label ) ) {
+                continue;
+            }
+            $label = wp_html_excerpt( sanitize_text_field( wp_unslash( (string) $raw_label ) ), 180, '' );
+            if ( $label === '' ) {
+                continue;
+            }
+            $options[] = [
+                'label'     => $label,
+                'featured' => (int) $index === $featured_index,
+            ];
+        }
+
+        if ( empty( $options ) ) {
+            delete_post_meta( $post_id, self::META_FINANCING );
+            return;
+        }
+
+        if ( ! array_filter( $options, static function( $option ) {
+            return $option['featured'];
+        } ) ) {
+            $options[0]['featured'] = true;
+        }
+        update_post_meta( $post_id, self::META_FINANCING, $options );
     }
 
     /** Normaliza el itinerario recibido del formulario. */

@@ -14,7 +14,9 @@ class TP_Shortcodes {
     }
 
     public static function enqueue_assets() {
-        wp_register_style(  'tp-public', TP_PLUGIN_URL . 'public/css/public.css', [], TP_VERSION );
+        $public_css = TP_PLUGIN_DIR . 'public/css/public.css';
+        $public_css_version = file_exists( $public_css ) ? filemtime( $public_css ) : TP_VERSION;
+        wp_register_style(  'tp-public', TP_PLUGIN_URL . 'public/css/public.css', [], $public_css_version );
         wp_register_script( 'tp-public', TP_PLUGIN_URL . 'public/js/public.js',  [ 'jquery' ], TP_VERSION, true );
         wp_localize_script( 'tp-public', 'TP_PUBLIC', [
             'ajax_url'   => admin_url( 'admin-ajax.php' ),

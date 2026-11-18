@@ -3,6 +3,39 @@
 if ( ! defined('ABSPATH') ) exit;
 
 $tp_pricing    = TP_Package_Data::get_pricing( $post->ID );
+$tp_financing_options = TP_Package_Data::get_financing_options( $post->ID );
+$tp_featured_financing = null;
+foreach ( $tp_financing_options as $tp_financing_option ) {
+    if ( ! empty( $tp_financing_option['featured'] ) ) {
+        $tp_featured_financing = $tp_financing_option;
+        break;
+    }
+}
+$tp_financing_rendered = false;
+$tp_render_financing = static function() use ( $tp_financing_options, $tp_featured_financing ) {
+    if ( empty( $tp_financing_options ) ) {
+        return '';
+    }
+    ob_start();
+    ?>
+    <div class="tp-financing-options">
+        <?php if ( $tp_featured_financing ) : ?>
+        <div class="tp-financing-featured">
+            <strong><?php echo esc_html( $tp_featured_financing['label'] ); ?></strong>
+        </div>
+        <?php endif; ?>
+        <details class="tp-financing-details">
+            <summary><?php _e( 'Ver opciones de financiación', 'travel-packages' ); ?><span aria-hidden="true">+</span></summary>
+            <ul>
+                <?php foreach ( $tp_financing_options as $tp_financing_option ) : ?>
+                <li><?php echo esc_html( $tp_financing_option['label'] ); ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </details>
+    </div>
+    <?php
+    return ob_get_clean();
+};
 $tp_departures = TP_Package_Data::get_departures( $post->ID, true, true );
 $tp_status_labels = [
     'open'    => __( 'Disponible', 'travel-packages' ),
@@ -312,6 +345,10 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                         </div>
                         <?php endforeach; ?>
                     </div>
+                    <?php if ( $tp_financing_options ) : ?>
+                        <?php echo $tp_render_financing(); ?>
+                        <?php $tp_financing_rendered = true; ?>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
 
@@ -357,6 +394,10 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                         </div>
                         <?php endif; ?>
                     </div>
+                    <?php if ( $tp_financing_options && ! $tp_financing_rendered ) : ?>
+                        <?php echo $tp_render_financing(); ?>
+                        <?php $tp_financing_rendered = true; ?>
+                    <?php endif; ?>
                     <?php if ( $tp_pricing['deposit_type'] !== 'none' && $tp_pricing['deposit_value'] !== '' ) : ?>
                     <p class="tp-deposit-note">
                         <strong><?php _e( 'Seña:', 'travel-packages' ); ?></strong>
@@ -372,6 +413,16 @@ $tp_bottom_has_both  = $tp_inquiry_enabled && ! empty( $tp_similar_packages );
                         <?php endif; ?>
                     </p>
                     <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <?php if ( $tp_financing_options && ! $tp_financing_rendered ) : ?>
+                <div class="tp-sidebar-card tp-sidebar-price">
+                    <h3 class="tp-sidebar-heading">
+                        <span class="dashicons dashicons-money-alt"></span>
+                        <?php _e( 'Financiación', 'travel-packages' ); ?>
+                    </h3>
+                    <?php echo $tp_render_financing(); ?>
                 </div>
                 <?php endif; ?>
 

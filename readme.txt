@@ -16,6 +16,7 @@ Tureo es un plugin WordPress completo para agencias de turismo.
 **Características:**
 
 * Custom Post Type "Paquetes de Viaje" con soporte de imágenes, galería, precio y fechas
+* Opciones de financiación por paquete con una cuota destacada junto al precio
 * Ficha técnica con campos personalizables por paquete
 * Toggle para destacar paquetes en el slider del home
 * Toggle para destacar paquetes en secciones especiales
@@ -69,6 +70,10 @@ El carrusel es de scroll infinito: envuelve al llegar al final sin saltos visibl
 `[tp_paquete id="123"]`
 
 Ver SHORTCODES.md para documentación completa.
+
+== Opciones de financiación ==
+
+En el editor de cada paquete, dentro de **Precios y seña**, agregá las financiaciones que quieras mostrar. Ejemplo: “Hasta 12 cuotas sin interés con tarjeta Visa Santander”. Marcá una opción como destacada para que aparezca junto al precio; el resto se consulta desde el botón **Ver opciones de financiación** en la ficha del paquete.
 
 == Changelog ==
 

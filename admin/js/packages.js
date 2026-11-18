@@ -109,6 +109,15 @@ jQuery(document).ready(function($) {
         reindexPriceHighlightCheckboxes();
     });
 
+    $(document).on('click', '#tp-add-financing', function() {
+        addFinancingRow('', $('#tp-financing-list .tp-financing-item').length === 0);
+    });
+
+    $(document).on('click', '.tp-remove-financing', function() {
+        $(this).closest('.tp-financing-item').remove();
+        reindexFinancingRows();
+    });
+
     $(document).on('click', '#tp-add-tech-field', function() {
         addTechField('', '');
     });
@@ -717,6 +726,11 @@ jQuery(document).ready(function($) {
             addPriceField(p.price || '', p.note || '', p.currency || 'USD', !!p.highlighted);
         });
 
+        $('#tp-financing-list').empty();
+        (Array.isArray(data.tp_financing) ? data.tp_financing : []).forEach(function(option) {
+            addFinancingRow(option.label || '', !!option.featured);
+        });
+
         var pricing = data.tp_pricing || {};
         $('#tp_currency_base').val(pricing.currency || 'USD');
         $('#tp_price_adult').val(pricing.price_adult || '');
@@ -801,6 +815,7 @@ jQuery(document).ready(function($) {
         $('#tp_seo_image').val('');
         $('#tp-seo-image-preview').empty();
         $('#tp-prices-list').empty();
+        $('#tp-financing-list').empty();
         $('#tp-dates-list').empty();
         $('#tp-tech-fields').empty();
         $('#tp-itinerary-list').empty();
@@ -842,6 +857,7 @@ jQuery(document).ready(function($) {
 
         var excludedNames = [
             'tp_price_item[]', 'tp_currency_item[]', 'tp_price_note_item[]', 'tp_price_highlighted[]',
+            'tp_financing_option[]', 'tp_financing_featured',
             'tp_dates_uid[]', 'tp_dates_from[]', 'tp_dates_to[]', 'tp_dates_seats[]',
             'tp_dates_seats_booked[]', 'tp_dates_min_pax[]', 'tp_dates_max_pax[]',
             'tp_dates_cutoff[]', 'tp_dates_status[]', 'tp_dates_price_adult[]',
@@ -883,6 +899,11 @@ jQuery(document).ready(function($) {
         $('#tp-prices-list').empty();
         prices.forEach(function(price, index) {
             addPriceField(price, notes[index] || '', currencies[index] || 'USD', highlighted.indexOf(String(index)) !== -1);
+        });
+
+        $('#tp-financing-list').empty();
+        (Array.isArray(data.tp_financing) ? data.tp_financing : []).forEach(function(option) {
+            addFinancingRow(option.label || '', !!option.featured);
         });
 
         var dateNames = [
@@ -1072,6 +1093,26 @@ jQuery(document).ready(function($) {
         $('#tp-prices-list .tp-price-item').each(function(i) {
             $(this).find('input[name="tp_price_highlighted[]"]').val(i);
         });
+    }
+
+    function addFinancingRow(label, featured) {
+        var index = $('#tp-financing-list .tp-financing-item').length;
+        var checked = featured ? ' checked' : '';
+        var row = '<div class="tp-financing-item">' +
+            '<input type="text" name="tp_financing_option[]" class="tp-financing-label" maxlength="180" placeholder="Ej: Hasta 12 cuotas sin interés con tarjeta Visa Santander" value="' + escAttr(label) + '">' +
+            '<label class="tp-financing-highlight-label"><input type="radio" class="tp-financing-featured" name="tp_financing_featured" value="' + index + '"' + checked + '> Destacar junto al precio</label>' +
+            '<button type="button" class="tp-remove-financing tp-btn-icon" title="Eliminar financiación" aria-label="Eliminar financiación">✕</button>' +
+            '</div>';
+        $('#tp-financing-list').append(row);
+    }
+
+    function reindexFinancingRows() {
+        $('#tp-financing-list .tp-financing-item').each(function(index) {
+            $(this).find('.tp-financing-featured').val(index);
+        });
+        if ( $('#tp-financing-list .tp-financing-featured:checked').length === 0 ) {
+            $('#tp-financing-list .tp-financing-featured').first().prop('checked', true);
+        }
     }
 
     function escAttr(value) {

@@ -1045,6 +1045,16 @@ class TP_Admin {
                                     <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar variante', 'travel-packages'); ?>
                                 </button>
                             </details>
+                            <div class="tp-financing-editor">
+                                <div>
+                                    <h3><?php _e('Financiación (opcional)', 'travel-packages'); ?></h3>
+                                    <p class="tp-help"><?php _e('Agregá las opciones que querés informar en la ficha. Marcá una como destacada para mostrarla junto al precio.', 'travel-packages'); ?></p>
+                                </div>
+                                <div id="tp-financing-list" class="tp-financing-list"></div>
+                                <button type="button" id="tp-add-financing" class="tp-btn tp-btn-secondary">
+                                    <span class="dashicons dashicons-plus-alt"></span> <?php _e('Agregar financiación', 'travel-packages'); ?>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="tp-panel" id="tp-section-publish">
