@@ -457,7 +457,9 @@ jQuery(document).ready(function($) {
             site: brand === 'site_name' && window.TP_ADMIN ? TP_ADMIN.site_name : '',
             template: $('#tp_promo_template').val() || 'premium',
             cropX: Number($('#tp_promo_crop_x').val()) || 50,
-            cropY: Number($('#tp_promo_crop_y').val()) || 50
+            cropY: Number($('#tp_promo_crop_y').val()) || 50,
+            bgEffect: $('#tp_promo_bg_effect').val() || 'none',
+            bgIntensity: Number($('#tp_promo_bg_intensity').val() || 60)
         };
     }
 
@@ -487,6 +489,8 @@ jQuery(document).ready(function($) {
             extras: extras,
             crop_x: Number($('#tp_promo_crop_x').val()) || 50,
             crop_y: Number($('#tp_promo_crop_y').val()) || 50,
+            bg_effect: $('#tp_promo_bg_effect').val() || 'none',
+            bg_intensity: Number($('#tp_promo_bg_intensity').val() || 60),
             format: $('#tp_promo_format').val() || '',
             width: parseInt($('#tp_promo_width').val(), 10) || 1200,
             height: parseInt($('#tp_promo_height').val(), 10) || 628,
@@ -547,6 +551,15 @@ jQuery(document).ready(function($) {
         $('#tp_promo_crop_x').val(config.crop_x === undefined ? 50 : config.crop_x);
         $('#tp_promo_crop_y').val(config.crop_y === undefined ? 50 : config.crop_y);
         $('#tp-promo-crop-value').text($('#tp_promo_crop_x').val() + '% · ' + $('#tp_promo_crop_y').val() + '%');
+        var bgEffect = config.bg_effect || 'none';
+        if ( $('#tp_promo_bg_effect option[value="' + bgEffect + '"]').length ) {
+            $('#tp_promo_bg_effect').val(bgEffect);
+        } else {
+            $('#tp_promo_bg_effect').val('none');
+        }
+        var bgIntensity = parseInt(config.bg_intensity, 10);
+        $('#tp_promo_bg_intensity').val(Number.isFinite(bgIntensity) ? Math.max(0, Math.min(100, bgIntensity)) : 60);
+        updatePromoBackgroundEffectUI();
         $('.tp-promo-format-check').each(function() {
             $(this).prop('checked', Array.isArray(config.formats) ? config.formats.indexOf(String(this.value)) !== -1 : true);
         });
@@ -702,6 +715,37 @@ jQuery(document).ready(function($) {
         });
     }
 
+    function promoBackgroundFilter(effect, intensity, scale) {
+        var amount = Number(intensity);
+        if ( ! isFinite(amount) ) { amount = 60; }
+        amount = Math.max(0, Math.min(100, amount)) / 100;
+        if ( effect === 'none' || amount <= 0 ) { return 'none'; }
+        var blurScale = Math.max(0.65, Math.min(2.5, Number(scale) || 1));
+        switch ( effect ) {
+            case 'soft':
+                return 'blur(' + ((1.5 + amount * 3.5) * blurScale).toFixed(1) + 'px) brightness(' + (1 + amount * 0.06).toFixed(2) + ') saturate(' + (1 + amount * 0.08).toFixed(2) + ')';
+            case 'blur':
+                return 'blur(' + ((2 + amount * 10) * blurScale).toFixed(1) + 'px) brightness(' + (1 + amount * 0.03).toFixed(2) + ')';
+            case 'bw':
+                return 'grayscale(' + amount.toFixed(2) + ') contrast(' + (1 + amount * 0.12).toFixed(2) + ')';
+            case 'warm':
+                return 'sepia(' + (amount * 0.65).toFixed(2) + ') saturate(' + (1 + amount * 0.25).toFixed(2) + ') brightness(' + (1 + amount * 0.04).toFixed(2) + ')';
+            case 'cool':
+                return 'saturate(' + (1 + amount * 0.18).toFixed(2) + ') hue-rotate(' + (-amount * 12).toFixed(1) + 'deg) brightness(' + (1 + amount * 0.02).toFixed(2) + ')';
+            case 'dramatic':
+                return 'contrast(' + (1 + amount * 0.3).toFixed(2) + ') saturate(' + (1 + amount * 0.25).toFixed(2) + ') brightness(' + (1 - amount * 0.08).toFixed(2) + ')';
+            default:
+                return 'none';
+        }
+    }
+
+    function updatePromoBackgroundEffectUI() {
+        var effect = $('#tp_promo_bg_effect').val() || 'none';
+        var intensity = $('#tp_promo_bg_intensity').val() || 60;
+        $('#tp-promo-bg-intensity-value').text(intensity + '%');
+        $('#tp_promo_bg_intensity').prop('disabled', effect === 'none');
+    }
+
     function promoDraw(data, img, dimensions) {
         var canvas = document.getElementById('tp-promo-canvas');
         if ( ! canvas ) { return; }
@@ -720,6 +764,10 @@ jQuery(document).ready(function($) {
         var primary = palette.primary || '#0f766e';
         var accent = palette.accent || '#0f172a';
         var highlight = palette.highlight || '#b8fff0';
+        var bgEffect = data.bgEffect || 'none';
+        var bgIntensity = Number(data.bgIntensity);
+        if ( ! isFinite(bgIntensity) ) { bgIntensity = 60; }
+        var bgFilter = promoBackgroundFilter(bgEffect, bgIntensity, fontScale);
 
         if ( canvas.width !== W ) { canvas.width = W; }
         if ( canvas.height !== H ) { canvas.height = H; }
@@ -742,7 +790,13 @@ jQuery(document).ready(function($) {
             var dh = img.height * imageScale;
             var cropX = Math.max(0, Math.min(100, Number(data.cropX) || 50)) / 100;
             var cropY = Math.max(0, Math.min(100, Number(data.cropY) || 50)) / 100;
+            if ( bgFilter !== 'none' && 'filter' in ctx ) {
+                ctx.filter = bgFilter;
+            }
             ctx.drawImage(img, (W - dw) * cropX, (H - dh) * cropY, dw, dh);
+            if ( 'filter' in ctx ) {
+                ctx.filter = 'none';
+            }
         }
 
         var shade = ctx.createLinearGradient(0, H * 0.2, 0, H);
@@ -1557,7 +1611,19 @@ jQuery(document).ready(function($) {
         }).done(function(response) {
             if ( response && response.success ) {
                 promoTemplates = Array.isArray(response.data.templates) ? response.data.templates : [];
-                renderPromoTemplates();
+    renderPromoTemplates();
+    updatePromoBackgroundEffectUI();
+
+    $(document).on('change', '#tp_promo_bg_effect', function() {
+        updatePromoBackgroundEffectUI();
+        resetPromoPreview();
+    });
+
+    $(document).on('input change', '#tp_promo_bg_intensity', function() {
+        updatePromoBackgroundEffectUI();
+        resetPromoPreview();
+    });
+
                 setPromoTemplateStatus(response.data.message || 'Plantilla eliminada.');
             } else {
                 setPromoTemplateStatus(response && response.data && response.data.message ? response.data.message : 'No se pudo eliminar la plantilla.');
@@ -1949,6 +2015,9 @@ jQuery(document).ready(function($) {
         $('#tp_promo_format').val('');
         $('#tp_promo_width').val(1200);
         $('#tp_promo_height').val(628);
+        $('#tp_promo_bg_effect').val('none');
+        $('#tp_promo_bg_intensity').val(60);
+        updatePromoBackgroundEffectUI();
         $('#tp-promo-custom-dimensions').prop('hidden', true);
         $('#tp_promo_brand').val('site_name').trigger('change');
         $('#tp_promo_saved_template').val('').trigger('change');

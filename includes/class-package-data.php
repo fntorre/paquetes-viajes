@@ -954,6 +954,10 @@ class TP_Package_Data {
             'extras'   => $extras,
             'crop_x'   => isset( $config['crop_x'] ) ? max( 0, min( 100, absint( $config['crop_x'] ) ) ) : 50,
             'crop_y'   => isset( $config['crop_y'] ) ? max( 0, min( 100, absint( $config['crop_y'] ) ) ) : 50,
+            'bg_effect' => isset( $config['bg_effect'] ) && in_array( $config['bg_effect'], [ 'none', 'soft', 'blur', 'bw', 'warm', 'cool', 'dramatic' ], true )
+                ? $config['bg_effect']
+                : 'none',
+            'bg_intensity' => isset( $config['bg_intensity'] ) && is_scalar( $config['bg_intensity'] ) ? max( 0, min( 100, absint( $config['bg_intensity'] ) ) ) : 60,
             'format'   => $dimension_format,
             'width'    => $width,
             'height'   => $height,

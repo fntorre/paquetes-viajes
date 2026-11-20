@@ -1275,7 +1275,7 @@ class TP_Admin {
                                     <input type="text" id="tp_promo_template_name" maxlength="60" placeholder="<?php esc_attr_e('Nombre de la plantilla', 'travel-packages'); ?>">
                                     <button type="button" class="button" id="tp-promo-save-template"><?php _e('Guardar como plantilla', 'travel-packages'); ?></button>
                                 </div>
-                                <small><?php _e('Se guardan el estilo, la marca, el logo, la imagen adicional, las posiciones, el formato y los campos visibles. Los datos extra de ficha técnica no se incluyen porque dependen de cada paquete.', 'travel-packages'); ?></small>
+                                <small><?php _e('Se guardan el estilo, la marca, el logo, la imagen adicional, los efectos del fondo, las posiciones, el formato y los campos visibles. Los datos extra de ficha técnica no se incluyen porque dependen de cada paquete.', 'travel-packages'); ?></small>
                                 <p id="tp-promo-template-status" class="tp-help" role="status" aria-live="polite"></p>
                             </div>
                             <div class="tp-field-group">
@@ -1382,6 +1382,23 @@ class TP_Admin {
                                 <label for="tp_promo_crop_y"><?php _e('Vertical', 'travel-packages'); ?></label>
                                 <input type="range" id="tp_promo_crop_y" min="0" max="100" value="50">
                                 <span id="tp-promo-crop-value">50% · 50%</span>
+                            </div>
+                            <div class="tp-promo-background-effects">
+                                <strong><?php _e('Efectos del fondo', 'travel-packages'); ?></strong>
+                                <label for="tp_promo_bg_effect"><?php _e('Efecto', 'travel-packages'); ?></label>
+                                <select id="tp_promo_bg_effect">
+                                    <option value="none"><?php _e('Original', 'travel-packages'); ?></option>
+                                    <option value="soft"><?php _e('Suave', 'travel-packages'); ?></option>
+                                    <option value="blur"><?php _e('Desenfoque', 'travel-packages'); ?></option>
+                                    <option value="bw"><?php _e('Blanco y negro', 'travel-packages'); ?></option>
+                                    <option value="warm"><?php _e('Cálido', 'travel-packages'); ?></option>
+                                    <option value="cool"><?php _e('Frío', 'travel-packages'); ?></option>
+                                    <option value="dramatic"><?php _e('Dramático', 'travel-packages'); ?></option>
+                                </select>
+                                <label for="tp_promo_bg_intensity"><?php _e('Intensidad', 'travel-packages'); ?></label>
+                                <input type="range" id="tp_promo_bg_intensity" min="0" max="100" value="60">
+                                <output id="tp-promo-bg-intensity-value" for="tp_promo_bg_intensity">60%</output>
+                                <small><?php _e('Se aplica solo a la foto de fondo. El encuadre y los textos no se modifican.', 'travel-packages'); ?></small>
                             </div>
                             <fieldset class="tp-promo-options tp-promo-format-options">
                                 <legend><?php _e('Exportar para', 'travel-packages'); ?></legend>

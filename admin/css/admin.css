@@ -4534,6 +4534,39 @@ body.tp-admin-tureo .tp-promo-crop > span {
     font-size: 12px;
     text-align: right;
 }
+body.tp-admin-tureo .tp-promo-background-effects {
+    display: grid;
+    grid-template-columns: minmax(90px, 120px) minmax(160px, 1fr) auto;
+    gap: 8px 14px;
+    align-items: center;
+    max-width: 720px;
+    margin: 16px 0;
+    padding: 14px 16px;
+    border: 1px solid #e1e7de;
+    border-radius: 12px;
+    background: #fbfcf9;
+}
+body.tp-admin-tureo .tp-promo-background-effects > strong {
+    grid-column: 1 / -1;
+    color: var(--tureo-ink);
+}
+body.tp-admin-tureo .tp-promo-background-effects select,
+body.tp-admin-tureo .tp-promo-background-effects input[type="range"] {
+    width: 100%;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-promo-background-effects output {
+    color: #748078;
+    font-size: 12px;
+    text-align: right;
+}
+body.tp-admin-tureo .tp-promo-background-effects > small {
+    grid-column: 1 / -1;
+    color: #748078;
+}
+body.tp-admin-tureo .tp-promo-background-effects input[type="range"]:disabled {
+    opacity: 0.45;
+}
 body.tp-admin-tureo .tp-promo-custom-dimensions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 180px));
