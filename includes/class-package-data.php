@@ -17,6 +17,8 @@ class TP_Package_Data {
     const META_PRICES     = '_tp_prices';
     const META_PRICING    = '_tp_pricing';
     const META_FINANCING  = '_tp_financing';
+    const META_PROMO_CONFIG = '_tp_promo_config';
+    const OPTION_PROMO_TEMPLATES = 'tp_promo_templates';
     const META_VIDEO      = '_tp_video_url';
     const META_MAP_LOCATION = '_tp_map_location';
     const META_WHATSAPP   = '_tp_whatsapp';
@@ -829,6 +831,7 @@ class TP_Package_Data {
             'tp_prices'        => self::get_prices( $post->ID ),
             'tp_pricing'       => self::get_pricing( $post->ID ),
             'tp_financing'     => self::get_financing_options( $post->ID ),
+            'tp_promo_config'  => self::get_promo_config( $post->ID ),
             'tp_slider'        => get_post_meta( $post->ID, '_tp_slider', true ),
             'tp_featured'      => get_post_meta( $post->ID, '_tp_featured', true ),
             'tp_featured_image'=> get_post_thumbnail_id( $post->ID ) ?: '',
@@ -868,6 +871,7 @@ class TP_Package_Data {
         }
 
         self::save_meta_fields( $post_id, $input );
+        self::save_promo_config( $post_id, $input['tp_promo_config'] ?? '' );
 
         $tech = self::sanitize_tech_fields( $input );
         update_post_meta( $post_id, '_tp_tech_fields', $tech );
@@ -881,6 +885,189 @@ class TP_Package_Data {
 
         self::save_taxonomy_term( $post_id, self::TAX_DESTINO, $input['tp_destino'] ?? '', $input['tp_new_destino'] ?? '' );
         self::save_taxonomy_term( $post_id, self::TAX_TIPOLOGIA, $input['tp_tipologia'] ?? '', $input['tp_new_tipologia'] ?? '' );
+    }
+
+    public static function get_promo_config( $post_id ) {
+        $config = get_post_meta( $post_id, self::META_PROMO_CONFIG, true );
+        return is_array( $config ) ? $config : [];
+    }
+
+    public static function save_promo_config( $post_id, $raw_config ) {
+        $config = self::normalize_promo_config( $raw_config );
+        if ( empty( $config ) ) {
+            delete_post_meta( $post_id, self::META_PROMO_CONFIG );
+            return;
+        }
+        update_post_meta( $post_id, self::META_PROMO_CONFIG, $config );
+    }
+
+    public static function normalize_promo_config( $raw_config ) {
+        if ( ! is_scalar( $raw_config ) ) {
+            return [];
+        }
+        $config = json_decode( wp_unslash( (string) $raw_config ), true );
+        if ( ! is_array( $config ) ) {
+            return [];
+        }
+
+        $allowed_templates = [ 'premium', 'adventure', 'minimal', 'offer' ];
+        $template = isset( $config['template'] ) && in_array( $config['template'], $allowed_templates, true )
+            ? $config['template']
+            : 'premium';
+        $options = isset( $config['options'] ) && is_array( $config['options'] ) ? $config['options'] : [];
+        $allowed_options = [ 'destination', 'subtitle', 'date', 'price', 'child_price', 'financing', 'phone', 'whatsapp', 'email', 'address', 'website' ];
+        $normalized_options = [];
+        foreach ( $allowed_options as $option ) {
+            $normalized_options[ $option ] = ! empty( $options[ $option ] );
+        }
+
+        $extras = isset( $config['extras'] ) && is_array( $config['extras'] ) ? $config['extras'] : [];
+        $extras = array_map( static function( $source ) {
+            return is_string( $source ) && preg_match( '/^(tech:\d+|custom:[a-z0-9_-]+)$/', $source ) ? $source : '';
+        }, $extras );
+        $extras = array_values( array_unique( array_filter( $extras ) ) );
+        $formats = isset( $config['formats'] ) && is_array( $config['formats'] ) ? $config['formats'] : [];
+        $allowed_formats = [ 'square', 'story', 'landscape' ];
+        $formats = array_values( array_intersect( $allowed_formats, array_map( 'sanitize_key', $formats ) ) );
+        $allowed_dimension_formats = [ 'square', 'story', 'landscape', 'custom' ];
+        $dimension_format = isset( $config['format'] ) && in_array( $config['format'], $allowed_dimension_formats, true )
+            ? $config['format']
+            : '';
+        $width = isset( $config['width'] ) && is_scalar( $config['width'] ) ? max( 320, min( 4096, absint( $config['width'] ) ) ) : 1200;
+        $height = isset( $config['height'] ) && is_scalar( $config['height'] ) ? max( 320, min( 4096, absint( $config['height'] ) ) ) : 628;
+        $positions = isset( $config['positions'] ) && is_array( $config['positions'] ) ? $config['positions'] : [];
+        $normalized_positions = [];
+        foreach ( $positions as $key => $position ) {
+            if ( ! is_string( $key ) || ! preg_match( '/^(?:(?:square|story|landscape|custom-\d+x\d+):)?(brand|logo|secondary|destination|date|title|subtitle|financing|price|child_price|extra_\d+|contact_\d+)$/', $key ) || ! is_array( $position ) ) {
+                continue;
+            }
+            $normalized_positions[ $key ] = [
+                'x' => isset( $position['x'] ) ? max( 0, min( 100, (float) $position['x'] ) ) : 0,
+                'y' => isset( $position['y'] ) ? max( 0, min( 100, (float) $position['y'] ) ) : 0,
+            ];
+        }
+
+        return [
+            'template' => $template,
+            'brand'    => isset( $config['brand'] ) && in_array( $config['brand'], [ 'site_name', 'site_logo', 'custom_logo', 'none' ], true ) ? $config['brand'] : 'site_name',
+            'options'  => $normalized_options,
+            'extras'   => $extras,
+            'crop_x'   => isset( $config['crop_x'] ) ? max( 0, min( 100, absint( $config['crop_x'] ) ) ) : 50,
+            'crop_y'   => isset( $config['crop_y'] ) ? max( 0, min( 100, absint( $config['crop_y'] ) ) ) : 50,
+            'format'   => $dimension_format,
+            'width'    => $width,
+            'height'   => $height,
+            'formats'  => $formats,
+            'logo_url' => isset( $config['logo_url'] ) ? esc_url_raw( $config['logo_url'] ) : '',
+            'logo_size' => isset( $config['logo_size'] ) ? max( 10, min( 50, absint( $config['logo_size'] ) ) ) : 30,
+            'overlay_url' => isset( $config['overlay_url'] ) ? esc_url_raw( $config['overlay_url'] ) : '',
+            'overlay_size' => isset( $config['overlay_size'] ) ? max( 10, min( 50, absint( $config['overlay_size'] ) ) ) : 24,
+            'overlay_position' => isset( $config['overlay_position'] ) && in_array( $config['overlay_position'], [ 'top-right', 'top-left', 'bottom-right', 'bottom-left' ], true )
+                ? $config['overlay_position']
+                : 'top-right',
+            'positions' => $normalized_positions,
+        ];
+    }
+
+    public static function get_promo_templates() {
+        $templates = get_option( self::OPTION_PROMO_TEMPLATES, [] );
+        if ( ! is_array( $templates ) ) {
+            return [];
+        }
+        $normalized = [];
+        foreach ( $templates as $template ) {
+            if ( ! is_array( $template ) || empty( $template['id'] ) || ! is_scalar( $template['id'] ) || empty( $template['config'] ) || ! is_array( $template['config'] ) ) {
+                continue;
+            }
+            $normalized[] = [
+                'id'      => sanitize_key( (string) $template['id'] ),
+                'name'    => isset( $template['name'] ) && is_scalar( $template['name'] ) ? sanitize_text_field( (string) $template['name'] ) : __( 'Plantilla sin nombre', 'travel-packages' ),
+                'config'  => $template['config'],
+                'created' => isset( $template['created'] ) ? (int) $template['created'] : 0,
+            ];
+        }
+        return $normalized;
+    }
+
+    public static function save_promo_template( $name, $raw_config ) {
+        $config = self::normalize_promo_config( $raw_config );
+        if ( empty( $config ) ) {
+            return new WP_Error( 'tp_promo_template_invalid', __( 'No se pudo preparar el diseño para guardarlo como plantilla.', 'travel-packages' ) );
+        }
+
+        $name = sanitize_text_field( wp_unslash( (string) $name ) );
+        if ( $name === '' ) {
+            return new WP_Error( 'tp_promo_template_name', __( 'Ingresá un nombre para la plantilla.', 'travel-packages' ) );
+        }
+        $name = function_exists( 'mb_substr' ) ? mb_substr( $name, 0, 60 ) : substr( $name, 0, 60 );
+
+        $templates = self::get_promo_templates();
+        $existing_index = null;
+        foreach ( $templates as $index => $template ) {
+            if ( 0 === strcasecmp( $template['name'], $name ) ) {
+                $existing_index = $index;
+                break;
+            }
+        }
+
+        $created = time();
+        if ( null !== $existing_index ) {
+            $id = $templates[ $existing_index ]['id'];
+            array_splice( $templates, $existing_index, 1 );
+            $templates[] = [
+                'id'      => $id,
+                'name'    => $name,
+                'config'  => $config,
+                'created' => $created,
+            ];
+            $message = __( 'Plantilla actualizada.', 'travel-packages' );
+        } else {
+            $id = 'tpl_' . substr( md5( $name . '|' . $created . '|' . wp_rand() ), 0, 12 );
+            $templates[] = [
+                'id'      => $id,
+                'name'    => $name,
+                'config'  => $config,
+                'created' => $created,
+            ];
+            $message = __( 'Plantilla guardada.', 'travel-packages' );
+        }
+
+        if ( count( $templates ) > 50 ) {
+            $templates = array_slice( $templates, -50 );
+        }
+        update_option( self::OPTION_PROMO_TEMPLATES, $templates, false );
+
+        return [
+            'id'        => $id,
+            'name'      => $name,
+            'config'    => $config,
+            'created'   => $created,
+            'message'   => $message,
+            'templates' => self::get_promo_templates(),
+        ];
+    }
+
+    public static function delete_promo_template( $id ) {
+        $id = sanitize_key( (string) $id );
+        if ( $id === '' ) {
+            return new WP_Error( 'tp_promo_template_invalid', __( 'Plantilla inválida.', 'travel-packages' ) );
+        }
+
+        $templates = self::get_promo_templates();
+        $filtered = array_values( array_filter( $templates, static function( $template ) use ( $id ) {
+            return $template['id'] !== $id;
+        } ) );
+
+        if ( count( $filtered ) === count( $templates ) ) {
+            return new WP_Error( 'tp_promo_template_missing', __( 'La plantilla no existe.', 'travel-packages' ) );
+        }
+
+        update_option( self::OPTION_PROMO_TEMPLATES, $filtered, false );
+
+        return [
+            'message'   => __( 'Plantilla eliminada.', 'travel-packages' ),
+            'templates' => $filtered,
+        ];
     }
 
     private static function save_meta_fields( $post_id, $input ) {
@@ -1433,7 +1620,7 @@ class TP_Package_Data {
                 update_post_meta( $to_id, $meta_key, $val );
             }
         }
-        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_ITINERARY, self::META_TIPO_VIAJE, self::META_PRICES, self::META_PRICING, self::META_WHATSAPP, self::META_MAP_LOCATION, self::META_SIMILAR_DESTINOS, self::META_SEO_TITLE, self::META_SEO_DESCRIPTION, self::META_SEO_IMAGE, self::META_SEO_NOINDEX ] as $meta_key ) {
+        foreach ( [ '_tp_tech_fields', '_tp_dates', self::META_ITINERARY, self::META_TIPO_VIAJE, self::META_PRICES, self::META_PRICING, self::META_FINANCING, self::META_PROMO_CONFIG, self::META_WHATSAPP, self::META_MAP_LOCATION, self::META_SIMILAR_DESTINOS, self::META_SEO_TITLE, self::META_SEO_DESCRIPTION, self::META_SEO_IMAGE, self::META_SEO_NOINDEX ] as $meta_key ) {
             $val = get_post_meta( $from_id, $meta_key, true );
             if ( $val !== '' ) {
                 update_post_meta( $to_id, $meta_key, $val );

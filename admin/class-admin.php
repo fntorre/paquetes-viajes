@@ -213,6 +213,27 @@ class TP_Admin {
                     ];
                 }
             }
+            $custom_logo_id  = (int) get_theme_mod( 'custom_logo' );
+            $site_logo_url   = $custom_logo_id ? wp_get_attachment_image_url( $custom_logo_id, 'full' ) : '';
+            $promo_contact   = [
+                'phone'    => class_exists( 'TP_Settings' ) ? TP_Settings::get_agency_phone() : '',
+                'whatsapp' => class_exists( 'TP_Settings' ) ? TP_Settings::get_whatsapp_number() : '',
+                'email'    => class_exists( 'TP_Settings' ) ? TP_Settings::get_inquiry_email() : '',
+                'address'  => class_exists( 'TP_Settings' ) ? TP_Settings::get_agency_address() : '',
+                'website'  => home_url( '/' ),
+            ];
+            $promo_palette = [ 'primary' => '#0f766e', 'accent' => '#0f172a', 'highlight' => '#b8fff0' ];
+            if ( class_exists( 'TP_Settings' ) ) {
+                $palettes = TP_Settings::get_palettes();
+                $palette  = TP_Settings::get_palette();
+                if ( ! empty( $palettes[ $palette ]['colors'] ) ) {
+                    $promo_palette = [
+                        'primary'   => $palettes[ $palette ]['colors']['primary'],
+                        'accent'    => $palettes[ $palette ]['colors']['accent'],
+                        'highlight' => $palettes[ $palette ]['colors']['aqua'],
+                    ];
+                }
+            }
 
             $css_file = TP_PLUGIN_DIR . 'admin/css/admin.css';
             $css_ver  = file_exists( $css_file ) ? filemtime( $css_file ) : TP_VERSION;
@@ -224,7 +245,11 @@ class TP_Admin {
                 'ajax_url'             => admin_url('admin-ajax.php'),
                 'reservations_enabled' => ( class_exists( 'TP_Reservations' ) && TP_Reservations::is_enabled() ) ? '1' : '0',
                 'site_name'            => get_bloginfo( 'name' ),
+                'site_logo'            => $site_logo_url ?: '',
+                'promo_contact'        => $promo_contact,
+                'promo_palette'        => $promo_palette,
                 'promo_fonts'          => $promo_fonts,
+                'promo_templates'      => class_exists( 'TP_Package_Data' ) ? TP_Package_Data::get_promo_templates() : [],
             ]);
         }
 
@@ -658,6 +683,8 @@ class TP_Admin {
         $tipologias = get_terms( [ 'taxonomy' => 'tipologia', 'hide_empty' => false ] );
         $destinos   = is_array( $destinos ) ? $destinos : [];
         $tipologias = is_array( $tipologias ) ? $tipologias : [];
+        $promo_site_logo_id  = $is_editor_page ? (int) get_theme_mod( 'custom_logo' ) : 0;
+        $promo_site_logo_url = $promo_site_logo_id ? wp_get_attachment_image_url( $promo_site_logo_id, 'full' ) : '';
         $status     = sanitize_key( self::query_string( 'status' ) );
         $base_url   = admin_url( 'admin.php?page=tp-packages' );
 
@@ -1229,31 +1256,139 @@ class TP_Admin {
                                 </div>
                             </div>
                             <input type="hidden" name="tp_cf_order" id="tp_cf_order" value="">
+                            <input type="hidden" name="tp_promo_config" id="tp_promo_config" value="">
                         </div>
 
                         <div class="tp-panel" id="tp-section-promo">
                             <h2><?php _e('Imagen promocional', 'travel-packages'); ?></h2>
-                            <p class="tp-help"><?php _e('Genera una imagen usando la imagen principal como fondo, con las fechas, el título, la descripción corta y los precios principales. Se puede descargar como PNG.', 'travel-packages'); ?></p>
+                            <p class="tp-help"><?php _e('Diseñá, guardá y exportá piezas para redes con los datos del paquete y el contacto oficial de la agencia.', 'travel-packages'); ?></p>
+                            <div class="tp-promo-template-library">
+                                <strong><?php _e('Plantillas guardadas', 'travel-packages'); ?></strong>
+                                <div class="tp-promo-template-row">
+                                    <select id="tp_promo_saved_template">
+                                        <option value=""><?php _e('Elegí una plantilla guardada…', 'travel-packages'); ?></option>
+                                    </select>
+                                    <button type="button" class="button" id="tp-promo-apply-template"><?php _e('Aplicar', 'travel-packages'); ?></button>
+                                    <button type="button" class="button" id="tp-promo-delete-template"><?php _e('Eliminar', 'travel-packages'); ?></button>
+                                </div>
+                                <div class="tp-promo-template-row">
+                                    <input type="text" id="tp_promo_template_name" maxlength="60" placeholder="<?php esc_attr_e('Nombre de la plantilla', 'travel-packages'); ?>">
+                                    <button type="button" class="button" id="tp-promo-save-template"><?php _e('Guardar como plantilla', 'travel-packages'); ?></button>
+                                </div>
+                                <small><?php _e('Se guardan el estilo, la marca, el logo, la imagen adicional, las posiciones, el formato y los campos visibles. Los datos extra de ficha técnica no se incluyen porque dependen de cada paquete.', 'travel-packages'); ?></small>
+                                <p id="tp-promo-template-status" class="tp-help" role="status" aria-live="polite"></p>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_promo_template"><?php _e('Plantilla', 'travel-packages'); ?></label>
+                                <select id="tp_promo_template">
+                                    <option value="premium"><?php _e('Premium — editorial y elegante', 'travel-packages'); ?></option>
+                                    <option value="adventure"><?php _e('Aventura — enérgica y contrastada', 'travel-packages'); ?></option>
+                                    <option value="minimal"><?php _e('Minimal — limpia y simple', 'travel-packages'); ?></option>
+                                    <option value="offer"><?php _e('Oferta — precio protagonista', 'travel-packages'); ?></option>
+                                </select>
+                            </div>
+                            <div class="tp-field-group">
+                                <label class="tp-label" for="tp_promo_brand"><?php _e('Marca', 'travel-packages'); ?></label>
+                                <select id="tp_promo_brand">
+                                    <option value="site_name"><?php _e('Nombre del sitio', 'travel-packages'); ?></option>
+                                    <?php if ( ! empty( $promo_site_logo_url ) ) : ?>
+                                    <option value="site_logo"><?php _e('Logo configurado en WordPress', 'travel-packages'); ?></option>
+                                    <?php endif; ?>
+                                    <option value="custom_logo"><?php _e('Cargar otro logo', 'travel-packages'); ?></option>
+                                    <option value="none"><?php _e('Sin marca', 'travel-packages'); ?></option>
+                                </select>
+                            </div>
+                            <div id="tp-promo-custom-logo" class="tp-promo-custom-logo" hidden>
+                                <div id="tp-promo-logo-preview" class="tp-promo-logo-preview"></div>
+                                <button type="button" class="button" id="tp-promo-select-logo"><?php _e('Seleccionar logo', 'travel-packages'); ?></button>
+                                <button type="button" class="button" id="tp-promo-remove-logo" hidden><?php _e('Quitar logo', 'travel-packages'); ?></button>
+                                <small><?php _e('Usá una imagen PNG o JPG. El logo reemplaza el nombre del sitio.', 'travel-packages'); ?></small>
+                            </div>
+                            <div id="tp-promo-logo-size-control" class="tp-promo-size-control" hidden>
+                                <label for="tp_promo_logo_size"><?php _e('Tamaño máximo del logotipo', 'travel-packages'); ?></label>
+                                <input type="range" id="tp_promo_logo_size" min="10" max="50" value="30">
+                                <output id="tp-promo-logo-size-value" for="tp_promo_logo_size">30%</output>
+                            </div>
+                            <div class="tp-promo-secondary-image">
+                                <strong><?php _e('Imagen adicional (opcional)', 'travel-packages'); ?></strong>
+                                <div id="tp-promo-secondary-preview" class="tp-promo-secondary-preview"></div>
+                                <div class="tp-promo-secondary-actions">
+                                    <button type="button" class="button" id="tp-promo-select-secondary"><?php _e('Agregar imagen', 'travel-packages'); ?></button>
+                                    <button type="button" class="button" id="tp-promo-remove-secondary" hidden><?php _e('Quitar imagen', 'travel-packages'); ?></button>
+                                </div>
+                                <div id="tp-promo-secondary-options" class="tp-promo-secondary-options" hidden>
+                                    <label for="tp_promo_secondary_size"><?php _e('Tamaño máximo', 'travel-packages'); ?></label>
+                                    <input type="range" id="tp_promo_secondary_size" min="10" max="50" value="24">
+                                    <output id="tp-promo-secondary-size-value" for="tp_promo_secondary_size">24%</output>
+                                    <label for="tp_promo_secondary_position"><?php _e('Ubicación', 'travel-packages'); ?></label>
+                                    <select id="tp_promo_secondary_position">
+                                        <option value="top-right"><?php _e('Arriba a la derecha', 'travel-packages'); ?></option>
+                                        <option value="top-left"><?php _e('Arriba a la izquierda', 'travel-packages'); ?></option>
+                                        <option value="bottom-right"><?php _e('Abajo a la derecha', 'travel-packages'); ?></option>
+                                        <option value="bottom-left"><?php _e('Abajo a la izquierda', 'travel-packages'); ?></option>
+                                    </select>
+                                </div>
+                                <small><?php _e('Esta imagen es independiente de la foto de fondo y del logotipo. Se muestra como un elemento adicional en la pieza.', 'travel-packages'); ?></small>
+                            </div>
+                            <fieldset class="tp-promo-options">
+                                <legend><?php _e('Información a mostrar', 'travel-packages'); ?></legend>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="destination" checked> <?php _e('Destino', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="subtitle" checked> <?php _e('Descripción corta', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="date" checked> <?php _e('Próxima salida', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="price" checked> <?php _e('Precio', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="child_price" checked> <?php _e('Precio para niños', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="financing" checked> <?php _e('Financiación destacada', 'travel-packages'); ?></label>
+                            </fieldset>
+                            <fieldset class="tp-promo-options">
+                                <legend><?php _e('Contacto de la agencia (desde Ajustes)', 'travel-packages'); ?></legend>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="phone"> <?php _e('Teléfono', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="whatsapp"> <?php _e('WhatsApp', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="email"> <?php _e('Email', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="address"> <?php _e('Dirección', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-include" data-promo-key="website"> <?php _e('Sitio web', 'travel-packages'); ?></label>
+                                <small><?php _e('Editá estos datos en Tureo → Ajustes. Se usan como fuente central y no se copian al paquete.', 'travel-packages'); ?></small>
+                            </fieldset>
+                            <fieldset class="tp-promo-options">
+                                <legend><?php _e('Otros datos del paquete', 'travel-packages'); ?></legend>
+                                <div id="tp-promo-extra-options" class="tp-promo-extra-options"></div>
+                                <small><?php _e('Se ofrecen los campos de ficha técnica y campos personalizados que tengan contenido. Elegí pocos para mantener la imagen clara.', 'travel-packages'); ?></small>
+                            </fieldset>
                             <div class="tp-field-group">
                                 <label class="tp-label" for="tp_promo_format"><?php _e('Formato', 'travel-packages'); ?></label>
                                 <select id="tp_promo_format">
+                                    <option value=""><?php _e('Elegí un formato…', 'travel-packages'); ?></option>
                                     <option value="square"><?php _e('Cuadrado — 1080 x 1080 px', 'travel-packages'); ?></option>
                                     <option value="story"><?php _e('Vertical — 1080 x 1920 px', 'travel-packages'); ?></option>
+                                    <option value="landscape"><?php _e('Horizontal — 1200 x 628 px', 'travel-packages'); ?></option>
                                     <option value="custom"><?php _e('Personalizado', 'travel-packages'); ?></option>
                                 </select>
-                                <small><?php _e('Elegí un formato predefinido o definí el ancho y alto en píxeles.', 'travel-packages'); ?></small>
+                                <small><?php _e('Elegí un formato para iniciar el preview. Para personalizado, ingresá ancho y alto válidos.', 'travel-packages'); ?></small>
                             </div>
                             <div id="tp-promo-custom-dimensions" class="tp-promo-custom-dimensions" hidden>
                                 <div class="tp-field-group">
                                     <label class="tp-label" for="tp_promo_width"><?php _e('Ancho (px)', 'travel-packages'); ?></label>
-                                    <input type="number" id="tp_promo_width" min="320" max="4096" step="1" value="1200" inputmode="numeric">
+                                    <input type="number" id="tp_promo_width" min="320" max="4096" step="1" value="1200" inputmode="numeric" aria-describedby="tp-promo-custom-dimensions-help">
                                 </div>
                                 <div class="tp-field-group">
                                     <label class="tp-label" for="tp_promo_height"><?php _e('Alto (px)', 'travel-packages'); ?></label>
-                                    <input type="number" id="tp_promo_height" min="320" max="4096" step="1" value="628" inputmode="numeric">
+                                    <input type="number" id="tp_promo_height" min="320" max="4096" step="1" value="628" inputmode="numeric" aria-describedby="tp-promo-custom-dimensions-help">
                                 </div>
-                                <small><?php _e('Ingresá valores entre 320 y 4096 px por lado.', 'travel-packages'); ?></small>
+                                <small id="tp-promo-custom-dimensions-help"><?php _e('Ingresá números enteros entre 320 y 4096 px por lado.', 'travel-packages'); ?></small>
                             </div>
+                            <div class="tp-promo-crop">
+                                <strong><?php _e('Encuadre de la foto', 'travel-packages'); ?></strong>
+                                <label for="tp_promo_crop_x"><?php _e('Horizontal', 'travel-packages'); ?></label>
+                                <input type="range" id="tp_promo_crop_x" min="0" max="100" value="50">
+                                <label for="tp_promo_crop_y"><?php _e('Vertical', 'travel-packages'); ?></label>
+                                <input type="range" id="tp_promo_crop_y" min="0" max="100" value="50">
+                                <span id="tp-promo-crop-value">50% · 50%</span>
+                            </div>
+                            <fieldset class="tp-promo-options tp-promo-format-options">
+                                <legend><?php _e('Exportar para', 'travel-packages'); ?></legend>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="square" checked> <?php _e('Instagram / WhatsApp — cuadrado', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="story" checked> <?php _e('Stories / Reels — vertical', 'travel-packages'); ?></label>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="landscape" checked> <?php _e('Facebook — horizontal', 'travel-packages'); ?></label>
+                            </fieldset>
                             <div class="tp-promo-actions">
                                 <button type="button" class="tp-btn tp-btn-primary" id="tp-generate-promo">
                                     <span class="dashicons dashicons-format-image"></span> <?php _e('Crear imagen', 'travel-packages'); ?>
@@ -1261,10 +1396,18 @@ class TP_Admin {
                                 <button type="button" class="tp-btn tp-btn-secondary" id="tp-download-promo" disabled>
                                     <span class="dashicons dashicons-download"></span> <?php _e('Descargar PNG', 'travel-packages'); ?>
                                 </button>
+                                <button type="button" class="tp-btn tp-btn-secondary" id="tp-download-promo-batch">
+                                    <span class="dashicons dashicons-download"></span> <?php _e('Descargar todos (.zip)', 'travel-packages'); ?>
+                                </button>
+                                <button type="button" class="tp-btn tp-btn-secondary" id="tp-save-promo-config">
+                                    <span class="dashicons dashicons-saved"></span> <?php _e('Guardar diseño', 'travel-packages'); ?>
+                                </button>
                             </div>
                             <p id="tp-promo-status" class="tp-help" role="status" aria-live="polite"></p>
                             <div class="tp-promo-preview-wrap">
-                                <canvas id="tp-promo-canvas" width="1080" height="1080" aria-label="<?php esc_attr_e('Vista previa de la imagen promocional', 'travel-packages'); ?>"></canvas>
+                                <p class="tp-promo-drag-hint"><?php _e('Elegí un formato para iniciar el preview. Después podés arrastrar el logotipo, la imagen y los textos; el diseño se acomoda automáticamente.', 'travel-packages'); ?></p>
+                                <button type="button" class="button" id="tp-promo-reset-positions"><?php _e('Restablecer ubicaciones', 'travel-packages'); ?></button>
+                                <canvas id="tp-promo-canvas" width="1080" height="1080" hidden aria-label="<?php esc_attr_e('Vista previa de la imagen promocional', 'travel-packages'); ?>"></canvas>
                             </div>
                         </div>
 

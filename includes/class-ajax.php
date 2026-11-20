@@ -6,6 +6,9 @@ class TP_Ajax {
         add_action( 'wp_ajax_tp_toggle_slider',   [ __CLASS__, 'toggle_slider' ] );
         add_action( 'wp_ajax_tp_toggle_featured', [ __CLASS__, 'toggle_featured' ] );
         add_action( 'wp_ajax_tp_get_image_thumb', [ __CLASS__, 'get_image_thumb' ] );
+        add_action( 'wp_ajax_tp_save_promo_config', [ __CLASS__, 'save_promo_config' ] );
+        add_action( 'wp_ajax_tp_save_promo_template', [ __CLASS__, 'save_promo_template' ] );
+        add_action( 'wp_ajax_tp_delete_promo_template', [ __CLASS__, 'delete_promo_template' ] );
         add_action( 'wp_ajax_tp_search_suggestions',        [ __CLASS__, 'search_suggestions' ] );
         add_action( 'wp_ajax_nopriv_tp_search_suggestions', [ __CLASS__, 'search_suggestions' ] );
     }
@@ -54,6 +57,50 @@ class TP_Ajax {
         if ( ! $url ) wp_send_json_error();
 
         wp_send_json_success([ 'url' => $url ]);
+    }
+
+    public static function save_promo_config() {
+        check_ajax_referer( 'tp_admin_nonce', 'nonce' );
+        $post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+        if ( ! self::can_edit_package( $post_id ) ) {
+            wp_send_json_error([ 'message' => __( 'No tenés permiso para guardar el diseño de este paquete.', 'travel-packages' ) ], 403);
+        }
+        $config = isset( $_POST['config'] ) && is_scalar( $_POST['config'] ) ? (string) $_POST['config'] : '';
+        if ( $config === '' ) {
+            wp_send_json_error([ 'message' => __( 'La configuración del diseño está vacía.', 'travel-packages' ) ], 400);
+        }
+        TP_Package_Data::save_promo_config( $post_id, $config );
+        wp_send_json_success([ 'message' => __( 'Diseño guardado para este paquete.', 'travel-packages' ) ]);
+    }
+
+    public static function save_promo_template() {
+        check_ajax_referer( 'tp_admin_nonce', 'nonce' );
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error([ 'message' => __( 'No tenés permiso para guardar plantillas de diseño.', 'travel-packages' ) ], 403);
+        }
+        $name = isset( $_POST['name'] ) && is_scalar( $_POST['name'] ) ? (string) $_POST['name'] : '';
+        $config = isset( $_POST['config'] ) && is_scalar( $_POST['config'] ) ? (string) $_POST['config'] : '';
+        if ( $config === '' ) {
+            wp_send_json_error([ 'message' => __( 'La configuración del diseño está vacía.', 'travel-packages' ) ], 400);
+        }
+        $result = TP_Package_Data::save_promo_template( $name, $config );
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error([ 'message' => $result->get_error_message() ], 400);
+        }
+        wp_send_json_success( $result );
+    }
+
+    public static function delete_promo_template() {
+        check_ajax_referer( 'tp_admin_nonce', 'nonce' );
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error([ 'message' => __( 'No tenés permiso para eliminar plantillas de diseño.', 'travel-packages' ) ], 403);
+        }
+        $id = isset( $_POST['template_id'] ) && is_scalar( $_POST['template_id'] ) ? (string) $_POST['template_id'] : '';
+        $result = TP_Package_Data::delete_promo_template( $id );
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error([ 'message' => $result->get_error_message() ], 400);
+        }
+        wp_send_json_success( $result );
     }
 
     /** Sugerencias públicas del buscador de paquetes. */

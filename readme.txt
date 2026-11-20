@@ -17,6 +17,8 @@ Tureo es un plugin WordPress completo para agencias de turismo.
 
 * Custom Post Type "Paquetes de Viaje" con soporte de imágenes, galería, precio y fechas
 * Opciones de financiación por paquete con una cuota destacada junto al precio
+* Generador de imágenes promocionales con preview en tiempo real, elementos arrastrables, logo redimensionable e imagen adicional configurable
+* Exportación promocional en formatos cuadrado, vertical y horizontal; datos de contacto centralizados en Ajustes
 * Ficha técnica con campos personalizables por paquete
 * Toggle para destacar paquetes en el slider del home
 * Toggle para destacar paquetes en secciones especiales

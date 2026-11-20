@@ -4,12 +4,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /**
  * TP_Settings
  *
- * Ajustes generales de la agencia: WhatsApp, email de consultas,
+ * Ajustes generales de la agencia: contacto, WhatsApp, email de consultas,
  * activación del formulario público, paleta cromática y tipografía del frontend.
  */
 class TP_Settings {
 
     const OPTION_WHATSAPP = 'tp_whatsapp_number';
+    const OPTION_PHONE    = 'tp_agency_phone';
+    const OPTION_ADDRESS  = 'tp_agency_address';
     const OPTION_EMAIL    = 'tp_inquiry_email';
     const OPTION_INQUIRY  = 'tp_inquiry_enabled';
     const OPTION_PALETTE  = 'tp_color_palette';
@@ -257,6 +259,14 @@ class TP_Settings {
         return preg_replace( '/\D+/', '', $raw );
     }
 
+    public static function get_agency_phone() {
+        return sanitize_text_field( (string) get_option( self::OPTION_PHONE, '' ) );
+    }
+
+    public static function get_agency_address() {
+        return sanitize_text_field( (string) get_option( self::OPTION_ADDRESS, '' ) );
+    }
+
     public static function get_inquiry_email() {
         $email = sanitize_email( (string) get_option( self::OPTION_EMAIL, '' ) );
         if ( ! $email ) {
@@ -306,6 +316,8 @@ class TP_Settings {
         }
 
         $whatsapp = isset( $_POST['tp_whatsapp_number'] ) ? preg_replace( '/\D+/', '', (string) wp_unslash( $_POST['tp_whatsapp_number'] ) ) : '';
+        $phone    = isset( $_POST['tp_agency_phone'] ) && is_scalar( $_POST['tp_agency_phone'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['tp_agency_phone'] ) ) : '';
+        $address  = isset( $_POST['tp_agency_address'] ) && is_scalar( $_POST['tp_agency_address'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['tp_agency_address'] ) ) : '';
         $email    = isset( $_POST['tp_inquiry_email'] ) ? sanitize_email( wp_unslash( $_POST['tp_inquiry_email'] ) ) : '';
         $inquiry  = isset( $_POST['tp_inquiry_enabled'] ) && $_POST['tp_inquiry_enabled'] === '1' ? '1' : '0';
         $palette  = isset( $_POST['tp_color_palette'] ) ? sanitize_key( wp_unslash( $_POST['tp_color_palette'] ) ) : 'default';
@@ -327,6 +339,8 @@ class TP_Settings {
         $search_tipo        = isset( $_POST['tp_search_show_tipo'] ) && $_POST['tp_search_show_tipo'] === '1' ? '1' : '0';
 
         update_option( self::OPTION_WHATSAPP, $whatsapp );
+        update_option( self::OPTION_PHONE, $phone );
+        update_option( self::OPTION_ADDRESS, $address );
         update_option( self::OPTION_EMAIL, $email );
         update_option( self::OPTION_INQUIRY, $inquiry );
         update_option( self::OPTION_PALETTE, $palette );
@@ -343,6 +357,8 @@ class TP_Settings {
 
     public static function render_page() {
         $whatsapp        = (string) get_option( self::OPTION_WHATSAPP, '' );
+        $phone           = self::get_agency_phone();
+        $address         = self::get_agency_address();
         $email           = (string) get_option( self::OPTION_EMAIL, '' );
         $inquiry         = self::is_inquiry_enabled();
         $palette_current = self::get_palette();
@@ -379,9 +395,19 @@ class TP_Settings {
 
                     <div class="tp-field-grid tp-two-columns">
                         <div class="tp-field-group">
+                            <label class="tp-label" for="tp_agency_phone"><?php _e( 'Teléfono de la agencia', 'travel-packages' ); ?></label>
+                            <input type="text" name="tp_agency_phone" id="tp_agency_phone" value="<?php echo esc_attr( $phone ); ?>" placeholder="+54 9 11 1234-5678">
+                            <small><?php _e( 'Teléfono general que se puede incluir en las imágenes promocionales.', 'travel-packages' ); ?></small>
+                        </div>
+                        <div class="tp-field-group">
                             <label class="tp-label" for="tp_whatsapp_number"><?php _e( 'WhatsApp de la agencia', 'travel-packages' ); ?></label>
                             <input type="text" name="tp_whatsapp_number" id="tp_whatsapp_number" value="<?php echo esc_attr( $whatsapp ); ?>" placeholder="5491123456789">
                             <small><?php _e( 'Código de país + número, sin +, espacios ni guiones. Ej: 5491123456789. Se usa por defecto en todos los paquetes; podés reemplazarlo en cada uno.', 'travel-packages' ); ?></small>
+                        </div>
+                        <div class="tp-field-group">
+                            <label class="tp-label" for="tp_agency_address"><?php _e( 'Dirección de la agencia', 'travel-packages' ); ?></label>
+                            <input type="text" name="tp_agency_address" id="tp_agency_address" value="<?php echo esc_attr( $address ); ?>" placeholder="<?php esc_attr_e( 'Ej: Av. San Martín 123, Mendoza', 'travel-packages' ); ?>">
+                            <small><?php _e( 'Dirección general que se ofrece como dato de contacto en las imágenes.', 'travel-packages' ); ?></small>
                         </div>
                         <div class="tp-field-group">
                             <label class="tp-label" for="tp_inquiry_email"><?php _e( 'Email para consultas', 'travel-packages' ); ?></label>

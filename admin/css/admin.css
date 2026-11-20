@@ -4336,6 +4336,204 @@ body.tp-admin-tureo .tp-promo-actions {
     align-items: center;
     margin: 12px 0;
 }
+body.tp-admin-tureo .tp-promo-template-library {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid #e1e7de;
+    border-radius: 14px;
+    background: #fbfcf9;
+}
+body.tp-admin-tureo .tp-promo-template-library > strong {
+    color: var(--tureo-ink);
+    font-size: 14px;
+}
+body.tp-admin-tureo .tp-promo-template-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+body.tp-admin-tureo .tp-promo-template-row select,
+body.tp-admin-tureo .tp-promo-template-row input[type="text"] {
+    flex: 1 1 220px;
+    min-width: 0;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-promo-template-library > small {
+    color: #748078;
+}
+body.tp-admin-tureo #tp-promo-template-status {
+    margin: 0;
+    min-height: 0;
+}
+body.tp-admin-tureo #tp-promo-template-status:empty {
+    display: none;
+}
+body.tp-admin-tureo .tp-promo-custom-logo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: -4px 0 16px;
+}
+body.tp-admin-tureo .tp-promo-custom-logo[hidden] {
+    display: none;
+}
+body.tp-admin-tureo .tp-promo-custom-logo small {
+    flex-basis: 100%;
+    color: #748078;
+}
+body.tp-admin-tureo .tp-promo-logo-preview img {
+    display: block;
+    max-width: 180px;
+    max-height: 64px;
+    padding: 6px;
+    border: 1px solid #e1e7de;
+    border-radius: 8px;
+    background: #fff;
+    object-fit: contain;
+}
+body.tp-admin-tureo .tp-promo-size-control {
+    display: grid;
+    grid-template-columns: minmax(150px, auto) minmax(140px, 260px) 48px;
+    gap: 8px 12px;
+    align-items: center;
+    max-width: 560px;
+    margin: -4px 0 16px;
+}
+body.tp-admin-tureo .tp-promo-size-control[hidden],
+body.tp-admin-tureo .tp-promo-secondary-options[hidden] {
+    display: none;
+}
+body.tp-admin-tureo .tp-promo-size-control label,
+body.tp-admin-tureo .tp-promo-secondary-options label {
+    color: var(--tureo-ink);
+    font-size: 13px;
+    font-weight: 600;
+}
+body.tp-admin-tureo .tp-promo-size-control input[type="range"],
+body.tp-admin-tureo .tp-promo-secondary-options input[type="range"] {
+    width: 100%;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-promo-size-control output,
+body.tp-admin-tureo .tp-promo-secondary-options output {
+    color: #748078;
+    font-size: 12px;
+    text-align: right;
+}
+body.tp-admin-tureo .tp-promo-secondary-image {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    max-width: 560px;
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border: 1px solid #e1e7de;
+    border-radius: 12px;
+    background: #fbfcf9;
+}
+body.tp-admin-tureo .tp-promo-secondary-image > strong {
+    color: var(--tureo-ink);
+}
+body.tp-admin-tureo .tp-promo-secondary-image > small {
+    color: #748078;
+}
+body.tp-admin-tureo .tp-promo-secondary-preview img {
+    display: block;
+    max-width: 180px;
+    max-height: 120px;
+    padding: 6px;
+    border: 1px solid #e1e7de;
+    border-radius: 8px;
+    background: #fff;
+    object-fit: contain;
+}
+body.tp-admin-tureo .tp-promo-secondary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+body.tp-admin-tureo .tp-promo-secondary-options {
+    display: grid;
+    grid-template-columns: minmax(110px, auto) minmax(120px, 1fr) 44px;
+    gap: 10px 12px;
+    align-items: center;
+    max-width: 480px;
+}
+body.tp-admin-tureo .tp-promo-secondary-options select {
+    grid-column: 2 / -1;
+    max-width: 100%;
+}
+body.tp-admin-tureo .tp-promo-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin: 16px 0;
+    padding: 14px 16px;
+    border: 1px solid #e1e7de;
+    border-radius: 12px;
+    background: #fbfcf9;
+}
+body.tp-admin-tureo .tp-promo-options legend {
+    padding: 0 6px;
+    color: var(--tureo-ink);
+    font-weight: 700;
+}
+body.tp-admin-tureo .tp-promo-options > label,
+body.tp-admin-tureo .tp-promo-extra-options > label {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 0;
+    color: var(--tureo-ink);
+    font-size: 13px;
+}
+body.tp-admin-tureo .tp-promo-options input[type="checkbox"] {
+    flex: 0 0 auto;
+    margin: 2px 0 0;
+}
+body.tp-admin-tureo .tp-promo-extra-options {
+    display: flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+}
+body.tp-admin-tureo .tp-promo-options > small {
+    flex-basis: 100%;
+    color: #748078;
+}
+body.tp-admin-tureo .tp-promo-no-extra {
+    color: #748078;
+    font-size: 13px;
+}
+body.tp-admin-tureo .tp-promo-crop {
+    display: grid;
+    grid-template-columns: minmax(100px, 150px) minmax(120px, 1fr) auto;
+    gap: 8px 14px;
+    align-items: center;
+    max-width: 720px;
+    margin: 16px 0;
+    padding: 14px 16px;
+    border: 1px solid #e1e7de;
+    border-radius: 12px;
+    background: #fbfcf9;
+}
+body.tp-admin-tureo .tp-promo-crop > strong {
+    grid-column: 1 / -1;
+    color: var(--tureo-ink);
+}
+body.tp-admin-tureo .tp-promo-crop > input[type="range"] {
+    width: 100%;
+    margin: 0;
+}
+body.tp-admin-tureo .tp-promo-crop > span {
+    color: #748078;
+    font-size: 12px;
+    text-align: right;
+}
 body.tp-admin-tureo .tp-promo-custom-dimensions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 180px));
@@ -4351,9 +4549,17 @@ body.tp-admin-tureo .tp-promo-custom-dimensions > small {
     color: #748078;
 }
 body.tp-admin-tureo .tp-promo-preview-wrap {
-    display: flex;
-    justify-content: center;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
     margin-top: 16px;
+}
+body.tp-admin-tureo .tp-promo-drag-hint {
+    width: 100%;
+    margin: 0;
+    color: #748078;
+    font-size: 12px;
+    text-align: center;
 }
 body.tp-admin-tureo #tp-promo-canvas {
     display: none;
@@ -4364,6 +4570,9 @@ body.tp-admin-tureo #tp-promo-canvas {
     border-radius: 14px;
     background: #0f172a;
     box-shadow: 0 18px 40px rgba(15, 23, 42, .18);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
 }
 
 body.tp-admin-tureo .tp-financing-editor {
