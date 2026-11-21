@@ -1262,7 +1262,11 @@ class TP_Admin {
                         <div class="tp-panel" id="tp-section-promo">
                             <h2><?php _e('Imagen promocional', 'travel-packages'); ?></h2>
                             <p class="tp-help"><?php _e('Diseñá, guardá y exportá piezas para redes con los datos del paquete y el contacto oficial de la agencia.', 'travel-packages'); ?></p>
-                            <div class="tp-promo-template-library">
+                            <div class="tp-promo-editor">
+                                <div class="tp-promo-controls">
+                                    <section class="tp-promo-control-group tp-promo-control-group--design">
+                                        <h3 class="tp-promo-group-title"><?php _e('Diseño y marca', 'travel-packages'); ?></h3>
+                                        <div class="tp-promo-template-library">
                                 <strong><?php _e('Plantillas guardadas', 'travel-packages'); ?></strong>
                                 <div class="tp-promo-template-row">
                                     <select id="tp_promo_saved_template">
@@ -1330,6 +1334,9 @@ class TP_Admin {
                                 </div>
                                 <small><?php _e('Esta imagen es independiente de la foto de fondo y del logotipo. Se muestra como un elemento adicional en la pieza.', 'travel-packages'); ?></small>
                             </div>
+                                    </section>
+                                    <section class="tp-promo-control-group tp-promo-control-group--content">
+                                        <h3 class="tp-promo-group-title"><?php _e('Datos a mostrar', 'travel-packages'); ?></h3>
                             <fieldset class="tp-promo-options">
                                 <legend><?php _e('Información a mostrar', 'travel-packages'); ?></legend>
                                 <label><input type="checkbox" class="tp-promo-include" data-promo-key="destination" checked> <?php _e('Destino', 'travel-packages'); ?></label>
@@ -1353,6 +1360,9 @@ class TP_Admin {
                                 <div id="tp-promo-extra-options" class="tp-promo-extra-options"></div>
                                 <small><?php _e('Se ofrecen los campos de ficha técnica y campos personalizados que tengan contenido. Elegí pocos para mantener la imagen clara.', 'travel-packages'); ?></small>
                             </fieldset>
+                                    </section>
+                                    <section class="tp-promo-control-group tp-promo-control-group--format">
+                                        <h3 class="tp-promo-group-title"><?php _e('Formato y foto', 'travel-packages'); ?></h3>
                             <div class="tp-field-group">
                                 <label class="tp-label" for="tp_promo_format"><?php _e('Formato', 'travel-packages'); ?></label>
                                 <select id="tp_promo_format">
@@ -1406,6 +1416,13 @@ class TP_Admin {
                                 <label><input type="checkbox" class="tp-promo-format-check" value="story" checked> <?php _e('Stories / Reels — vertical', 'travel-packages'); ?></label>
                                 <label><input type="checkbox" class="tp-promo-format-check" value="landscape" checked> <?php _e('Facebook — horizontal', 'travel-packages'); ?></label>
                             </fieldset>
+                                    </section>
+                                </div>
+                                <aside class="tp-promo-preview-panel">
+                                    <div class="tp-promo-preview-header">
+                                        <h3 class="tp-promo-preview-title"><?php _e('Vista previa', 'travel-packages'); ?></h3>
+                                        <span class="tp-promo-preview-badge"><?php _e('Tiempo real', 'travel-packages'); ?></span>
+                                    </div>
                             <div class="tp-promo-actions">
                                 <button type="button" class="tp-btn tp-btn-primary" id="tp-generate-promo">
                                     <span class="dashicons dashicons-format-image"></span> <?php _e('Crear imagen', 'travel-packages'); ?>

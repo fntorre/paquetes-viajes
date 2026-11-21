@@ -4670,3 +4670,207 @@ body.tp-admin-tureo #tp-add-financing {
         white-space: normal;
     }
 }
+
+/* =========================================================
+   TUREO · Editor de imagen promocional: layout de trabajo
+   Preview persistente + controles en columna independiente.
+   ========================================================= */
+body.tp-admin-tureo #tp-section-promo .tp-promo-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(390px, 1.08fr);
+    grid-template-areas: "preview controls";
+    align-items: start;
+    gap: 22px;
+    margin-top: 20px;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-controls {
+    grid-area: controls;
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-preview-panel {
+    grid-area: preview;
+    position: sticky;
+    top: 48px;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-height: calc(100vh - 76px);
+    overflow-y: auto;
+    padding: 18px;
+    border: 1px solid #dfe7df;
+    border-radius: 16px;
+    background: #f7f9f6;
+    box-shadow: 0 8px 24px rgba(25, 45, 32, .07);
+    scrollbar-width: thin;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-preview-title {
+    margin: 0;
+    color: var(--tureo-ink);
+    font-size: 17px;
+    font-weight: 750;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-preview-badge {
+    flex: 0 0 auto;
+    padding: 5px 9px;
+    border: 1px solid #cfe3d3;
+    border-radius: 999px;
+    background: #edf7ef;
+    color: #287342;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 10px;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-actions > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    margin: 0;
+    padding: 8px 10px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+}
+
+body.tp-admin-tureo #tp-section-promo #tp-promo-status {
+    min-height: 18px;
+    margin: 0 0 8px;
+    color: #66736a;
+    font-size: 12px;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-preview-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-drag-hint {
+    order: 0;
+    color: #65736a;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+body.tp-admin-tureo #tp-section-promo #tp-promo-reset-positions {
+    order: 2;
+    align-self: flex-start;
+}
+
+body.tp-admin-tureo #tp-section-promo #tp-promo-canvas {
+    order: 1;
+    display: none;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: min(62vh, 720px);
+    object-fit: contain;
+    border: 1px solid rgba(20, 35, 25, .1);
+    border-radius: 12px;
+    background: #e8ede8;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-control-group {
+    min-width: 0;
+    margin: 0;
+    padding: 18px;
+    border: 1px solid #e1e7de;
+    border-radius: 14px;
+    background: #fff;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-group-title {
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #edf0eb;
+    color: var(--tureo-ink);
+    font-size: 15px;
+    font-weight: 750;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-control-group .tp-field-group {
+    margin-bottom: 12px;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-control-group .tp-field-group:last-child {
+    margin-bottom: 0;
+}
+
+body.tp-admin-tureo #tp-section-promo .tp-promo-template-library,
+body.tp-admin-tureo #tp-section-promo .tp-promo-secondary-image,
+body.tp-admin-tureo #tp-section-promo .tp-promo-options,
+body.tp-admin-tureo #tp-section-promo .tp-promo-crop,
+body.tp-admin-tureo #tp-section-promo .tp-promo-background-effects {
+    max-width: none;
+}
+
+@media (max-width: 1100px) {
+    body.tp-admin-tureo #tp-section-promo .tp-promo-editor {
+        grid-template-columns: minmax(0, .9fr) minmax(340px, 1.1fr);
+        gap: 14px;
+    }
+    body.tp-admin-tureo #tp-section-promo .tp-promo-preview-panel {
+        padding: 14px;
+    }
+    body.tp-admin-tureo #tp-section-promo .tp-promo-control-group {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 782px) {
+    body.tp-admin-tureo #tp-section-promo .tp-promo-editor {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "preview"
+            "controls";
+        gap: 16px;
+    }
+    body.tp-admin-tureo #tp-section-promo .tp-promo-preview-panel {
+        position: relative;
+        top: auto;
+        max-height: none;
+        overflow: visible;
+    }
+    body.tp-admin-tureo #tp-section-promo #tp-promo-canvas {
+        max-height: 65vh;
+    }
+}
+
+@media (max-width: 480px) {
+    body.tp-admin-tureo #tp-section-promo .tp-promo-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    body.tp-admin-tureo #tp-section-promo .tp-promo-template-row > * {
+        flex-basis: 100%;
+        width: 100%;
+    }
+    body.tp-admin-tureo #tp-section-promo .tp-promo-preview-panel,
+    body.tp-admin-tureo #tp-section-promo .tp-promo-control-group {
+        padding: 12px;
+    }
+}
