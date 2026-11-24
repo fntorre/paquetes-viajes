@@ -4,7 +4,7 @@ Tags: tureo, turismo, viajes, paquetes, agencia, slider
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 2.7.2
+Stable tag: 2.9.1
 License: GPLv2 or later
 
 Tureo — plugin completo para gestión de paquetes de viaje en agencias de turismo.
@@ -16,9 +16,12 @@ Tureo es un plugin WordPress completo para agencias de turismo.
 **Características:**
 
 * Custom Post Type "Paquetes de Viaje" con soporte de imágenes, galería, precio y fechas
+* Módulo de Colecciones reutilizables para agrupar paquetes y mostrarlos en distintas secciones
+* Código automático de colección (COL-0001) y SKU de paquete (TUR-000001)
 * Opciones de financiación por paquete con una cuota destacada junto al precio
-* Generador de imágenes promocionales con preview en tiempo real, elementos arrastrables, logo redimensionable e imagen adicional configurable
-* Exportación promocional en formatos cuadrado, vertical y horizontal; datos de contacto centralizados en Ajustes
+* Generador de imágenes promocionales con preview en tiempo real, variantes de diseño y elementos arrastrables
+* Plantillas reutilizables, identidad de marca global e historial de las últimas 10 versiones por paquete
+* Kit de campaña exportable en formatos cuadrado, vertical 4:5, story 9:16 y horizontal; datos de contacto centralizados en Ajustes
 * Ficha técnica con campos personalizables por paquete
 * Toggle para destacar paquetes en el slider del home
 * Toggle para destacar paquetes en secciones especiales
@@ -26,6 +29,7 @@ Tureo es un plugin WordPress completo para agencias de turismo.
 * Shortcode [tp_slider] para el slider principal
 * Shortcode [tp_grid] para grilla de paquetes
 * Shortcode [tp_paquete id="X"] para paquete individual
+* Shortcode [tp_coleccion codigo="COL-0001"] para mostrar una colección de paquetes
 * Taxonomía "Destinos" para categorizar paquetes
 * Slider con autoplay, swipe táctil y navegación por puntos
 * Video por YouTube, Vimeo o archivo MP4/WebM en la ficha
@@ -71,6 +75,17 @@ El carrusel es de scroll infinito: envuelve al llegar al final sin saltos visibl
 **Paquete individual:**
 `[tp_paquete id="123"]`
 
+**Colección:**
+`[tp_coleccion codigo="COL-0001"]`
+
+Props para tp_coleccion:
+- codigo: código de la colección (obligatorio, ej: COL-0001)
+- vista: grilla o carrusel (default: grilla)
+- columnas: cantidad de tarjetas/visibles 1 a 4 (default: 3)
+- limite: cantidad máxima de paquetes (default: 12)
+
+Ejemplo: `[tp_coleccion codigo="COL-0001" vista="carrusel" columnas="4"]`
+
 Ver SHORTCODES.md para documentación completa.
 
 == Opciones de financiación ==
@@ -78,6 +93,56 @@ Ver SHORTCODES.md para documentación completa.
 En el editor de cada paquete, dentro de **Precios y seña**, agregá las financiaciones que quieras mostrar. Ejemplo: “Hasta 12 cuotas sin interés con tarjeta Visa Santander”. Marcá una opción como destacada para que aparezca junto al precio; el resto se consulta desde el botón **Ver opciones de financiación** en la ficha del paquete.
 
 == Changelog ==
+
+= 2.9.1 =
+* Las tarjetas de las colecciones reutilizan el mismo diseño y contenido de [tp_grid].
+* Se incorpora [tp_coleccion] a la guía de shortcodes del administrador.
+
+= 2.9.0 =
+* Nuevo módulo de Colecciones para agrupar paquetes y reutilizarlos en distintas secciones del sitio.
+* Códigos automáticos de colección (COL-0001) y SKU de paquete (TUR-000001).
+* Nuevo shortcode [tp_coleccion] con vistas de grilla y carrusel.
+* Un paquete puede formar parte de varias colecciones y cada colección permite ordenar sus paquetes.
+
+= 2.8.4 =
+* Se eliminó el autoguardado local y la recuperación automática del formulario de paquetes.
+* Se retiró el generador de variantes de la sección Imagen promocional.
+* Se reorganizó la selección de estilos en cuatro propuestas visuales más claras: Editorial, Aventura, Natural y Promoción.
+* Se actualizaron las miniaturas visuales de los estilos sin alterar el motor de generación de imágenes.
+
+= 2.8.3 =
+* Ajuste de diseño desktop: imagen principal más panorámica y ficha del paquete más angosta y centrada, manteniendo la superposición.
+
+= 2.8.2 =
+* Se recupera en escritorio el diseño de detalle del paquete: imagen principal panorámica y ficha superpuesta parcialmente sobre ella.
+* El ajuste se limita a pantallas de escritorio; tablet y móvil conservan su comportamiento responsive.
+
+
+= 2.8.1 =
+* Mejoras visuales en el calendario de salidas: nombres de paquetes en hasta dos líneas, estado y cupos más legibles, y mejor manejo de días con muchas salidas.
+
+
+
+= 2.8.0 =
+* Nuevo indicador de completitud en el editor y en cada tarjeta del listado, con seis datos básicos para revisar antes de publicar.
+* Copia local automática de los cambios del formulario y recuperación opcional si se cierra o recarga la pantalla antes de guardar. La copia queda en el navegador y no reemplaza el guardado del paquete en WordPress.
+* Acciones masivas para publicar, pasar a borrador, marcar/quitar destacados e incluir/quitar paquetes del slider.
+* Panel principal ampliado con cantidad de borradores y paquetes que todavía necesitan completar información.
+
+
+= 2.7.4 =
+* Se limpia la lista de variantes al cambiar o reiniciar el paquete para evitar aplicar diseños de otro paquete.
+* Se vacía el historial anterior mientras se consulta el historial del paquete seleccionado.
+* Validación adicional del flujo de administración del generador promocional.
+
+= 2.7.3 =
+* Generación de tres alternativas visuales para comparar estilos sin cambiar los datos del paquete.
+* Sugerencia de estilo según el destino y la descripción del viaje.
+* Identidad de marca guardable y reutilizable entre paquetes, incluyendo colores y logo personalizado.
+* Nuevo formato vertical 4:5 (1080 × 1350) dentro del kit de campaña.
+* Historial de las últimas diez versiones del diseño por paquete, con opción de restaurar.
+* La configuración normalizada conserva la paleta de colores elegida.
+
 
 = 2.7.2 =
 * Nuevo campo "Ubicación del hotel en Google Maps" en la ficha del paquete.

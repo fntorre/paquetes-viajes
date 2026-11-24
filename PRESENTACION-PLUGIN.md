@@ -1,7 +1,7 @@
 # Tureo
 ## Presentación del Plugin — Guía para el Usuario
 
-**Versión 2.7.0** · Plugin WordPress para gestión de paquetes turísticos
+**Versión 2.9.1** · Plugin WordPress para gestión de paquetes turísticos
 
 ---
 
@@ -29,6 +29,7 @@ Una vez activado el plugin, en el menú lateral de WordPress aparece la opción 
 | **Paquetes** | Buscar, filtrar, duplicar, exportar/importar y eliminar paquetes |
 | **+ Agregar Paquete** | Abre el editor dedicado para crear un paquete |
 | **Calendario de Salidas** | Vista mensual de salidas, cupos, estados y precios |
+| **Colecciones** | Agrupar paquetes en grupos reutilizables para distintas secciones |
 | **Destinos** | Administrar los destinos del catálogo |
 | **Tipologías** | Administrar las categorías de tipo de viaje |
 | **Reservas** | Consultar y administrar las reservas |
@@ -42,7 +43,7 @@ Una vez activado el plugin, en el menú lateral de WordPress aparece la opción 
 
 Al ingresar ves un resumen del estado del catálogo:
 
-- **Tarjetas de estadísticas:** total de paquetes publicados, cuántos están en el slider y cuántos son destacados.
+- **Tarjetas de estadísticas:** paquetes publicados, en slider, destacados, reservas registradas, borradores y paquetes que todavía necesitan completar información.
 - **Últimos paquetes:** tabla con los 5 paquetes más recientes donde podés:
   - Activar/desactivar el **Slider** con un clic (✓ / ○).
   - Marcar/desmarcar como **Destacado** con un clic (⭐ / ☆).
@@ -56,7 +57,7 @@ Al ingresar ves un resumen del estado del catálogo:
 ## 4. Crear un Paquete Paso a Paso
 
 Desde **Paquetes → + Agregar Paquete** se abre el editor visual dedicado, organizado en secciones con una barra de navegación rápida. Las secciones opcionales vacías comienzan plegadas y se expanden automáticamente cuando ya tienen información.
-El título es obligatorio; si falta, el formulario vuelve a abrirse con los datos ingresados para que puedas corregirlo sin empezar de nuevo. La barra inferior mantiene a mano las acciones de guardado y vista previa.
+El título es obligatorio; si falta, el formulario vuelve a abrirse con los datos ingresados para que puedas corregirlo sin empezar de nuevo. La barra inferior mantiene a mano las acciones de guardado y vista previa. El editor muestra un indicador de completitud con seis datos básicos: título, descripción, imagen principal, precio, destino y salida.
 
 ### 4.1 Contenido
 
@@ -112,10 +113,22 @@ La pantalla **Paquetes** se enfoca en el listado; cada paquete se edita en una p
 
 - **Buscador por nombre** y filtros avanzados: destino, tipología, tipo de viaje, rango de precio mínimo/máximo, si está en slider, si es destacado y ordenamiento por fecha/título/precio (ascendente o descendente).
 - **Editor separado:** crear o editar abre el formulario en una pantalla propia, con acceso rápido al listado y a la vista previa.
+- **SKU automático:** cada paquete recibe un identificador único (ej: `TUR-000001`) visible en el listado y en la columna del catálogo.
 - **Duplicar paquete:** crea una copia para reutilizar estructura (ideal para paquetes similares entre temporadas).
 - **Exportar:** descarga todo el catálogo en formato JSON (backup o traslado a otro sitio).
 - **Importar:** carga masiva desde un archivo JSON previamente exportado.
 - **Paginación:** 40 paquetes por página.
+- **Completitud:** cada tarjeta muestra el porcentaje de datos principales cargados y señala algunos de los que faltan.
+- **Acciones masivas:** seleccioná los paquetes visibles y aplicá una acción común: publicar (si tu usuario tiene permiso), pasar a borrador, marcar/quitar destacados o incluir/quitar del slider.
+
+### 5.1 Colecciones
+
+La sección **Tureo → Colecciones** permite agrupar paquetes en grupos reutilizables (por ejemplo *"Escapadas de invierno"* o *"Los más elegidos"*) y mostrarlos en distintas secciones del sitio.
+
+- Cada colección recibe un **código automático** (ej: `COL-0001`) que se usa en el shortcode `[tp_coleccion]`.
+- Se marcan los paquetes que forman parte y se define su orden: los números más bajos aparecen primero.
+- Un paquete puede pertenecer a **varias colecciones** al mismo tiempo.
+- Las tarjetas usan exactamente el mismo diseño, precios, fechas, cupos y botones que `[tp_grid]`.
 
 ---
 
@@ -196,6 +209,33 @@ Además admite **enlaces pre-filtrados** para campañas o menús:
 <a href="/paquetes/?destino=caribe">Escapadas al Caribe</a>
 ```
 
+### 6.5 `[tp_buscador]` — Buscador independiente
+
+Buscador con **sugerencias en vivo** para colocar en el home, header, sidebar o cualquier landing. Envía la búsqueda a la página de resultados configurada en **Ajustes → Buscador de paquetes** (esa página debe contener `[tp_catalogo]`).
+
+```
+[tp_buscador]
+[tp_buscador placeholder="Tu próximo viaje" button="Buscar"]
+[tp_buscador url="/paquetes/" show_tipo_viaje="false"]
+```
+
+### 6.6 `[tp_coleccion]` — Colección de paquetes
+
+Muestra los paquetes de una colección creada en **Tureo → Colecciones**, con las mismas tarjetas que `[tp_grid]`.
+
+```
+[tp_coleccion codigo="COL-0001"]                                   → grilla
+[tp_coleccion codigo="COL-0001" vista="carrusel" columnas="4"]     → carrusel
+[tp_coleccion codigo="COL-0001" vista="grilla" columnas="3" limite="6"]
+```
+
+| Parámetro | Valor por defecto | Qué controla |
+|---|---|---|
+| `codigo` | — (requerido) | Código de la colección (ej: `COL-0001`) |
+| `vista` | grilla | `grilla` o `carrusel` |
+| `columnas` | 3 | Tarjetas visibles: 1, 2, 3 o 4 |
+| `limite` | 12 | Cantidad máxima de paquetes |
+
 > 📋 Todo esto también está disponible dentro de WordPress en **Guía de Shortcodes**, con ejemplos copiables.
 
 ---
@@ -206,6 +246,7 @@ Además admite **enlaces pre-filtrados** para campañas o menús:
 |---|---|
 | Promocionar ofertas de temporada en la portada | Marcar los paquetes con **Slider Home** desde el dashboard, con un clic |
 | Armar una sección "Los más elegidos" | Marcar paquetes como **Destacados** y usar `[tp_grid destacados="true"]` |
+| Reutilizar un mismo grupo de paquetes en varias páginas | Crear una **Colección** y mostrarla con `[tp_coleccion codigo="COL-0001"]` |
 | Landing de campaña para una tipología | Página nueva con `[tp_catalogo]` y enlace pre-filtrado `?tipologia=playa` |
 | Cargar 20 paquetes similares | Completar uno bien hecho y **duplicarlo**, editando solo precios y fechas |
 | Cambiar de proveedor o renovar el sitio | **Exportar** el catálogo a JSON e **importarlo** en la nueva instalación |
@@ -242,6 +283,7 @@ Además admite **enlaces pre-filtrados** para campañas o menús:
 
 - 🧳 Carga de paquetes **completa y guiada** (precios, fechas, galerías, fichas).
 - ⚡ Operación diaria **rápida**: toggles de visibilidad, duplicado, filtros y exportación.
+- 🗂️ **Colecciones reutilizables** para agrupar paquetes y mostrarlos en varias secciones.
 - 🎨 Exhibición **totalmente configurable** desde shortcodes, sin tocar código.
 - 🔎 Catálogo público con **buscador y filtros** que mejora la experiencia del viajero.
 

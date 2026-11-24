@@ -11,6 +11,7 @@ class TP_Admin_Handlers {
 
     public static function init() {
         add_action( 'admin_post_tp_save_package',       [ __CLASS__, 'save_package' ] );
+        add_action( 'admin_post_tp_bulk_update_packages', [ __CLASS__, 'bulk_update_packages' ] );
         add_action( 'admin_post_tp_duplicate_package',  [ __CLASS__, 'duplicate_package' ] );
         add_action( 'admin_post_tp_export_packages',    [ __CLASS__, 'export_packages' ] );
         add_action( 'admin_post_tp_import_packages',    [ __CLASS__, 'import_packages' ] );
@@ -74,12 +75,63 @@ class TP_Admin_Handlers {
         }
 
         TP_Package_Data::save_from_post( $package_id, $_POST );
+        TP_Collections::ensure_package_sku( $package_id );
 
         $redirect_url = add_query_arg(
             [ 'page' => 'tp-package-new', 'status' => 'success', 'package_id' => $package_id ],
             admin_url( 'admin.php' )
         );
         wp_safe_redirect( $redirect_url );
+        exit;
+    }
+
+
+    /** Aplica acciones no destructivas a varios paquetes seleccionados. */
+    public static function bulk_update_packages() {
+        if ( ! isset( $_POST['tp_bulk_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['tp_bulk_nonce'] ) ), 'tp_bulk_update_packages' ) ) {
+            wp_die( __( 'La sesión del formulario venció. Actualizá la página e intentá nuevamente.', 'travel-packages' ) );
+        }
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_die( __( 'No tienes permisos para modificar paquetes.', 'travel-packages' ) );
+        }
+
+        $action = isset( $_POST['tp_bulk_action'] ) ? sanitize_key( wp_unslash( $_POST['tp_bulk_action'] ) ) : '';
+        $allowed = [ 'publish', 'draft', 'featured_on', 'featured_off', 'slider_on', 'slider_off' ];
+        if ( ! in_array( $action, $allowed, true ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=tp-packages' ) );
+            exit;
+        }
+        if ( $action === 'publish' && ! current_user_can( 'publish_posts' ) ) {
+            wp_die( __( 'No tienes permisos para publicar paquetes.', 'travel-packages' ) );
+        }
+
+        $ids = isset( $_POST['tp_package_ids'] ) && is_array( $_POST['tp_package_ids'] )
+            ? array_values( array_unique( array_filter( array_map( 'absint', wp_unslash( $_POST['tp_package_ids'] ) ) ) ) )
+            : [];
+        $updated = 0;
+
+        foreach ( $ids as $post_id ) {
+            $post = get_post( $post_id );
+            if ( ! $post || $post->post_type !== TP_Package_Data::POST_TYPE || ! current_user_can( 'edit_post', $post_id ) ) {
+                continue;
+            }
+
+            if ( $action === 'publish' || $action === 'draft' ) {
+                $result = wp_update_post( [ 'ID' => $post_id, 'post_status' => $action ], true );
+                if ( ! is_wp_error( $result ) ) {
+                    $updated++;
+                }
+                continue;
+            }
+
+            $meta = strpos( $action, 'featured_' ) === 0 ? '_tp_featured' : '_tp_slider';
+            $value = substr( $action, -3 ) === '_on' ? '1' : '0';
+            update_post_meta( $post_id, $meta, $value );
+            $updated++;
+        }
+
+        $redirect = add_query_arg( [ 'page' => 'tp-packages', 'status' => 'bulk_updated', 'updated' => $updated ], admin_url( 'admin.php' ) );
+        wp_safe_redirect( $redirect );
         exit;
     }
 
@@ -122,6 +174,8 @@ class TP_Admin_Handlers {
         }
 
         TP_Package_Data::copy_to( $original_id, $new_id );
+        delete_post_meta( $new_id, '_tp_sku' );
+        TP_Collections::ensure_package_sku( $new_id );
 
         wp_redirect( admin_url( 'admin.php?page=tp-packages&status=duplicated' ) );
         exit;

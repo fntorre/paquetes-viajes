@@ -16,6 +16,12 @@ jQuery(document).ready(function($) {
     var promoPreviewVersion = 0;
     var promoLastImages = { background: null, logo: null, secondary: null };
     var promoTemplates = window.TP_ADMIN && Array.isArray(TP_ADMIN.promo_templates) ? TP_ADMIN.promo_templates : [];
+    var promoBrandKit = window.TP_ADMIN && TP_ADMIN.promo_brand_kit ? TP_ADMIN.promo_brand_kit : null;
+    var promoHistory = [];
+    var promoHistoryRequest = 0;
+    if ( ! promoBrandKit || promoBrandKit.saved !== true ) {
+        $('#tp-promo-apply-brand-kit').prop('disabled', true);
+    }
     var reservationsEnabled = !!( window.TP_ADMIN && TP_ADMIN.reservations_enabled === '1' );
 
     $(document).on('click', '#tp-similar-clear', function() {
@@ -375,6 +381,39 @@ jQuery(document).ready(function($) {
         }
     }
 
+    function promoDefaultPalette() {
+        var configured = window.TP_ADMIN && TP_ADMIN.promo_palette ? TP_ADMIN.promo_palette : {};
+        return {
+            primary: configured.primary || '#0f766e',
+            accent: configured.accent || '#0f172a',
+            highlight: configured.highlight || '#b8fff0'
+        };
+    }
+
+    function promoReadPalette() {
+        var defaults = promoDefaultPalette();
+        return {
+            primary: /^#[0-9a-f]{6}$/i.test($('#tp_promo_color_primary').val() || '') ? $('#tp_promo_color_primary').val() : defaults.primary,
+            accent: /^#[0-9a-f]{6}$/i.test($('#tp_promo_color_accent').val() || '') ? $('#tp_promo_color_accent').val() : defaults.accent,
+            highlight: /^#[0-9a-f]{6}$/i.test($('#tp_promo_color_highlight').val() || '') ? $('#tp_promo_color_highlight').val() : defaults.highlight
+        };
+    }
+
+    function promoSyncPresetButtons() {
+        var selected = $('#tp_promo_template').val() || 'premium';
+        $('.tp-promo-preset').each(function() {
+            var active = String($(this).data('promo-template')) === selected;
+            $(this).toggleClass('is-active', active).attr('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    function promoInitBrandColors() {
+        var defaults = promoDefaultPalette();
+        $('#tp_promo_color_primary').val(defaults.primary);
+        $('#tp_promo_color_accent').val(defaults.accent);
+        $('#tp_promo_color_highlight').val(defaults.highlight);
+    }
+
     function promoData() {
         var price = $('#tp_price_adult').val();
         var currencyCode = $('#tp_currency_base').val() || 'USD';
@@ -456,6 +495,7 @@ jQuery(document).ready(function($) {
             secondaryPosition: $('#tp_promo_secondary_position').val() || 'top-right',
             site: brand === 'site_name' && window.TP_ADMIN ? TP_ADMIN.site_name : '',
             template: $('#tp_promo_template').val() || 'premium',
+            palette: promoReadPalette(),
             cropX: Number($('#tp_promo_crop_x').val()) || 50,
             cropY: Number($('#tp_promo_crop_y').val()) || 50,
             bgEffect: $('#tp_promo_bg_effect').val() || 'none',
@@ -478,6 +518,7 @@ jQuery(document).ready(function($) {
         });
         return {
             template: $('#tp_promo_template').val() || 'premium',
+            palette: promoReadPalette(),
             brand: $('#tp_promo_brand').val() || 'site_name',
             logo_url: promoLogoUrl,
             logo_size: Number($('#tp_promo_logo_size').val()) || 30,
@@ -501,6 +542,12 @@ jQuery(document).ready(function($) {
     function applyPromoConfig(config) {
         if ( ! config || typeof config !== 'object' ) { return; }
         $('#tp_promo_template').val(config.template || 'premium');
+        var defaultPalette = promoDefaultPalette();
+        var savedPalette = config.palette && typeof config.palette === 'object' ? config.palette : defaultPalette;
+        $('#tp_promo_color_primary').val(/^#[0-9a-f]{6}$/i.test(savedPalette.primary || '') ? savedPalette.primary : defaultPalette.primary);
+        $('#tp_promo_color_accent').val(/^#[0-9a-f]{6}$/i.test(savedPalette.accent || '') ? savedPalette.accent : defaultPalette.accent);
+        $('#tp_promo_color_highlight').val(/^#[0-9a-f]{6}$/i.test(savedPalette.highlight || '') ? savedPalette.highlight : defaultPalette.highlight);
+        promoSyncPresetButtons();
         var format = config.format || '';
         if ( format && $('#tp_promo_format option[value="' + format + '"]').length ) {
             $('#tp_promo_format').val(format);
@@ -644,6 +691,9 @@ jQuery(document).ready(function($) {
         if ( override ) { return override; }
         var format = $('#tp_promo_format').val();
         if ( ! format ) { return null; }
+        if ( format === 'portrait' ) {
+            return { W: 1080, H: 1350 };
+        }
         if ( format === 'story' ) {
             return { W: 1080, H: 1920 };
         }
@@ -665,6 +715,7 @@ jQuery(document).ready(function($) {
         var dims = dimensions || promoDimensions();
         if ( ! dims ) { return ''; }
         if ( dims.W === 1080 && dims.H === 1080 ) { return 'square'; }
+        if ( dims.W === 1080 && dims.H === 1350 ) { return 'portrait'; }
         if ( dims.W === 1080 && dims.H === 1920 ) { return 'story'; }
         if ( dims.W === 1200 && dims.H === 628 ) { return 'landscape'; }
         return 'custom-' + dims.W + 'x' + dims.H;
@@ -760,7 +811,7 @@ jQuery(document).ready(function($) {
         var pad = Math.round((isStory ? 84 : 72) * fontScale);
         var fontPair = promoFonts();
         var template = data.template || 'premium';
-        var palette = window.TP_ADMIN && TP_ADMIN.promo_palette ? TP_ADMIN.promo_palette : {};
+        var palette = data.palette && typeof data.palette === 'object' ? data.palette : promoDefaultPalette();
         var primary = palette.primary || '#0f766e';
         var accent = palette.accent || '#0f172a';
         var highlight = palette.highlight || '#b8fff0';
@@ -1421,6 +1472,7 @@ jQuery(document).ready(function($) {
     function downloadPromoBatch() {
         var formats = {
             square: { name: 'instagram-whatsapp-cuadrado', dimensions: { W: 1080, H: 1080 } },
+            portrait: { name: 'instagram-feed-vertical', dimensions: { W: 1080, H: 1350 } },
             story: { name: 'stories-reels-vertical', dimensions: { W: 1080, H: 1920 } },
             landscape: { name: 'facebook-horizontal', dimensions: { W: 1200, H: 628 } }
         };
@@ -1512,6 +1564,7 @@ jQuery(document).ready(function($) {
             config: JSON.stringify(promoConfig())
         }).done(function(response) {
             if ( response && response.success ) {
+                renderPromoHistory(response.data.history || []);
                 $('#tp-promo-status').text(response.data.message || 'Diseño guardado para este paquete.');
             } else {
                 $('#tp-promo-status').text(response && response.data && response.data.message ? response.data.message : 'No se pudo guardar el diseño.');
@@ -1521,6 +1574,147 @@ jQuery(document).ready(function($) {
             $('#tp-promo-status').text(message || 'Error al guardar el diseño. Verificá tus permisos e intentá nuevamente.');
         });
     }
+
+    function renderPromoHistory(items) {
+        promoHistory = Array.isArray(items) ? items : [];
+        var $select = $('#tp_promo_history');
+        if ( ! $select.length ) { return; }
+        $select.empty();
+        if ( ! promoHistory.length ) {
+            $select.append($('<option>').val('').text('No hay versiones guardadas'));
+            $('#tp-promo-restore-history').prop('disabled', true);
+            return;
+        }
+        $select.append($('<option>').val('').text('Elegí una versión…'));
+        promoHistory.forEach(function(item, index) {
+            var date = item.created ? new Date(item.created * 1000).toLocaleString('es-AR') : 'Versión ' + (index + 1);
+            var templateNames = { premium: 'Premium', adventure: 'Aventura', minimal: 'Minimal', offer: 'Oferta' };
+            var style = item.config && templateNames[item.config.template] ? templateNames[item.config.template] : 'Diseño';
+            $select.append($('<option>').val(item.id).text(date + ' · ' + style));
+        });
+        $('#tp-promo-restore-history').prop('disabled', true);
+    }
+
+    function loadPromoHistory() {
+        var postId = parseInt($('#tp_package_id').val(), 10) || 0;
+        var requestId = ++promoHistoryRequest;
+        // Limpia primero el historial anterior: evita restaurar por error
+        // una versión del paquete que se estaba editando antes.
+        renderPromoHistory([]);
+        if ( ! postId || ! window.TP_ADMIN ) {
+            $('#tp-promo-history-status').text('Guardá el paquete para comenzar un historial de diseños.');
+            return;
+        }
+        $('#tp-promo-history-status').text('Cargando historial…');
+        $.post(TP_ADMIN.ajax_url, {
+            action: 'tp_get_promo_history',
+            nonce: TP_ADMIN.nonce,
+            post_id: postId
+        }).done(function(response) {
+            // Ignora respuestas tardías si el administrador ya cambió de paquete.
+            if ( requestId !== promoHistoryRequest ) { return; }
+            if ( response && response.success ) {
+                renderPromoHistory(response.data.history || []);
+                $('#tp-promo-history-status').text(promoHistory.length ? 'Podés recuperar cualquiera de las últimas 10 versiones.' : 'Todavía no hay versiones guardadas.');
+            } else {
+                renderPromoHistory([]);
+                $('#tp-promo-history-status').text('No se pudo consultar el historial.');
+            }
+        }).fail(function() {
+            if ( requestId !== promoHistoryRequest ) { return; }
+            renderPromoHistory([]);
+            $('#tp-promo-history-status').text('No se pudo consultar el historial.');
+        });
+    }
+
+    function getPromoBrandKitConfig() {
+        return {
+            brand: $('#tp_promo_brand').val() || 'site_name',
+            palette: promoReadPalette(),
+            logo_url: promoLogoUrl || '',
+            logo_size: Number($('#tp_promo_logo_size').val()) || 30
+        };
+    }
+
+    function applyPromoBrandKit(kit) {
+        if ( ! kit || typeof kit !== 'object' ) {
+            $('#tp-promo-brand-status').text('Todavía no hay una identidad de marca guardada.');
+            return;
+        }
+        var defaults = promoDefaultPalette();
+        var palette = kit.palette && typeof kit.palette === 'object' ? kit.palette : defaults;
+        $('#tp_promo_color_primary').val(/^#[0-9a-f]{6}$/i.test(palette.primary || '') ? palette.primary : defaults.primary);
+        $('#tp_promo_color_accent').val(/^#[0-9a-f]{6}$/i.test(palette.accent || '') ? palette.accent : defaults.accent);
+        $('#tp_promo_color_highlight').val(/^#[0-9a-f]{6}$/i.test(palette.highlight || '') ? palette.highlight : defaults.highlight);
+        var brand = kit.brand || 'site_name';
+        if ( $('#tp_promo_brand option[value="' + brand + '"]').length ) {
+            $('#tp_promo_brand').val(brand);
+        }
+        promoLogoUrl = kit.logo_url || '';
+        $('#tp_promo_logo_size').val(kit.logo_size || 30);
+        $('#tp-promo-logo-size-value').text($('#tp_promo_logo_size').val() + '%');
+        if ( promoLogoUrl ) {
+            $('#tp-promo-logo-preview').html('<img src="' + escAttr(promoLogoUrl) + '" alt="Vista previa del logo">');
+            $('#tp-promo-remove-logo').prop('hidden', false);
+        } else {
+            $('#tp-promo-logo-preview').empty();
+            $('#tp-promo-remove-logo').prop('hidden', true);
+        }
+        $('#tp_promo_brand').trigger('change');
+        $('#tp-promo-brand-status').text('Identidad de marca aplicada. Ahora podés ajustar la pieza sin modificar el perfil guardado.');
+        resetPromoPreview();
+    }
+
+    function savePromoBrandKit() {
+        var kit = getPromoBrandKitConfig();
+        if ( kit.brand === 'custom_logo' && ! kit.logo_url ) {
+            $('#tp-promo-brand-status').text('Seleccioná un logo antes de guardar la identidad de marca.');
+            return;
+        }
+        $('#tp-promo-brand-status').text('Guardando identidad…');
+        $.post(TP_ADMIN.ajax_url, {
+            action: 'tp_save_promo_brand_kit',
+            nonce: TP_ADMIN.nonce,
+            kit: JSON.stringify(kit)
+        }).done(function(response) {
+            if ( response && response.success ) {
+                promoBrandKit = response.data.brand_kit || kit;
+                promoBrandKit.saved = true;
+                $('#tp-promo-apply-brand-kit').prop('disabled', false);
+                $('#tp-promo-brand-status').text(response.data.message || 'Identidad de marca guardada.');
+            } else {
+                $('#tp-promo-brand-status').text(response && response.data && response.data.message ? response.data.message : 'No se pudo guardar la identidad de marca.');
+            }
+        }).fail(function(xhr) {
+            var message = xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message;
+            $('#tp-promo-brand-status').text(message || 'Error al guardar la identidad de marca.');
+        });
+    }
+
+    function suggestPromoTemplateByDestination() {
+        var raw = [
+            $('#tp_new_destino').val(),
+            $('#tp_destino option:selected').text(),
+            $('#tp_title').val(),
+            $('#tp_short_desc').val()
+        ].join(' ').toLowerCase();
+        var text = raw.normalize ? raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : raw;
+        var style = 'premium';
+        var reason = 'una propuesta editorial versátil';
+        if (/(oferta|promo|descuento|ultimos lugares|liquidacion)/.test(text)) {
+            style = 'offer';
+            reason = 'una comunicación promocional con el precio como protagonista';
+        } else if (/(aventura|trekking|montana|glaciar|safari|rafting|senderismo|patagonia|expedicion|selva)/.test(text)) {
+            style = 'adventure';
+            reason = 'un viaje de aventura o naturaleza';
+        } else if (/(\bplaya\b|\bcaribe\b|\bisla\b|\bmar\b|\bcosta\b|buzios|cancun|punta cana|rio de janeiro|florianopolis)/.test(text)) {
+            style = 'minimal';
+            reason = 'un destino de playa o costa';
+        }
+        $('#tp_promo_template').val(style).trigger('change');
+        $('#tp-promo-suggestion-status').text('Sugerencia: ' + style.charAt(0).toUpperCase() + style.slice(1) + ', pensada para ' + reason + '. Podés elegir otro estilo cuando quieras.');
+    }
+
 
     function setPromoTemplateStatus(message) {
         $('#tp-promo-template-status').text(message || '');
@@ -1545,7 +1739,7 @@ jQuery(document).ready(function($) {
         if ( current && $select.find('option').filter(function() { return String(this.value) === String(current); }).length ) {
             $select.val(current);
         }
-        $('#tp-promo-apply-template, #tp-promo-delete-template').prop('disabled', ! $select.val());
+        $('#tp-promo-apply-template, #tp-promo-delete-template, #tp-promo-duplicate-template').prop('disabled', ! $select.val());
     }
 
     function promoTemplateConfig() {
@@ -1611,6 +1805,8 @@ jQuery(document).ready(function($) {
         }).done(function(response) {
             if ( response && response.success ) {
                 promoTemplates = Array.isArray(response.data.templates) ? response.data.templates : [];
+    promoInitBrandColors();
+    promoSyncPresetButtons();
     renderPromoTemplates();
     updatePromoBackgroundEffectUI();
 
@@ -1635,7 +1831,7 @@ jQuery(document).ready(function($) {
     }
 
     $(document).on('change', '#tp_promo_saved_template', function() {
-        $('#tp-promo-apply-template, #tp-promo-delete-template').prop('disabled', ! $(this).val());
+        $('#tp-promo-apply-template, #tp-promo-delete-template, #tp-promo-duplicate-template').prop('disabled', ! $(this).val());
     });
 
     $(document).on('click', '#tp-promo-apply-template', function(e) {
@@ -1654,6 +1850,25 @@ jQuery(document).ready(function($) {
         e.preventDefault();
         savePromoTemplate();
     });
+    $(document).on('click', '#tp-promo-duplicate-template', function(e) {
+        e.preventDefault();
+        var selected = findPromoTemplate($('#tp_promo_saved_template').val());
+        if ( ! selected ) {
+            setPromoTemplateStatus('Elegí una plantilla para duplicar.');
+            return;
+        }
+        var suggested = String(selected.name || 'Diseño') + ' - copia';
+        var name = window.prompt('¿Qué nombre querés darle a la copia?', suggested);
+        if ( name === null ) { return; }
+        name = $.trim(name);
+        if ( ! name ) {
+            setPromoTemplateStatus('Ingresá un nombre para guardar la copia.');
+            return;
+        }
+        applyPromoConfig(selected.config);
+        $('#tp_promo_template_name').val(name);
+        savePromoTemplate();
+    });
 
     $(document).on('click', '#tp-promo-delete-template', function(e) {
         e.preventDefault();
@@ -1661,6 +1876,35 @@ jQuery(document).ready(function($) {
     });
 
     renderPromoTemplates();
+    loadPromoHistory();
+
+    $(document).on('click', '#tp-promo-suggest-destination', function(e) {
+        e.preventDefault();
+        suggestPromoTemplateByDestination();
+    });
+    $(document).on('click', '#tp-promo-save-brand-kit', function(e) {
+        e.preventDefault();
+        savePromoBrandKit();
+    });
+    $(document).on('click', '#tp-promo-apply-brand-kit', function(e) {
+        e.preventDefault();
+        if ( ! promoBrandKit || ! promoBrandKit.saved ) {
+            $('#tp-promo-brand-status').text('Todavía no guardaste una identidad de marca.');
+            return;
+        }
+        applyPromoBrandKit(promoBrandKit);
+    });
+    $(document).on('change', '#tp_promo_history', function() {
+        $('#tp-promo-restore-history').prop('disabled', ! $(this).val());
+    });
+    $(document).on('click', '#tp-promo-restore-history', function(e) {
+        e.preventDefault();
+        var id = String($('#tp_promo_history').val() || '');
+        var version = promoHistory.filter(function(item) { return String(item.id) === id; })[0];
+        if ( ! version || ! version.config ) { return; }
+        applyPromoConfig(version.config);
+        $('#tp-promo-history-status').text('Versión restaurada en el editor. Guardá el diseño para registrar esta versión nuevamente.');
+    });
 
     $(document).on('change', '#tp_promo_format', function() {
         var isCustom = $(this).val() === 'custom';
@@ -1683,6 +1927,23 @@ jQuery(document).ready(function($) {
     $(document).on('input change', '#tp_promo_template, #tp_promo_crop_x, #tp_promo_crop_y, .tp-promo-format-check', function() {
         $('#tp-promo-crop-value').text($('#tp_promo_crop_x').val() + '% · ' + $('#tp_promo_crop_y').val() + '%');
         resetPromoPreview();
+    });
+    $(document).on('click', '.tp-promo-preset', function() {
+        $('#tp_promo_template').val(String($(this).data('promo-template'))).trigger('change');
+    });
+
+    $(document).on('change', '#tp_promo_template', promoSyncPresetButtons);
+    $(document).on('input change', '#tp_promo_color_primary, #tp_promo_color_accent, #tp_promo_color_highlight', resetPromoPreview);
+    $(document).on('click', '#tp-promo-reset-colors', function() {
+        promoInitBrandColors();
+        resetPromoPreview();
+    });
+
+    $(document).on('click', '#tp-promo-select-all-formats', function() {
+        $('.tp-promo-format-check').prop('checked', true).trigger('change');
+    });
+    $(document).on('click', '#tp-promo-clear-formats', function() {
+        $('.tp-promo-format-check').prop('checked', false).trigger('change');
     });
 
     $(document).on('change', '#tp_promo_brand', function() {
@@ -1959,6 +2220,7 @@ jQuery(document).ready(function($) {
         updateGalleryIds();
         updatePromoExtraOptions();
         applyPromoConfig(data.tp_promo_config || {});
+        loadPromoHistory();
     }
 
     function resetPackageForm() {
@@ -2022,6 +2284,8 @@ jQuery(document).ready(function($) {
         $('#tp_promo_brand').val('site_name').trigger('change');
         $('#tp_promo_saved_template').val('').trigger('change');
         $('#tp_promo_template_name').val('');
+        promoInitBrandColors();
+        promoSyncPresetButtons();
         setPromoTemplateStatus('');
         resetPromoPreview();
         $('#tp_tipologia').val('');
@@ -2039,6 +2303,7 @@ jQuery(document).ready(function($) {
             }
         });
         $('#tp_promo_config').val('');
+        loadPromoHistory();
         updatePromoExtraOptions();
         initOptionalSections();
     }
@@ -2712,6 +2977,43 @@ jQuery(document).ready(function($) {
     }
 
     initOptionalSections();
+
+    /* ---- Package completeness checklist ---- */
+    function updatePackageCompleteness() {
+        if ( ! packageForm.length ) return;
+        var content = $.trim($('#tp_short_desc').val() || '');
+        if ( !content ) content = $('#tp_content').val() || '';
+        if ( window.tinymce && window.tinymce.get('tp_content') && !$.trim(content) ) {
+            content = window.tinymce.get('tp_content').getContent({ format: 'text' }) || content;
+        }
+        var checks = {
+            title: $.trim($('#tp_title').val()) !== '',
+            description: $.trim(String(content).replace(/<[^>]*>/g, '')) !== '',
+            image: !!$('#tp_featured_image').val(),
+            price: (parseFloat($('#tp_price_adult').val()) > 0) || $('#tp-prices-list .tp-price-item input[name="tp_price_item[]"]').toArray().some(function(el) { return parseFloat(el.value) > 0; }) || $('#tp-dates-list input[name="tp_dates_price_adult[]"]').toArray().some(function(el) { return parseFloat(el.value) > 0; }),
+            destination: !!($('#tp_destino').val() || $.trim($('#tp_new_destino').val())),
+            departure: $('#tp-dates-list .tp-datepicker-from').toArray().some(function(el) { return $.trim(el.value) !== ''; })
+        };
+        var completed = 0;
+        Object.keys(checks).forEach(function(key) {
+            var $item = $('#tp-completion-checklist [data-check="' + key + '"]');
+            var done = !!checks[key];
+            if ( done ) completed++;
+            $item.toggleClass('is-complete', done).find('.dashicons').attr('class', 'dashicons ' + (done ? 'dashicons-yes-alt' : 'dashicons-minus'));
+        });
+        var percent = Math.round((completed / Object.keys(checks).length) * 100);
+        $('#tp-completion-percent').text(percent + '%');
+        $('#tp-completion-bar').css('width', percent + '%');
+        $('#tp-completion-summary').text(percent === 100 ? '¡El paquete tiene la información principal completa!' : (completed + ' de 6 datos principales completos'));
+        $('#tp-completion-panel').toggleClass('is-complete', percent === 100);
+    }
+
+    // Sin autoguardado local: los cambios se persisten únicamente al guardar el paquete.
+    updatePackageCompleteness();
+
+    packageForm.on('input change', '#tp_title, #tp_short_desc, #tp_featured_image, #tp_price_adult, #tp_destino, #tp_new_destino, #tp-dates-list input', updatePackageCompleteness);
+    $(document).on('tpPackageCompletenessUpdate', updatePackageCompleteness);
+
     if ( $('#tp-title-error').is(':visible') && !$.trim($('#tp_title').val()) ) {
         $('#tp_title').attr('aria-invalid', 'true').trigger('focus');
     }

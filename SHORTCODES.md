@@ -1,4 +1,4 @@
-# Tureo - Shortcodes Reference v2.7.2
+# Tureo - Shortcodes Reference v2.9.1
 
 ## [tp_slider]
 
@@ -58,14 +58,15 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 | `destacados` | true/false | false | Mostrar solo paquetes marcados como destacados |
 | `carousel` | true/false | false | Modo carrusel horizontal con swipe y flechas |
 | `desktop` | número | columns | (carrusel) Paquetes visibles por página en desktop |
-| `movile` | número | desktop | (carrusel) Paquetes visibles por página en mobile |
-
-> **Nota:** El carrusel es de **scroll infinito**: al llegar al final se envuelve sin saltos visibles (técnica de clonado).
+| `movile` | número | desktop | (carrusel) Paquetes visibles por página en mobile (`mobile` también se acepta) |
 | `destino` | texto (slug) | "" | Filtrar por destino específico (ej: "europa") |
 | `tipologia` | texto (slug) | "" | Filtrar por tipología específica (ej: "playa") |
+| `tipo_viaje` | nacional/internacional | "" | Filtrar por tipo de viaje |
 | `orderby` | date/title | date | Ordenar por fecha o título |
 | `order` | ASC/DESC | DESC | Orden ascendente o descendente |
 | `ids` | lista de IDs | "" | Mostrar paquetes específicos (ej: "1,3,5") |
+
+> **Nota:** El carrusel es de **scroll infinito**: al llegar al final se envuelve sin saltos visibles (técnica de clonado).
 
 ### Ejemplos
 
@@ -92,6 +93,11 @@ Muestra una grilla de paquetes con filtros y opciones de layout.
 #### Grilla por tipología (playa, montaña, etc.)
 ```
 [tp_grid tipologia="playa" limit="12" columns="3"]
+```
+
+#### Grilla por tipo de viaje
+```
+[tp_grid tipo_viaje="internacional" limit="9" columns="3"]
 ```
 
 #### Carrusel de paquetes destacados
@@ -146,7 +152,7 @@ Catálogo completo con el buscador AJAX de `[tp_buscador]` y grilla de paquetes.
 | `orderby` | date/title | date | Ordenar por fecha o título |
 | `order` | ASC/DESC | DESC | Orden ascendente o descendente |
 
-El catálogo ya no muestra los controles de tipología ni de orden interactivo. El atributo `orderby`/`order` sigue definiendo el orden inicial de los paquetes.
+El catálogo no muestra controles de tipología ni de orden interactivo. El atributo `orderby`/`order` sigue definiendo el orden inicial de los paquetes.
 
 ### Pre-filtrado por URL
 
@@ -173,6 +179,8 @@ Enlace a catálogo filtrado por tipología:
 ```
 <a href="/paquetes/?tipologia=playa">Ver paquetes de playa</a>
 ```
+
+---
 
 ## [tp_buscador]
 
@@ -219,6 +227,38 @@ La página de resultados debe contener el shortcode `[tp_catalogo]`, que interpr
 
 ---
 
+## [tp_coleccion]
+
+Muestra los paquetes publicados de una colección creada desde **Tureo → Colecciones**, conservando exactamente las tarjetas, precios, fechas, cupos, etiquetas y botones de `[tp_grid]`.
+
+Cada colección recibe un código automático (por ejemplo `COL-0001`), que es el que se usa en el shortcode. Un paquete puede pertenecer a varias colecciones y el orden se define en la administración de la colección.
+
+### Props (Atributos)
+
+| Prop | Tipo | Default | Descripción |
+|------|------|---------|-------------|
+| `codigo` | texto | — (requerido) | Código de la colección, por ejemplo `COL-0001` |
+| `vista` | grilla/carrusel | grilla | Presentación de la colección |
+| `columnas` | 1/2/3/4 | 3 | Cantidad de tarjetas (grilla) o visibles por página (carrusel) |
+| `limite` | número | 12 | Cantidad máxima de paquetes publicados a mostrar |
+| `carousel` | true/false | false | Alias de `vista="carrusel"` |
+
+### Ejemplos
+
+```
+[tp_coleccion codigo="COL-0001"]
+```
+
+```
+[tp_coleccion codigo="COL-0001" vista="grilla" columnas="3" limite="6"]
+```
+
+```
+[tp_coleccion codigo="COL-0001" vista="carrusel" columnas="4"]
+```
+
+---
+
 ## Tipologías (taxonomía)
 
 La taxonomía `tipologia` permite agrupar paquetes por tipo (playa, montaña, aventura, nacionales, internacionales, etc.).
@@ -241,4 +281,5 @@ La taxonomía `tipologia` permite agrupar paquetes por tipo (playa, montaña, av
 - Los valores de `true/false` se escriben en minúsculas
 - Los slugs de destino/tipología son **case-sensitive** y deben coincidir con los creados en la administración
 - El `id` en `[tp_paquete]` es el ID del post de WordPress, que ves en la URL del panel de administración
+- El `codigo` en `[tp_coleccion]` debe coincidir con el código asignado a la colección (formato `COL-0001`)
 - Al activar el plugin por primera vez después de agregar la tipología, hay que ir a **Ajustes → Enlaces permanentes** y hacer clic en "Guardar cambios" para regenerar las reglas de reescritura

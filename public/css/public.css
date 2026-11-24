@@ -866,6 +866,27 @@ body[class*="tp-font-"] .tp-catalogo-count #tp-catalogo-total {
 /* Body */
 .tp-single-body { padding: 32px 40px 40px; max-width: 1200px; margin: 0 auto; }
 
+/* Desktop: hero panorámico y ficha más compacta superpuesta */
+@media (min-width: 961px) {
+    .tp-single-hero {
+        width: calc(100% + 80px);
+        margin-left: -40px;
+        max-height: 520px;
+        aspect-ratio: 21 / 8;
+    }
+    .tp-single-body {
+        position: relative;
+        z-index: 2;
+        width: calc(100% - 80px);
+        max-width: 1040px;
+        box-sizing: border-box;
+        margin: -200px auto 0;
+        background: var(--tp-bg);
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -8px 28px rgba(0, 0, 0, .08);
+    }
+}
+
 /* Title */
 .tp-single-title {
     font-size: 32px;
@@ -1029,7 +1050,7 @@ body[class*="tp-font-"] .tp-catalogo-count #tp-catalogo-total {
 /* ---- Two-Column Layout ---- */
 .tp-single-columns {
     display: grid;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: 1fr 320px;
     gap: 36px;
     align-items: start;
 }
@@ -1497,7 +1518,7 @@ body.tp-lightbox-open { overflow: hidden; }
 .tp-single-bottom { margin-top: 28px; }
 .tp-single-bottom.has-similar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     gap: 36px;
     align-items: start;
 }
@@ -1761,3 +1782,6 @@ body.tp-lightbox-open { overflow: hidden; }
 form.tp-inquiry-form button {
     color: white !important;
 }
+
+/* Tureo 2.9.0 — bloques de colecciones */
+.tp-collection-public{width:100%;margin:24px 0}.tp-collection-public-heading{margin:0 0 20px}.tp-collection-public-heading h2{margin:0 0 8px}.tp-collection-public-heading p{margin:0;opacity:.78}.tp-collection-grid{align-items:stretch}.tp-collection-carousel{margin:0}.tp-collection-carousel .tp-grid-carousel-item{height:auto}

@@ -35,6 +35,33 @@ jQuery(document).ready(function($) {
         }
     });
 
+    /* ---- Bulk package actions ---- */
+    $(document).on('change', '#tp-select-all-packages', function() {
+        $('.tp-package-select-checkbox').prop('checked', this.checked);
+        $('#tp-bulk-packages-form').toggleClass('has-selection', this.checked);
+        $('#tp-bulk-selected-count').text(this.checked ? $('.tp-package-select-checkbox').length + ' seleccionados' : '0 seleccionados');
+    });
+    $(document).on('change', '.tp-package-select-checkbox', function() {
+        var total = $('.tp-package-select-checkbox').length;
+        var checked = $('.tp-package-select-checkbox:checked').length;
+        $('#tp-select-all-packages').prop('checked', total > 0 && total === checked);
+        $('#tp-bulk-packages-form').toggleClass('has-selection', checked > 0);
+        $('#tp-bulk-selected-count').text(checked + ' seleccionados');
+    });
+    $(document).on('submit', '#tp-bulk-packages-form', function(e) {
+        var count = $('.tp-package-select-checkbox:checked').length;
+        var action = $('#tp-bulk-action').val();
+        if ( ! count || ! action ) {
+            e.preventDefault();
+            window.alert('Seleccioná al menos un paquete y una acción.');
+            return false;
+        }
+        if ( ! window.confirm('¿Aplicar esta acción a ' + count + ' paquete(s)?') ) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
     /* ---- Copy shortcodes to clipboard ---- */
     function tpCopyText(text) {
         if ( navigator.clipboard && navigator.clipboard.writeText ) {

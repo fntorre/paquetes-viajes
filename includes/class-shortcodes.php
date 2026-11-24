@@ -707,6 +707,33 @@ class TP_Shortcodes {
         return ob_get_clean();
     }
 
+    /** Renderiza una tarjeta usando exactamente el diseño y los datos de tp_grid. */
+    public static function render_collection_card( $post_id ) {
+        $best_price = TP_Package_Data::get_best_price( $post_id );
+        $short_desc = get_post_meta( $post_id, '_tp_short_desc', true );
+        $featured = get_post_meta( $post_id, '_tp_featured', true );
+        $next_departure = TP_Package_Data::get_next_departure( $post_id );
+        $next_date = $next_departure ? $next_departure['from'] : '';
+        $next_seats = ( $next_departure && $next_departure['seats_left'] !== null ) ? (int) $next_departure['seats_left'] : null;
+        ob_start(); ?>
+        <article class="tp-card <?php echo $featured ? 'tp-card-featured' : ''; ?>">
+            <?php if ( $featured ) : ?><div class="tp-badge-featured">⭐ <?php _e( 'Destacado', 'travel-packages' ); ?></div><?php endif; ?>
+            <a href="<?php echo esc_url( get_permalink( $post_id ) ); ?>" class="tp-card-image-link">
+                <?php echo self::render_card_image( $post_id ); ?>
+                <?php if ( $next_date ) : ?><div class="tp-card-next-date"><span class="dashicons dashicons-calendar-alt"></span><?php echo esc_html( $next_date ); ?>
+                    <?php if ( $next_seats !== null && $next_seats > 0 ) : ?><span class="tp-card-seats <?php echo $next_seats < 5 ? 'is-low' : ''; ?>"><?php echo $next_seats < 5 ? sprintf( esc_html__( '¡Últimos lugares! · %d disponibles', 'travel-packages' ), $next_seats ) : sprintf( esc_html__( '%d cupos disponibles', 'travel-packages' ), $next_seats ); ?></span><?php endif; ?>
+                </div><?php endif; ?>
+            </a>
+            <div class="tp-card-body">
+                <h3 class="tp-card-title"><a href="<?php echo esc_url( get_permalink( $post_id ) ); ?>"><?php echo esc_html( get_the_title( $post_id ) ); ?></a></h3>
+                <?php if ( $short_desc ) : ?><p class="tp-card-desc"><?php echo esc_html( $short_desc ); ?></p><?php endif; ?>
+                <?php if ( $best_price ) : ?><div class="tp-card-price"><span class="tp-from-small"><?php _e( 'Desde', 'travel-packages' ); ?></span><span class="tp-price-amount"><?php echo esc_html( TP_Package_Data::currency_symbol( $best_price['currency'] ) ); ?> <strong><?php echo number_format( (float) $best_price['price'], 0, ',', '.' ); ?></strong></span><?php if ( $best_price['note'] ) : ?><span class="tp-price-note"><?php echo esc_html( $best_price['note'] ); ?></span><?php endif; ?></div><?php endif; ?>
+                <?php self::render_card_actions( $post_id, $next_departure ); ?>
+            </div>
+        </article>
+        <?php return ob_get_clean();
+    }
+
     /** Imagen de tarjeta con srcset, dimensiones y carga diferida. */
     private static function render_card_image( $post_id, $sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw' ) {
         $thumb_id = (int) get_post_thumbnail_id( $post_id );

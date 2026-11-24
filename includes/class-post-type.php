@@ -74,6 +74,7 @@ class TP_PostType {
         foreach ( $columns as $key => $label ) {
             $new[ $key ] = $label;
             if ( $key === 'title' ) {
+                $new['tp_sku']       = __( 'SKU', 'travel-packages' );
                 $new['tp_image']     = __( 'Imagen', 'travel-packages' );
                 $new['tp_price']     = __( 'Precio', 'travel-packages' );
                 $new['tp_slider']    = __( 'Slider', 'travel-packages' );
@@ -85,6 +86,10 @@ class TP_PostType {
 
     public static function custom_column_content( $column, $post_id ) {
         switch ( $column ) {
+            case 'tp_sku':
+                TP_Collections::ensure_package_sku( $post_id );
+                echo '<code>' . esc_html( get_post_meta( $post_id, '_tp_sku', true ) ) . '</code>';
+                break;
             case 'tp_image':
                 if ( has_post_thumbnail( $post_id ) ) {
                     echo '<img src="' . esc_url( get_the_post_thumbnail_url( $post_id, 'thumbnail' ) ) . '" style="width:60px;height:45px;object-fit:cover;border-radius:4px;">';

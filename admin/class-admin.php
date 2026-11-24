@@ -20,7 +20,7 @@ class TP_Admin {
 
     private static function is_plugin_page() {
         $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
-        return in_array( $page, [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields' ], true );
+        return in_array( $page, [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields', 'tp-collections' ], true );
     }
 
     private static function is_plugin_screen() {
@@ -47,7 +47,7 @@ class TP_Admin {
     public static function admin_body_class( $classes ) {
         $page   = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
         $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-        $pages  = [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields' ];
+        $pages  = [ 'tp-dashboard', 'tp-packages', 'tp-package-new', 'tp-calendar', 'tp-shortcodes', 'tp-reservations', 'tp-settings', 'tp-custom-fields', 'tp-collections' ];
         $is_tp  = in_array( $page, $pages, true );
 
         if ( ! $is_tp && $screen && isset( $screen->post_type ) && $screen->post_type === 'paquete_viaje' ) {
@@ -86,7 +86,16 @@ class TP_Admin {
             [ __CLASS__, 'render_packages_page' ]
         );
 
-            // Submenu: add new
+            add_submenu_page(
+            'tp-dashboard',
+            __( 'Colecciones', 'travel-packages' ),
+            __( 'Colecciones', 'travel-packages' ),
+            'edit_posts',
+            'tp-collections',
+            [ 'TP_Collections', 'render_admin_page' ]
+        );
+
+        // Submenu: add new
             add_submenu_page(
                 'tp-dashboard',
                 __( 'Agregar Paquete', 'travel-packages' ),
@@ -167,6 +176,7 @@ class TP_Admin {
             'tp-reservations',
             'tp-calendar',
             'tp-package-new',
+            'tp-collections',
             'edit-tags.php?taxonomy=destino&post_type=paquete_viaje',
             'edit-tags.php?taxonomy=tipologia&post_type=paquete_viaje',
             'tp-custom-fields',
@@ -244,12 +254,14 @@ class TP_Admin {
                 'delete_nonce'         => wp_create_nonce('tp_delete_package'),
                 'ajax_url'             => admin_url('admin-ajax.php'),
                 'reservations_enabled' => ( class_exists( 'TP_Reservations' ) && TP_Reservations::is_enabled() ) ? '1' : '0',
+                'user_id'              => get_current_user_id(),
                 'site_name'            => get_bloginfo( 'name' ),
                 'site_logo'            => $site_logo_url ?: '',
                 'promo_contact'        => $promo_contact,
                 'promo_palette'        => $promo_palette,
                 'promo_fonts'          => $promo_fonts,
                 'promo_templates'      => class_exists( 'TP_Package_Data' ) ? TP_Package_Data::get_promo_templates() : [],
+                'promo_brand_kit'      => class_exists( 'TP_Package_Data' ) ? TP_Package_Data::get_promo_brand_kit() : [],
             ]);
         }
 
@@ -302,9 +314,41 @@ class TP_Admin {
         <?php
     }
 
+    /** Devuelve una lista consistente de datos básicos faltantes para publicar un paquete. */
+    private static function get_package_completeness( $post_id ) {
+        $post = get_post( $post_id );
+        if ( ! $post ) {
+            return [ 'score' => 0, 'missing' => [] ];
+        }
+        $destination_terms = wp_get_object_terms( $post_id, TP_Package_Data::TAX_DESTINO, [ 'fields' => 'ids' ] );
+        $has_destination = ! is_wp_error( $destination_terms ) && ! empty( $destination_terms );
+        $checks = [
+            'Título'       => trim( (string) $post->post_title ) !== '',
+            'Descripción' => trim( (string) get_post_meta( $post_id, '_tp_short_desc', true ) ) !== '' || trim( wp_strip_all_tags( (string) $post->post_content ) ) !== '',
+            'Imagen'      => has_post_thumbnail( $post_id ),
+            'Precio'      => ( $best_price = TP_Package_Data::get_best_price( $post_id ) ) && (float) ( $best_price['price'] ?? 0 ) > 0,
+            'Destino'     => $has_destination,
+            'Salida'      => ! empty( get_post_meta( $post_id, '_tp_dates', true ) ),
+        ];
+        $missing = [];
+        foreach ( $checks as $label => $complete ) {
+            if ( ! $complete ) {
+                $missing[] = $label;
+            }
+        }
+        $done = count( $checks ) - count( $missing );
+        return [ 'score' => (int) round( ( $done / max( 1, count( $checks ) ) ) * 100 ), 'missing' => $missing ];
+    }
+
     public static function render_dashboard() {
         $total          = wp_count_posts( 'paquete_viaje' );
         $published      = isset( $total->publish ) ? (int) $total->publish : 0;
+        $draft_count    = isset( $total->draft ) ? (int) $total->draft : 0;
+        $attention_count = 0;
+        $attention_posts = get_posts( [ 'post_type' => 'paquete_viaje', 'post_status' => [ 'publish', 'draft' ], 'posts_per_page' => -1, 'fields' => 'ids' ] );
+        foreach ( $attention_posts as $attention_id ) {
+            if ( self::get_package_completeness( $attention_id )['score'] < 100 ) { $attention_count++; }
+        }
         $slider_q       = new WP_Query( [ 'post_type' => 'paquete_viaje', 'post_status' => 'publish', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_query' => [ [ 'key' => '_tp_slider', 'value' => '1' ] ] ] );
         $featured_q     = new WP_Query( [ 'post_type' => 'paquete_viaje', 'post_status' => 'publish', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_query' => [ [ 'key' => '_tp_featured', 'value' => '1' ] ] ] );
         $slider_count   = (int) $slider_q->found_posts;
@@ -375,6 +419,20 @@ class TP_Admin {
                     </div>
                 </div>
                 <?php endif; ?>
+                <div class="tp-stat-card">
+                    <div class="tp-stat-icon"><span class="dashicons dashicons-edit-page"></span></div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo esc_html( number_format_i18n( $draft_count ) ); ?></span>
+                        <span class="tp-stat-label"><?php _e( 'Borradores', 'travel-packages' ); ?></span>
+                    </div>
+                </div>
+                <div class="tp-stat-card tp-stat-card-attention">
+                    <div class="tp-stat-icon"><span class="dashicons dashicons-flag"></span></div>
+                    <div class="tp-stat-info">
+                        <span class="tp-stat-number"><?php echo esc_html( number_format_i18n( $attention_count ) ); ?></span>
+                        <span class="tp-stat-label"><?php _e( 'Paquetes por completar', 'travel-packages' ); ?></span>
+                    </div>
+                </div>
             </div>
 
             <section class="tp-dashboard-tools">
@@ -636,8 +694,14 @@ class TP_Admin {
         $destinos     = TP_Package_Data::get_term_names( $package->ID, TP_Package_Data::TAX_DESTINO );
         $tipologias   = TP_Package_Data::get_term_names( $package->ID, TP_Package_Data::TAX_TIPOLOGIA );
         $tipo_viaje   = get_post_meta( $package->ID, TP_Package_Data::META_TIPO_VIAJE, true );
+        $completion   = self::get_package_completeness( $package->ID );
+        TP_Collections::ensure_package_sku( $package->ID );
+        $package_sku = get_post_meta( $package->ID, '_tp_sku', true );
         ?>
         <div class="tp-package-card">
+            <label class="tp-package-select" title="<?php esc_attr_e( 'Seleccionar paquete', 'travel-packages' ); ?>">
+                <input type="checkbox" name="tp_package_ids[]" value="<?php echo esc_attr( $package->ID ); ?>" class="tp-package-select-checkbox" aria-label="<?php echo esc_attr( sprintf( __( 'Seleccionar %s', 'travel-packages' ), $package->post_title ) ); ?>">
+            </label>
             <a href="<?php echo esc_url( $view_url ); ?>" class="tp-card-view-link" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Ver en el sitio', 'travel-packages' ); ?>" title="<?php esc_attr_e( 'Ver en el sitio', 'travel-packages' ); ?>" onclick="event.stopPropagation();">
                 <span class="dashicons dashicons-visibility" aria-hidden="true"></span>
             </a>
@@ -650,7 +714,12 @@ class TP_Admin {
             </div>
             <div class="tp-package-card-body">
                 <a class="tp-card-edit-link" href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $package->post_title ); ?></a>
+                <span class="tp-package-sku">SKU: <strong><?php echo esc_html( $package_sku ); ?></strong></span>
                 <span class="tp-package-card-meta"><?php echo esc_html( $status_label ); ?> · <?php if ( $best_price ) : ?><span class="tp-package-card-price"><?php echo esc_html( TP_Package_Data::currency_symbol( $best_price['currency'] ) ); ?>&nbsp;<?php echo esc_html( number_format( (float) $best_price['price'], 0, ',', '.' ) ); ?></span><?php else : ?>—<?php endif; ?></span>
+                <span class="tp-card-completion" title="<?php echo esc_attr( $completion['score'] . '% completado' . ( $completion['missing'] ? ' · Falta: ' . implode( ', ', $completion['missing'] ) : '' ) ); ?>">
+                    <span class="tp-card-completion-track"><span style="width:<?php echo esc_attr( $completion['score'] ); ?>%"></span></span>
+                    <small><?php echo esc_html( $completion['score'] ); ?>% completo<?php if ( $completion['missing'] ) : ?> · Falta <?php echo esc_html( implode( ', ', array_slice( $completion['missing'], 0, 2 ) ) ); ?><?php endif; ?></small>
+                </span>
                 <span class="tp-package-card-tags"><?php echo esc_html( implode( ', ', $destinos ) ); ?></span>
                 <span class="tp-package-card-tags tp-tags-tipologia"><?php echo esc_html( implode( ', ', $tipologias ) ); ?></span>
                 <?php if ( $tipo_viaje ) : ?>
@@ -748,6 +817,8 @@ class TP_Admin {
             <div class="notice notice-error" role="alert"><p><?php _e('No se pudo guardar el paquete. Revisá los campos indicados y volvé a intentarlo.', 'travel-packages'); ?></p></div>
             <?php elseif ( $status === 'success' ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php _e('Paquete guardado correctamente.', 'travel-packages'); ?></p></div>
+            <?php elseif ( $status === 'bulk_updated' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php printf( esc_html__( 'Acción aplicada a %s paquete(s).', 'travel-packages' ), esc_html( number_format_i18n( absint( self::query_string( 'updated' ) ) ) ) ); ?></p></div>
             <?php elseif ( $status === 'deleted' ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php _e('Paquete eliminado correctamente.', 'travel-packages'); ?></p></div>
             <?php elseif ( $status === 'duplicated' ) : ?>
@@ -879,6 +950,26 @@ class TP_Admin {
                         </form>
                     </div>
 
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tp-bulk-packages-form" class="tp-bulk-packages-form">
+                        <input type="hidden" name="action" value="tp_bulk_update_packages">
+                        <?php wp_nonce_field( 'tp_bulk_update_packages', 'tp_bulk_nonce' ); ?>
+                        <?php if ( ! empty( $packages ) ) : ?>
+                        <div class="tp-bulk-toolbar">
+                            <label class="tp-bulk-select-all"><input type="checkbox" id="tp-select-all-packages"> <?php _e( 'Seleccionar todos los visibles', 'travel-packages' ); ?></label><span class="tp-bulk-selected-count" id="tp-bulk-selected-count">0 seleccionados</span>
+                            <div class="tp-bulk-actions">
+                                <select name="tp_bulk_action" id="tp-bulk-action" required>
+                                    <option value=""><?php _e( 'Acciones en lote…', 'travel-packages' ); ?></option>
+                                    <?php if ( current_user_can( 'publish_posts' ) ) : ?><option value="publish"><?php _e( 'Publicar', 'travel-packages' ); ?></option><?php endif; ?>
+                                    <option value="draft"><?php _e( 'Pasar a borrador', 'travel-packages' ); ?></option>
+                                    <option value="featured_on"><?php _e( 'Marcar destacados', 'travel-packages' ); ?></option>
+                                    <option value="featured_off"><?php _e( 'Quitar destacados', 'travel-packages' ); ?></option>
+                                    <option value="slider_on"><?php _e( 'Incluir en slider', 'travel-packages' ); ?></option>
+                                    <option value="slider_off"><?php _e( 'Quitar del slider', 'travel-packages' ); ?></option>
+                                </select>
+                                <button type="submit" class="button button-primary" id="tp-apply-bulk-action"><?php _e( 'Aplicar', 'travel-packages' ); ?></button>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                     <div class="tp-package-cards">
                         <?php if ( empty( $packages ) ) : ?>
                         <div class="tp-empty-state">
@@ -901,6 +992,7 @@ class TP_Admin {
                             endforeach; ?>
                         <?php endif; ?>
                     </div>
+                    </form>
                     <?php if ( $total_pages > 1 ) : ?>
                     <div class="tp-pagination">
                         <?php
@@ -942,11 +1034,29 @@ class TP_Admin {
 
                         <div class="tp-form-heading">
                             <h2 id="tp-form-title"><?php _e('Nuevo paquete', 'travel-packages'); ?></h2>
+                            <?php if ( ! empty( $selected_package_data['ID'] ) ) : TP_Collections::ensure_package_sku( (int) $selected_package_data['ID'] ); ?><p class="tp-package-sku">SKU: <strong><?php echo esc_html( get_post_meta( (int) $selected_package_data['ID'], '_tp_sku', true ) ); ?></strong></p><?php endif; ?>
                             <p><?php _e('Completá las secciones de abajo. Las opciones avanzadas están plegadas para mantener el formulario ordenado.', 'travel-packages'); ?></p>
                             <a href="#" id="tp-view-package" class="tp-form-view-link" target="_blank" rel="noopener" style="display:none;">
                                 <span class="dashicons dashicons-external"></span> <?php _e('Ver paquete', 'travel-packages'); ?>
                             </a>
                         </div>
+
+                        <section class="tp-completion-panel" id="tp-completion-panel" aria-labelledby="tp-completion-title">
+                            <div class="tp-completion-heading">
+                                <div><strong id="tp-completion-title"><?php _e( 'Estado del paquete', 'travel-packages' ); ?></strong><span id="tp-completion-summary"><?php _e( 'Completá los datos principales para dejarlo listo.', 'travel-packages' ); ?></span></div>
+                                <strong class="tp-completion-percent" id="tp-completion-percent">0%</strong>
+                            </div>
+                            <div class="tp-completion-track"><span id="tp-completion-bar"></span></div>
+                            <ul class="tp-completion-checklist" id="tp-completion-checklist">
+                                <li data-check="title"><span class="dashicons dashicons-minus"></span><?php _e( 'Título', 'travel-packages' ); ?></li>
+                                <li data-check="description"><span class="dashicons dashicons-minus"></span><?php _e( 'Descripción', 'travel-packages' ); ?></li>
+                                <li data-check="image"><span class="dashicons dashicons-minus"></span><?php _e( 'Imagen principal', 'travel-packages' ); ?></li>
+                                <li data-check="price"><span class="dashicons dashicons-minus"></span><?php _e( 'Precio', 'travel-packages' ); ?></li>
+                                <li data-check="destination"><span class="dashicons dashicons-minus"></span><?php _e( 'Destino', 'travel-packages' ); ?></li>
+                                <li data-check="departure"><span class="dashicons dashicons-minus"></span><?php _e( 'Salida', 'travel-packages' ); ?></li>
+                            </ul>
+                        </section>
+
 
                         <nav class="tp-form-nav" aria-label="<?php esc_attr_e('Secciones del paquete', 'travel-packages'); ?>">
                             <a href="#tp-section-content"><?php _e('Contenido', 'travel-packages'); ?></a>
@@ -1265,7 +1375,8 @@ class TP_Admin {
                             <div class="tp-promo-editor">
                                 <div class="tp-promo-controls">
                                     <section class="tp-promo-control-group tp-promo-control-group--design">
-                                        <h3 class="tp-promo-group-title"><?php _e('Diseño y marca', 'travel-packages'); ?></h3>
+                                        <h3 class="tp-promo-group-title"><?php _e('Elegí el estilo de tu pieza', 'travel-packages'); ?></h3>
+                                        <p class="tp-help">Cada estilo cambia la composición, los colores y la jerarquía visual. Elegí uno y mirá el resultado en la vista previa.</p>
                                         <div class="tp-promo-template-library">
                                 <strong><?php _e('Plantillas guardadas', 'travel-packages'); ?></strong>
                                 <div class="tp-promo-template-row">
@@ -1278,18 +1389,46 @@ class TP_Admin {
                                 <div class="tp-promo-template-row">
                                     <input type="text" id="tp_promo_template_name" maxlength="60" placeholder="<?php esc_attr_e('Nombre de la plantilla', 'travel-packages'); ?>">
                                     <button type="button" class="button" id="tp-promo-save-template"><?php _e('Guardar como plantilla', 'travel-packages'); ?></button>
+                                    <button type="button" class="button" id="tp-promo-duplicate-template"><?php _e('Duplicar seleccionada', 'travel-packages'); ?></button>
                                 </div>
                                 <small><?php _e('Se guardan el estilo, la marca, el logo, la imagen adicional, los efectos del fondo, las posiciones, el formato y los campos visibles. Los datos extra de ficha técnica no se incluyen porque dependen de cada paquete.', 'travel-packages'); ?></small>
                                 <p id="tp-promo-template-status" class="tp-help" role="status" aria-live="polite"></p>
                             </div>
-                            <div class="tp-field-group">
-                                <label class="tp-label" for="tp_promo_template"><?php _e('Plantilla', 'travel-packages'); ?></label>
-                                <select id="tp_promo_template">
+                            <div class="tp-promo-history">
+                                <div class="tp-promo-history-head"><strong><?php _e('Historial de diseños', 'travel-packages'); ?></strong><small><?php _e('Últimas 10 versiones guardadas de este paquete', 'travel-packages'); ?></small></div>
+                                <div class="tp-promo-history-row">
+                                    <select id="tp_promo_history" aria-label="<?php esc_attr_e('Versiones guardadas', 'travel-packages'); ?>"><option value=""><?php _e('No hay versiones guardadas', 'travel-packages'); ?></option></select>
+                                    <button type="button" class="button" id="tp-promo-restore-history" disabled><?php _e('Restaurar', 'travel-packages'); ?></button>
+                                </div>
+                                <p id="tp-promo-history-status" class="tp-help" role="status" aria-live="polite"></p>
+                            </div>
+                            <div class="tp-field-group tp-promo-presets-group">
+                                <div class="tp-promo-destination-suggest">
+                                    <label class="tp-label" for="tp_promo_template">Estilo de diseño</label>
+                                    <button type="button" class="button" id="tp-promo-suggest-destination"><?php _e('Sugerir según destino', 'travel-packages'); ?></button>
+                                </div>
+                                <p id="tp-promo-suggestion-status" class="tp-help" role="status" aria-live="polite"><?php _e('Podés recibir una sugerencia según el destino y la descripción del paquete.', 'travel-packages'); ?></p>
+                                <div class="tp-promo-presets" role="group" aria-label="Estilos de diseño">
+                                    <button type="button" class="tp-promo-preset is-active" data-promo-template="premium" aria-pressed="true"><span class="tp-promo-preset-art tp-promo-preset-art--premium"></span><strong>Editorial</strong><small>Elegante · foto protagonista</small></button>
+                                    <button type="button" class="tp-promo-preset" data-promo-template="adventure" aria-pressed="false"><span class="tp-promo-preset-art tp-promo-preset-art--adventure"></span><strong>Aventura</strong><small>Impactante · alto contraste</small></button>
+                                    <button type="button" class="tp-promo-preset" data-promo-template="minimal" aria-pressed="false"><span class="tp-promo-preset-art tp-promo-preset-art--minimal"></span><strong>Natural</strong><small>Simple · aire y fotografía</small></button>
+                                    <button type="button" class="tp-promo-preset" data-promo-template="offer" aria-pressed="false"><span class="tp-promo-preset-art tp-promo-preset-art--offer"></span><strong>Promoción</strong><small>Precio destacado · llamada a la acción</small></button>
+                                </div>
+                                <select id="tp_promo_template" class="tp-promo-template-select" aria-label="Estilo de diseño">
                                     <option value="premium"><?php _e('Premium — editorial y elegante', 'travel-packages'); ?></option>
                                     <option value="adventure"><?php _e('Aventura — enérgica y contrastada', 'travel-packages'); ?></option>
                                     <option value="minimal"><?php _e('Minimal — limpia y simple', 'travel-packages'); ?></option>
                                     <option value="offer"><?php _e('Oferta — precio protagonista', 'travel-packages'); ?></option>
                                 </select>
+                            </div>
+                            <div class="tp-promo-brand-kit">
+                                <div class="tp-promo-brand-kit-head"><strong>Colores de marca</strong><button type="button" class="button-link" id="tp-promo-reset-colors">Restablecer</button></div>
+                                <p>Definí los colores que vas a reutilizar en las piezas de la agencia.</p>
+                                <div class="tp-promo-color-fields">
+                                    <label for="tp_promo_color_primary"><span>Principal</span><input type="color" id="tp_promo_color_primary" value="#0f766e"></label>
+                                    <label for="tp_promo_color_accent"><span>Contraste</span><input type="color" id="tp_promo_color_accent" value="#0f172a"></label>
+                                    <label for="tp_promo_color_highlight"><span>Destacado</span><input type="color" id="tp_promo_color_highlight" value="#b8fff0"></label>
+                                </div>
                             </div>
                             <div class="tp-field-group">
                                 <label class="tp-label" for="tp_promo_brand"><?php _e('Marca', 'travel-packages'); ?></label>
@@ -1313,6 +1452,11 @@ class TP_Admin {
                                 <input type="range" id="tp_promo_logo_size" min="10" max="50" value="30">
                                 <output id="tp-promo-logo-size-value" for="tp_promo_logo_size">30%</output>
                             </div>
+                            <div class="tp-promo-brand-actions">
+                                <button type="button" class="button" id="tp-promo-apply-brand-kit"><?php _e('Aplicar identidad guardada', 'travel-packages'); ?></button>
+                                <button type="button" class="button button-primary" id="tp-promo-save-brand-kit"><?php _e('Guardar identidad de marca', 'travel-packages'); ?></button>
+                            </div>
+                            <p id="tp-promo-brand-status" class="tp-help" role="status" aria-live="polite"></p>
                             <div class="tp-promo-secondary-image">
                                 <strong><?php _e('Imagen adicional (opcional)', 'travel-packages'); ?></strong>
                                 <div id="tp-promo-secondary-preview" class="tp-promo-secondary-preview"></div>
@@ -1368,7 +1512,8 @@ class TP_Admin {
                                 <select id="tp_promo_format">
                                     <option value=""><?php _e('Elegí un formato…', 'travel-packages'); ?></option>
                                     <option value="square"><?php _e('Cuadrado — 1080 x 1080 px', 'travel-packages'); ?></option>
-                                    <option value="story"><?php _e('Vertical — 1080 x 1920 px', 'travel-packages'); ?></option>
+                                    <option value="portrait"><?php _e('Vertical feed — 1080 x 1350 px (4:5)', 'travel-packages'); ?></option>
+                                    <option value="story"><?php _e('Story — 1080 x 1920 px (9:16)', 'travel-packages'); ?></option>
                                     <option value="landscape"><?php _e('Horizontal — 1200 x 628 px', 'travel-packages'); ?></option>
                                     <option value="custom"><?php _e('Personalizado', 'travel-packages'); ?></option>
                                 </select>
@@ -1411,10 +1556,11 @@ class TP_Admin {
                                 <small><?php _e('Se aplica solo a la foto de fondo. El encuadre y los textos no se modifican.', 'travel-packages'); ?></small>
                             </div>
                             <fieldset class="tp-promo-options tp-promo-format-options">
-                                <legend><?php _e('Exportar para', 'travel-packages'); ?></legend>
-                                <label><input type="checkbox" class="tp-promo-format-check" value="square" checked> <?php _e('Instagram / WhatsApp — cuadrado', 'travel-packages'); ?></label>
-                                <label><input type="checkbox" class="tp-promo-format-check" value="story" checked> <?php _e('Stories / Reels — vertical', 'travel-packages'); ?></label>
-                                <label><input type="checkbox" class="tp-promo-format-check" value="landscape" checked> <?php _e('Facebook — horizontal', 'travel-packages'); ?></label>
+                                <div class="tp-promo-format-head"><legend><?php _e('Kit de campaña', 'travel-packages'); ?></legend><div><button type="button" class="button-link" id="tp-promo-select-all-formats">Seleccionar todos</button><span>·</span><button type="button" class="button-link" id="tp-promo-clear-formats">Limpiar</button></div></div>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="square" checked> <span><strong>Post cuadrado</strong><small>Instagram / WhatsApp · 1080 × 1080</small></span></label>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="portrait" checked> <span><strong>Post vertical 4:5</strong><small>Instagram feed · 1080 × 1350</small></span></label>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="story" checked> <span><strong>Story vertical 9:16</strong><small>Stories / Reels · 1080 × 1920</small></span></label>
+                                <label><input type="checkbox" class="tp-promo-format-check" value="landscape" checked> <span><strong>Horizontal</strong><small>Facebook / banners · 1200 × 628</small></span></label>
                             </fieldset>
                                     </section>
                                 </div>
@@ -1442,6 +1588,8 @@ class TP_Admin {
                                 <p class="tp-promo-drag-hint"><?php _e('Elegí un formato para iniciar el preview. Después podés arrastrar el logotipo, la imagen y los textos; el diseño se acomoda automáticamente.', 'travel-packages'); ?></p>
                                 <button type="button" class="button" id="tp-promo-reset-positions"><?php _e('Restablecer ubicaciones', 'travel-packages'); ?></button>
                                 <canvas id="tp-promo-canvas" width="1080" height="1080" hidden aria-label="<?php esc_attr_e('Vista previa de la imagen promocional', 'travel-packages'); ?>"></canvas>
+                            </div>
+                                </aside>
                             </div>
                         </div>
 
@@ -1727,6 +1875,26 @@ class TP_Admin {
                         <div class="tp-code-block"><code>[tp_grid destino="caribe" limit="8" columns="4"]</code></div>
                         <div class="tp-code-block"><code>[tp_grid tipologia="playa" limit="12" columns="3"]</code></div>
                         <div class="tp-code-block"><code>[tp_grid ids="12,34,56" columns="3"]</code></div>
+                    </div>
+                </div>
+
+                <div class="tp-sc-section">
+                    <div class="tp-sc-header">
+                        <span class="tp-sc-icon">⊞</span>
+                        <div><h2>[tp_coleccion]</h2><p><?php _e('Muestra los paquetes de una colección existente, manteniendo el mismo diseño de tarjetas que [tp_grid].', 'travel-packages'); ?></p></div>
+                    </div>
+                    <div class="tp-sc-body">
+                        <h3><?php _e('Parámetros disponibles:', 'travel-packages'); ?></h3>
+                        <table class="tp-params-table"><thead><tr><th>Parámetro</th><th>Defecto</th><th>Descripción</th></tr></thead><tbody>
+                            <tr><td><code>codigo</code></td><td><em>requerido</em></td><td><?php _e('Código de la colección, por ejemplo COL-0001.', 'travel-packages'); ?></td></tr>
+                            <tr><td><code>vista</code></td><td><code>grilla</code></td><td><?php _e('Presentación: grilla o carrusel.', 'travel-packages'); ?></td></tr>
+                            <tr><td><code>columnas</code></td><td><code>3</code></td><td><?php _e('Cantidad de tarjetas visibles: 1, 2, 3 o 4.', 'travel-packages'); ?></td></tr>
+                            <tr><td><code>limite</code></td><td><code>12</code></td><td><?php _e('Cantidad máxima de paquetes publicados que se muestran.', 'travel-packages'); ?></td></tr>
+                        </tbody></table>
+                        <h3><?php _e('Ejemplos:', 'travel-packages'); ?></h3>
+                        <div class="tp-code-block"><code>[tp_coleccion codigo="COL-0001"]</code><span class="tp-code-comment"><?php _e('// colección en grilla', 'travel-packages'); ?></span></div>
+                        <div class="tp-code-block"><code>[tp_coleccion codigo="COL-0001" vista="grilla" columnas="3" limite="6"]</code></div>
+                        <div class="tp-code-block"><code>[tp_coleccion codigo="COL-0001" vista="carrusel" columnas="4"]</code><span class="tp-code-comment"><?php _e('// colección en carrusel', 'travel-packages'); ?></span></div>
                     </div>
                 </div>
 

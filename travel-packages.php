@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tureo
  * Description: Tureo — Gestión de paquetes de viaje para agencias. Incluye slider, grilla destacada, shortcodes, reservas y ficha técnica personalizable.
- * Version:     2.7.2
+ * Version:     2.9.1
  * Author:      Tureo
  * Text Domain: travel-packages
  * Domain Path: /languages
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'TP_BRAND',         'Tureo' );
 define( 'TP_BRAND_TAGLINE', 'Tus viajes, mejor presentados' );
-define( 'TP_VERSION',       '2.7.2' );
+define( 'TP_VERSION',       '2.9.1' );
 define( 'TP_BUILD',         '0.4.0' );
 define( 'TP_PLUGIN_DIR',    plugin_dir_path( __FILE__ ) );
 define( 'TP_PLUGIN_URL',    plugin_dir_url( __FILE__ ) );
@@ -28,6 +28,7 @@ require_once TP_PLUGIN_DIR . 'includes/class-shortcodes.php';
 require_once TP_PLUGIN_DIR . 'includes/class-ajax.php';
 require_once TP_PLUGIN_DIR . 'includes/class-templates.php';
 require_once TP_PLUGIN_DIR . 'includes/class-custom-fields.php';
+require_once TP_PLUGIN_DIR . 'includes/class-collections.php';
 
 register_activation_hook(   __FILE__, [ 'TP_PostType', 'flush_rules' ] );
 register_deactivation_hook( __FILE__, 'flush_rewrite_rules' );
@@ -39,6 +40,7 @@ function tp_init() {
     TP_Admin::init();
 
     TP_PostType::init();
+    TP_Collections::init();
     TP_Shortcodes::init();
     TP_Ajax::init();
     TP_Templates::init();
